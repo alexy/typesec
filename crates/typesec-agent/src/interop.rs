@@ -38,6 +38,7 @@ mod taint;
 mod wire;
 
 pub mod anthropic;
+pub mod dialects;
 pub mod langchain;
 pub mod mcp;
 pub mod openai;

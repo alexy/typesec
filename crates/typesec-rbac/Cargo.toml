@@ -7,6 +7,12 @@ license.workspace = true
 repository.workspace = true
 description = "RBAC policy engine for typesec — YAML → typed enforcement"
 
+[features]
+default = ["graph"]
+# The grust-backed GraphPolicyEngine. Disable for targets where the graph
+# stack is unavailable (e.g. wasm32).
+graph = ["dep:grust-graph", "dep:grust-cypher"]
+
 [dependencies]
 typesec-core = { version = "0.11.0", path = "../typesec-core" }
 serde = { workspace = true }
@@ -16,8 +22,8 @@ garde = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 glob = { workspace = true }
-grust-graph = { workspace = true }
-grust-cypher = { workspace = true }
+grust-graph = { workspace = true, optional = true }
+grust-cypher = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

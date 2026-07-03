@@ -36,9 +36,11 @@
 
 pub mod codegen;
 pub mod engine;
+#[cfg(feature = "graph")]
 pub mod graph_policy;
 pub mod model;
 
 pub use engine::RbacEngine;
+#[cfg(feature = "graph")]
 pub use graph_policy::GraphPolicyEngine;
 pub use model::{Assignment, RbacPolicy, RoleDefinition};

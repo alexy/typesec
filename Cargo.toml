@@ -10,6 +10,7 @@ members = [
     "crates/typesec-macro",
     "crates/typesec-cli",
     "crates/typesec-python",
+    "crates/typesec-wasm",
 ]
 exclude = ["fuzz"]
 

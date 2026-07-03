@@ -42,6 +42,18 @@ by release version, then by the date the logical change landed.
   and get a generated `<fn>_binding()` returning the wire-guard
   `ToolBinding` — the tool and its security manifest live in one
   declaration. End-to-end test in `typesec-agent/tests/tool_macro.rs`.
+- **WASM/TS bindings** (§6 item): new `typesec-wasm` crate (workspace member
+  #10) exposing `WasmGate` (subject/action/resource decisions) and
+  `WasmToolGate` (the JS twin of Python's `ToolGate`: full binding manifest
+  incl. arg globs and args_schema, `guard_json` over all five dialects,
+  `filter_tools`) via wasm-bindgen; builds for `wasm32-unknown-unknown`
+  (package with `wasm-pack build --target web|nodejs`). Enablers, useful on
+  their own: `typesec-agent` dropped its runtime deps on
+  tokio/futures/rbac/odrl (test-only now — the interop layer is
+  engine-agnostic and async-free), `typesec-rbac` gained a `graph` feature
+  (default on) gating the grust stack, and the dialect codec dispatch moved
+  to `interop::dialects` — one registry shared by Python, WASM, and the CLI.
+  getrandom's JS backend is wired via `.cargo/config.toml` for wasm builds.
 
 - **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
   JSON-RPC `tools/call` requests (single or batched; other methods pass

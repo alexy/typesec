@@ -32,6 +32,11 @@ assignments:
 
 #[test]
 fn generated_bindings_carry_the_declaration() {
+    assert_eq!(
+        read_report(&json!({})),
+        "the report",
+        "annotated fn is untouched"
+    );
     let binding = read_report_binding();
     assert_eq!(binding.tool_name, "read_report");
     assert_eq!(binding.action, "read");

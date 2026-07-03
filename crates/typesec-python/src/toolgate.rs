@@ -7,8 +7,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde_json::{Value, json};
 use typesec_agent::interop::{
-    GuardedToolCall, InteropError, ToolBinding, ToolCallGuard, ToolCallRequest, anthropic,
-    langchain, mcp, openai, pydantic_ai,
+    GuardedToolCall, ToolBinding, ToolCallGuard, ToolCallRequest,
+    dialects::{Dialect, dialect, unknown_dialect_message},
 };
 use typesec_core::policy::SubjectId;
 
@@ -16,34 +16,8 @@ use crate::decision::Decision;
 use crate::engine::{compile_policy, request_context};
 use crate::format::PolicyFormat;
 
-type ParseFn = fn(&Value) -> Result<Vec<ToolCallRequest>, InteropError>;
-type DenialFn = fn(&GuardedToolCall) -> Option<Value>;
-type FilterFn = fn(&Value, &dyn Fn(&str) -> bool) -> Value;
-
-fn dialect_filter(dialect: &str) -> PyResult<FilterFn> {
-    match dialect {
-        "openai" => Ok(openai::filter_tools),
-        "anthropic" => Ok(anthropic::filter_tools),
-        "langchain" => Ok(langchain::filter_tools),
-        "pydantic-ai" | "pydantic_ai" => Ok(pydantic_ai::filter_tools),
-        "mcp" => Ok(mcp::filter_tools),
-        other => Err(PyValueError::new_err(format!(
-            "unknown dialect '{other}' (expected openai, anthropic, langchain, pydantic-ai, or mcp)"
-        ))),
-    }
-}
-
-fn dialect_codec(dialect: &str) -> PyResult<(ParseFn, DenialFn)> {
-    match dialect {
-        "openai" => Ok((openai::parse_tool_calls, openai::denial)),
-        "anthropic" => Ok((anthropic::parse_tool_calls, anthropic::denial)),
-        "langchain" => Ok((langchain::parse_tool_calls, langchain::denial)),
-        "pydantic-ai" | "pydantic_ai" => Ok((pydantic_ai::parse_tool_calls, pydantic_ai::denial)),
-        "mcp" => Ok((mcp::parse_tool_calls, mcp::denial)),
-        other => Err(PyValueError::new_err(format!(
-            "unknown dialect '{other}' (expected openai, anthropic, langchain, pydantic-ai, or mcp)"
-        ))),
-    }
+fn dialect_or_err(name: &str) -> PyResult<&'static Dialect> {
+    dialect(name).ok_or_else(|| PyValueError::new_err(unknown_dialect_message(name)))
 }
 
 fn binding_from_map(spec: &HashMap<String, String>) -> PyResult<ToolBinding> {
@@ -160,10 +134,11 @@ impl ToolGate {
         purpose: Option<&str>,
         context: Option<std::collections::HashMap<String, String>>,
     ) -> PyResult<String> {
-        let (parse, denial) = dialect_codec(dialect)?;
+        let codec = dialect_or_err(dialect)?;
         let payload: Value = serde_json::from_str(payload_json)
             .map_err(|err| PyValueError::new_err(format!("payload is not valid JSON: {err}")))?;
-        let requests = parse(&payload).map_err(|err| PyValueError::new_err(err.to_string()))?;
+        let requests =
+            (codec.parse)(&payload).map_err(|err| PyValueError::new_err(err.to_string()))?;
         let ctx = request_context(purpose, context);
         let subject = SubjectId::from(subject);
         let report: Vec<Value> = requests
@@ -177,7 +152,7 @@ impl ToolGate {
                     "resource": call.resource,
                     "allowed": call.verdict.is_allowed(),
                     "reason": call.verdict.reason(),
-                    "denial": denial(&call),
+                    "denial": (codec.denial)(&call),
                 })
             })
             .collect();
@@ -197,12 +172,12 @@ impl ToolGate {
         purpose: Option<&str>,
         context: Option<std::collections::HashMap<String, String>>,
     ) -> PyResult<String> {
-        let filter = dialect_filter(dialect)?;
+        let codec = dialect_or_err(dialect)?;
         let tools: Value = serde_json::from_str(tools_json)
             .map_err(|err| PyValueError::new_err(format!("tools are not valid JSON: {err}")))?;
         let ctx = request_context(purpose, context);
         let subject = SubjectId::from(subject);
-        let filtered = filter(&tools, &|name| {
+        let filtered = (codec.filter)(&tools, &|name| {
             self.guard.allows_listing(&subject, name, &ctx)
         });
         serde_json::to_string(&filtered)
