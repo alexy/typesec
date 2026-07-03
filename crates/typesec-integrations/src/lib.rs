@@ -11,6 +11,8 @@ pub mod arcade;
 pub mod did;
 pub mod http;
 pub mod jwt;
+#[cfg(feature = "otel")]
+pub mod otel;
 mod provider;
 pub mod pydantic_ai;
 pub mod receipt;
@@ -30,6 +32,8 @@ pub use did::{
 pub use did::{DemoDidKeyPair, DemoDidKeyStore};
 pub use http::{HttpClient, ReqwestHttpClient};
 pub use jwt::{JwtAuthenticator, JwtClaims, JwtClaimsEngine, OidcConfig, VerifiedSubject};
+#[cfg(feature = "otel")]
+pub use otel::OtelAuditSink;
 pub use pydantic_ai::{PydanticAiCapability, PydanticAiToolCapability};
 pub use receipt::{DecisionReceipt, ReceiptError, ReceiptIssuer, ReceiptVerifier};
 pub use workos::{WorkOsFgaEngine, WorkOsFgaRequest, WorkOsResource};

@@ -23,6 +23,11 @@ by release version, then by the date the logical change landed.
   fail it — before any policy evaluation. Available from Python binding
   dicts (`"args_schema": "<json>"`) and mcp-gate bindings YAML
   (`args_schema:` mapping). Invalid schemas are rejected at declaration time.
+- **Integrations: OpenTelemetry audit sink** (P7 rest, `otel` feature):
+  `OtelAuditSink` wraps any OTel tracer as a Typesec `AuditSink` — every
+  mint decision becomes a `typesec.decision` span with subject / action /
+  resource / verdict (+ reason) attributes at the decision timestamp.
+  Install via `set_audit_sink`; tested against the in-memory exporter.
 
 - **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
   JSON-RPC `tools/call` requests (single or batched; other methods pass
