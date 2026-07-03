@@ -5,6 +5,33 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+### 2026-07-03
+
+- **Agent-framework interop plane** (`FABLE-REVIEW-1.md` is the full review +
+  roadmap): new `typesec_agent::interop` module — normalized
+  `ToolCallRequest`/`ToolBinding`/`GuardedToolCall` plus a deny-by-default
+  `ToolCallGuard` over any `PolicyEngine`, with wire codecs for **OpenAI**
+  (`tool_calls`), **Anthropic** (`tool_use` blocks), **LangChain**
+  (`AIMessage.tool_calls`), and **Pydantic AI** (`tool-call` parts). Each
+  codec parses the framework's tool-call JSON and renders denials in the
+  shape the framework feeds back to the model (error tool-result /
+  retry-prompt), so blocked calls become agent feedback instead of crashes.
+  Bindings can take the resource from a tool argument (fail-closed when
+  missing), be seeded from a typed `ToolRegistry`, or be read from Pydantic
+  AI tool metadata. 14 new tests; re-exported from the umbrella crate.
+- **Python:** `typesec_native.ToolGate` — compile a policy once, declare the
+  tool→(action, resource) manifest, then `check_tool(...)` per call or
+  `guard_json(subject, payload, dialect)` per model turn (returns per-call
+  verdicts + ready-to-send denial payloads). `CompiledPolicyEngine` now
+  implements `PolicyEngine` directly (string entry point renamed `decide`).
+  New four-dialect demo `examples/agent_interop_demo.py` (no SDKs or
+  credentials needed) and guide `docs/agent-interop.md`.
+- **Build note:** the sibling `../grust` checkout currently carries WIP that
+  doesn't compile (`grust-cypher` vs. a new `Value::Graph` variant), so the
+  three grust workspace deps temporarily dropped their `path` keys and
+  resolve from crates.io (`0.11.0`); restore the `path` keys once grust is
+  green again (see FABLE-REVIEW-1.md, F9).
+
 ### 2026-06-26
 
 - Docs/examples: added `docs/architecture.md` with Mermaid diagrams (the

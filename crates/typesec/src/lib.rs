@@ -42,7 +42,8 @@ pub mod integrations {
 
 #[cfg(feature = "agent")]
 pub use typesec_agent::{
-    AgentBuilder, ProtectedTool, SecureAgent, TaskError, TaskResult, ToolFuture, ToolRegistry,
+    AgentBuilder, GuardedToolCall, InteropError, ProtectedTool, SecureAgent, TaskError, TaskResult,
+    ToolBinding, ToolCallGuard, ToolCallRequest, ToolCallVerdict, ToolFuture, ToolRegistry,
     ToolSpec,
 };
 #[cfg(feature = "integrations")]

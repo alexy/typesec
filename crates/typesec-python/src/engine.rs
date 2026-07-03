@@ -37,7 +37,8 @@ pub(crate) enum CompiledPolicyEngine {
 }
 
 impl CompiledPolicyEngine {
-    pub(crate) fn check(
+    /// String-typed decision entry point used by `TypesecGate.check()`.
+    pub(crate) fn decide(
         &self,
         subject: &str,
         action: &str,
@@ -46,18 +47,39 @@ impl CompiledPolicyEngine {
     ) -> PolicyResult {
         let subject = SubjectId::from(subject);
         let resource = ResourceId::from(resource);
+        self.check_with_context(&subject, action, &resource, &request_context(purpose))
+    }
+}
+
+/// The compiled engine is itself a [`PolicyEngine`], so it can back any
+/// engine-generic machinery — in particular the tool-call guard.
+impl PolicyEngine for CompiledPolicyEngine {
+    fn check(&self, subject: &SubjectId, action: &str, resource: &ResourceId) -> PolicyResult {
         match self {
-            Self::Rbac(engine) => engine.check(&subject, action, &resource),
+            Self::Rbac(engine) => engine.check(subject, action, resource),
+            Self::Odrl(engine) => PolicyEngine::check(engine, subject, action, resource),
+            Self::Graph(engine) => engine.check(subject, action, resource),
+        }
+    }
+
+    fn check_with_context(
+        &self,
+        subject: &SubjectId,
+        action: &str,
+        resource: &ResourceId,
+        ctx: &RequestContext,
+    ) -> PolicyResult {
+        match self {
+            Self::Rbac(engine) => engine.check(subject, action, resource),
             Self::Odrl(engine) => {
-                let ctx = request_context(purpose);
-                PolicyEngine::check_with_context(engine, &subject, action, &resource, &ctx)
+                PolicyEngine::check_with_context(engine, subject, action, resource, ctx)
             }
-            Self::Graph(engine) => engine.check(&subject, action, &resource),
+            Self::Graph(engine) => engine.check(subject, action, resource),
         }
     }
 }
 
-fn request_context(purpose: Option<&str>) -> RequestContext {
+pub(crate) fn request_context(purpose: Option<&str>) -> RequestContext {
     purpose.map_or_else(RequestContext::default, |purpose| {
         RequestContext::default().with_purpose(purpose.to_string())
     })

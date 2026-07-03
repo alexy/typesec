@@ -34,10 +34,14 @@
 
 pub mod agent;
 pub mod executor;
+pub mod interop;
 pub mod tool;
 
 pub use agent::{AgentBuilder, SecureAgent};
 pub use executor::{TaskError, TaskResult};
+pub use interop::{
+    GuardedToolCall, InteropError, ToolBinding, ToolCallGuard, ToolCallRequest, ToolCallVerdict,
+};
 pub use tool::{ProtectedTool, ToolFuture, ToolRegistry, ToolSpec};
 
 // Re-export core types for convenience.

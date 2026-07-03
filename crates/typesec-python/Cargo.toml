@@ -18,4 +18,6 @@ extension-module = ["pyo3/extension-module"]
 typesec-core = { version = "0.11.0", path = "../typesec-core" }
 typesec-rbac = { version = "0.11.0", path = "../typesec-rbac" }
 typesec-odrl = { version = "0.11.0", path = "../typesec-odrl" }
+typesec-agent = { version = "0.11.0", path = "../typesec-agent" }
 pyo3 = { workspace = true }
+serde_json = { workspace = true }

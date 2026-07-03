@@ -24,7 +24,7 @@ pub(crate) struct Decision {
 impl Decision {
     /// Build a decision from its parts; the four `PolicyResult` arms differ only
     /// in `allowed` and `reason`, so they share this one constructor.
-    fn new(
+    pub(crate) fn new(
         subject: &str,
         action: &str,
         resource: &str,
@@ -71,7 +71,7 @@ pub(crate) fn check_policy(
         subject,
         action,
         resource,
-        engine.check(subject, action, resource, purpose),
+        engine.decide(subject, action, resource, purpose),
     ))
 }
 
