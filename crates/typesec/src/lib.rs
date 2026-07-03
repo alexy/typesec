@@ -48,9 +48,9 @@ pub use typesec_agent::{
 };
 #[cfg(feature = "integrations")]
 pub use typesec_integrations::{
-    ArcadeToolAuthEngine, Did, DidEnvelope, DidMessageGateway, DidOllamaClient, Ed25519DidKey,
-    Ed25519DidKeyStore, JwtAuthenticator, JwtClaimsEngine, OidcConfig, TypeDidAttestation,
-    TypeDidGateway, WorkOsFgaEngine,
+    ArcadeToolAuthEngine, DecisionReceipt, Did, DidEnvelope, DidMessageGateway, DidOllamaClient,
+    Ed25519DidKey, Ed25519DidKeyStore, JwtAuthenticator, JwtClaimsEngine, OidcConfig, ReceiptError,
+    ReceiptIssuer, ReceiptVerifier, TypeDidAttestation, TypeDidGateway, WorkOsFgaEngine,
 };
 #[cfg(feature = "odrl")]
 pub use typesec_odrl::OdrlEngine;

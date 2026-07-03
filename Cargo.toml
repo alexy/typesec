@@ -65,6 +65,7 @@ x25519-dalek = { version = "2", features = ["static_secrets"] }
 chacha20poly1305 = "0.10"
 sha2 = "0.10"
 getrandom = "0.2"
+base64 = "0.22"
 criterion = "0.5"
 proptest = "1"
 grust-graph = { version = "0.11.0", features = ["typed-zod-rs"] }

@@ -28,6 +28,14 @@ by release version, then by the date the logical change landed.
   to bound tools so the model never sees what it may not call. The
   message-handling core is pure and unit-tested (6 tests); verified
   end-to-end against a scripted MCP server.
+- **Integrations: signed decision receipts** (P4):
+  `typesec_integrations::receipt` — `ReceiptIssuer` mints short-lived
+  ed25519-signed tokens (`base64url(claims).base64url(sig)`) binding
+  `(subject, action, resource[, tool, call_id])` with an expiry;
+  `ReceiptVerifier` checks them offline against a pinned key (signature
+  before parse, expiry and future-dating rejected). Extends the unforgeable-
+  capability invariant across process boundaries; positive-only by design.
+  New `base64` workspace dep.
 
 - **Agent-framework interop plane** (`FABLE-REVIEW-1.md` is the full review +
   roadmap): new `typesec_agent::interop` module — normalized

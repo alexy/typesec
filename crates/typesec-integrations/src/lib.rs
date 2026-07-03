@@ -13,6 +13,7 @@ pub mod http;
 pub mod jwt;
 mod provider;
 pub mod pydantic_ai;
+pub mod receipt;
 pub mod workos;
 
 pub use arcade::{ArcadeToolAuthEngine, ArcadeToolAuthRequest};
@@ -30,4 +31,5 @@ pub use did::{DemoDidKeyPair, DemoDidKeyStore};
 pub use http::{HttpClient, ReqwestHttpClient};
 pub use jwt::{JwtAuthenticator, JwtClaims, JwtClaimsEngine, OidcConfig, VerifiedSubject};
 pub use pydantic_ai::{PydanticAiCapability, PydanticAiToolCapability};
+pub use receipt::{DecisionReceipt, ReceiptError, ReceiptIssuer, ReceiptVerifier};
 pub use workos::{WorkOsFgaEngine, WorkOsFgaRequest, WorkOsResource};
