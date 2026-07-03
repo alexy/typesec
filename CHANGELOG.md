@@ -37,6 +37,11 @@ by release version, then by the date the logical change landed.
   closed). Python: `ToolGate.filter_tools(subject, tools_json, dialect)`.
   `typesec mcp-gate --filter-list` upgraded from bound-name to policy-aware
   filtering.
+- **Macro: `#[typesec_tool]`** (§6 item): annotate a tool function with
+  `action`/`resource` (+ optional `name`, `resource_arg`, `required_args`)
+  and get a generated `<fn>_binding()` returning the wire-guard
+  `ToolBinding` — the tool and its security manifest live in one
+  declaration. End-to-end test in `typesec-agent/tests/tool_macro.rs`.
 
 - **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
   JSON-RPC `tools/call` requests (single or batched; other methods pass

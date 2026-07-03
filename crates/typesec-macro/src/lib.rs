@@ -52,6 +52,7 @@ use syn::{DeriveInput, parse_macro_input};
 mod policy_dsl;
 mod role_derive;
 mod shared;
+mod tool_attr;
 
 /// Derive the `typesec_core::role::Role` trait.
 ///
@@ -82,6 +83,32 @@ pub fn derive_typesec_role(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn policy(input: TokenStream) -> TokenStream {
     match policy_dsl::policy_impl(input.into()) {
+        Ok(ts) => ts.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+/// Declare a tool function's Typesec binding in place.
+///
+/// Generates a `<fn>_binding()` constructor returning the
+/// `typesec_agent::interop::ToolBinding` for the annotated function, so the
+/// tool and its security manifest live in one declaration:
+///
+/// ```rust,ignore
+/// #[typesec_tool(action = "read", resource = "reports/unspecified",
+///                resource_arg = "report")]
+/// fn read_report(args: &serde_json::Value) -> String { /* ... */ }
+///
+/// let guard = ToolCallGuard::new(engine).bind(read_report_binding());
+/// ```
+///
+/// Keys: `name` (defaults to the function name), `action` (required),
+/// `resource` (required), `resource_arg`, `required_args = "a, b"`.
+/// The generated function requires `typesec_agent` as a dependency of the
+/// calling crate.
+#[proc_macro_attribute]
+pub fn typesec_tool(attr: TokenStream, item: TokenStream) -> TokenStream {
+    match tool_attr::typesec_tool_impl(attr.into(), item.into()) {
         Ok(ts) => ts.into(),
         Err(e) => e.to_compile_error().into(),
     }
