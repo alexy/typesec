@@ -304,11 +304,24 @@ The §5 roadmap was executed the same day, each item its own green commit:
 | P7 Decision observability | **Done** (replay half) | `typesec check --audit-log` JSONL + `typesec replay` verdict-drift detection (exit 1 on drift); OTel spans remain open |
 | P8 Fuzz the codecs | **Written, build-blocked** | `fuzz_targets/interop_dialects.rs` covers all five parsers; `libfuzzer-sys` won't compile on this machine (C++ stdlib headers missing — pre-existing, hits `rbac_yaml` too). Run `cargo fuzz build` on a machine with a working C++ toolchain |
 
-Still open from §5/§6, in suggested order: PyPI packaging (P2 rest),
-JSON-Schema argument validation (P3 rest), OTel audit spans (P7 rest),
-policy-aware tool listing beyond MCP, the `#[typesec::tool]` macro, WASM/TS
-bindings, the OpenAI-compatible proxy, capability attenuation, conversation
-typestate.
+**Second wave (same day, 2026-07-03):** everything that was still open is now
+implemented, each as its own green commit:
+
+| Item | Delivered as |
+| --- | --- |
+| PyPI packaging (P2 rest) | Mixed-maturin **`typesec`** package: `typesec._native` + pure-Python `guard`/`GuardResult`/`ToolCallReport` + `typesec.adapters.{openai,anthropic,langchain,pydantic_ai,mcp}` (incl. a `prepare_tools_filter` that hides denied tools); unittest suite. `maturin publish` when ready |
+| JSON-Schema args (P3 rest) | `ToolBinding::args_schema` (jsonschema crate, offline), denies non-conforming arguments before policy; plumbed to Python dicts + mcp-gate YAML |
+| OTel spans (P7 rest) | `OtelAuditSink` (`otel` feature): one `typesec.decision` span per mint decision; tested vs the in-memory exporter |
+| Policy-aware tool listing | `ToolCallGuard::allows_listing` + `filter_tools` in every dialect + `ToolGate.filter_tools`; mcp-gate `--filter-list` upgraded to policy-aware |
+| `#[typesec_tool]` macro | Attribute macro generating `<fn>_binding()` from the annotated tool fn; e2e-tested through a guard |
+| WASM/TS bindings | New `typesec-wasm` crate (`WasmGate`/`WasmToolGate`, all five dialects), builds for `wasm32-unknown-unknown`; enablers: typesec-agent now runtime-dep-free, typesec-rbac `graph` feature gates grust, dialect dispatch centralized in `interop::dialects` |
+| OpenAI-compatible proxy | `typesec proxy`: filters request `tools`, scrubs denied tool calls from `chat/completions` and `messages` responses with visible `[typesec]` refusals; streaming rejected (400) on enforced paths; verified e2e |
+| Capability attenuation | `Capability::attenuated(max_remaining)` (lease can only shrink) alongside the pre-existing `coerce` (permission attenuation, compile-fail-guarded) |
+| Conversation typestate | `Conversation<Proposed → AwaitingConsent → Consented>`: consent is a minted `Capability<CanDelegate, _>` over `conversation/<peer>`, not a boolean |
+
+Remaining known limitation: streaming enforcement in `typesec proxy` (SSE
+tool-call deltas need incremental scrubbing) and npm packaging of
+`typesec-wasm` (needs `wasm-pack` locally; the crate builds for wasm32).
 
 ---
 

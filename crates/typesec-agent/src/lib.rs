@@ -33,11 +33,13 @@
 #![warn(missing_docs, clippy::all)]
 
 pub mod agent;
+pub mod conversation;
 pub mod executor;
 pub mod interop;
 pub mod tool;
 
 pub use agent::{AgentBuilder, SecureAgent};
+pub use conversation::{AwaitingConsent, Consented, Conversation, ConversationState, Proposed};
 pub use executor::{TaskError, TaskResult};
 pub use interop::{
     GuardedToolCall, InteropError, ToolBinding, ToolCallGuard, ToolCallRequest, ToolCallVerdict,

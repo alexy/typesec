@@ -178,6 +178,23 @@ impl<P: Permission, R: Resource> Capability<P, R> {
         }
     }
 
+    /// Derive a capability whose lease is capped at `max_remaining` from now.
+    ///
+    /// The expiry only ever moves *earlier* (`min(current, now + max_remaining)`)
+    /// — attenuation can narrow authority, never widen it. Pair with
+    /// [`coerce`][Self::coerce] (permission attenuation down the `Implies`
+    /// lattice) when handing a sub-agent a strictly weaker, shorter-lived
+    /// proof for one delegated step.
+    #[must_use]
+    pub fn attenuated(&self, max_remaining: Duration) -> Capability<P, R> {
+        let mut derived = self.derive::<P>();
+        let capped = SystemTime::now()
+            .checked_add(max_remaining)
+            .unwrap_or(self.expires_at);
+        derived.expires_at = derived.expires_at.min(capped);
+        derived
+    }
+
     /// Unique id for this minted proof.
     pub fn id(&self) -> CapabilityId {
         self.id

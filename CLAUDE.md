@@ -12,7 +12,8 @@ living record of review findings + the refactor plan toward that standard.
 
 ## Architecture
 
-Nine workspace crates (`Cargo.toml` `members`), `fuzz/` is excluded.
+Ten workspace crates (`Cargo.toml` `members`), `fuzz/` is excluded.
+(`typesec-wasm` is the newest: wasm-bindgen bindings, rbac+odrl only.)
 
 ```
 typesec-core      foundation: Capability<P,R>, Permission markers (sealed),
@@ -330,8 +331,11 @@ codecs incl. MCP, argument guards, `protect_output` tainting),
 decision receipts (`typesec_integrations::receipt`), `typesec check
 --audit-log` + `typesec replay`, `examples/agent_interop_demo.py` +
 `examples/pydantic_ai_toolgate.py`, and `docs/agent-interop.md`. §8 of the
-doc tracks roadmap status (P1–P8 done or partial; open: PyPI packaging,
-JSON-Schema args, OTel spans, …). **Note:** the grust workspace deps are
+doc tracks roadmap status — **all items P1–P8 and the §6 second wave are
+implemented** (PyPI-ready `typesec` package + SDK adapters, args schemas,
+OTel sink, policy-aware listing, `#[typesec_tool]`, `typesec-wasm`,
+`typesec proxy`, lease attenuation, conversation typestate); see the two
+tables in §8. **Note:** the grust workspace deps are
 temporarily version-only (crates.io) because the sibling `../grust` checkout
 carries non-compiling WIP; restore the `path` keys when grust is green
 (FABLE-REVIEW-1.md, F9).

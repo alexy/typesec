@@ -27,6 +27,24 @@ fn capability_fields_are_correct() {
 }
 
 #[test]
+fn attenuated_lease_only_shrinks() {
+    let cap: Capability<CanRead, TestResource> =
+        Capability::new_unchecked("agent:planner", "test://resource");
+    let short = cap.attenuated(Duration::from_secs(30));
+    assert!(short.expires_at() <= cap.expires_at());
+    assert!(
+        short.expires_at() <= SystemTime::now() + Duration::from_secs(31),
+        "lease capped to max_remaining"
+    );
+    assert_eq!(short.subject(), cap.subject());
+    assert_eq!(short.resource_id(), cap.resource_id());
+
+    // A cap longer than the remaining lease cannot extend it.
+    let same = short.attenuated(Duration::from_secs(3600));
+    assert!(same.expires_at() <= short.expires_at() + Duration::from_secs(1));
+}
+
+#[test]
 fn read_and_write_caps_are_different_types() {
     // This test is really a compile-time check, but we can demonstrate
     // the Debug output differs.

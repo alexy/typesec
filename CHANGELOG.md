@@ -66,6 +66,18 @@ by release version, then by the date the logical change landed.
   enforced paths is rejected with 400 (not yet supported). Pure scrub core
   with 4 unit tests; verified end-to-end against a scripted upstream. New
   axum dep in the CLI; bindings YAML shared with mcp-gate.
+- **Core: lease attenuation** (§6 item): `Capability::attenuated(max_remaining)`
+  derives a proof whose expiry is capped at `min(current, now + max_remaining)`
+  — attenuation narrows, never widens. Pairs with the existing
+  `coerce`/`coerce_ref` (permission attenuation down the `Implies` lattice,
+  already compile-fail-guarded) for handing sub-agents strictly weaker,
+  shorter-lived capabilities.
+- **Agent: conversation typestate** (§6 item): `typesec_agent::conversation`
+  — `Conversation<Proposed → AwaitingConsent → Consented>` with sealed
+  states. Consent is not a boolean: `grant_via(engine, subject)` mints a
+  `Capability<CanDelegate, _>` over `conversation/<peer>` (policy-checked,
+  audited, expiring); a denied grant hands the awaiting conversation back
+  for renegotiation. "Ask before acting" becomes a type error to skip.
 
 - **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
   JSON-RPC `tools/call` requests (single or batched; other methods pass
