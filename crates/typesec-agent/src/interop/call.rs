@@ -2,6 +2,7 @@
 
 use serde_json::Value;
 use thiserror::Error;
+use typesec_core::GlobPattern;
 
 use crate::tool::ToolSpec;
 
@@ -57,7 +58,7 @@ impl ToolCallRequest {
 }
 
 /// Declares how one tool maps onto the Typesec `(action, resource)` plane.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ToolBinding {
     /// Tool name as exposed to the model.
     pub tool_name: String,
@@ -71,6 +72,13 @@ pub struct ToolBinding {
     /// is **denied** if the argument is missing or not a string — a binding
     /// that promises per-argument resources must not silently widen.
     pub resource_arg: Option<String>,
+    /// Arguments that must be present on every call (any JSON type).
+    pub required_args: Vec<String>,
+    /// Per-argument glob constraints: the named argument must be present, be
+    /// a string, and match the pattern — otherwise the call is denied. A
+    /// constrained argument is implicitly required (fail closed: what is
+    /// absent cannot be verified).
+    arg_globs: Vec<(String, GlobPattern)>,
 }
 
 impl ToolBinding {
@@ -85,6 +93,8 @@ impl ToolBinding {
             action: action.into(),
             resource: resource.into(),
             resource_arg: None,
+            required_args: Vec::new(),
+            arg_globs: Vec::new(),
         }
     }
 
@@ -93,6 +103,58 @@ impl ToolBinding {
     pub fn resource_from_arg(mut self, arg: impl Into<String>) -> Self {
         self.resource_arg = Some(arg.into());
         self
+    }
+
+    /// Require the named arguments to be present on every call.
+    #[must_use]
+    pub fn require_args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.required_args.extend(args.into_iter().map(Into::into));
+        self
+    }
+
+    /// Constrain the named string argument to a glob pattern (compiled once,
+    /// here). The argument becomes required. Fails on an invalid pattern.
+    pub fn arg_glob(mut self, arg: impl Into<String>, pattern: &str) -> Result<Self, InteropError> {
+        let arg = arg.into();
+        let compiled =
+            GlobPattern::compile(pattern, "argument").map_err(|err| InteropError::Malformed {
+                dialect: "binding",
+                detail: err,
+            })?;
+        self.arg_globs.push((arg, compiled));
+        Ok(self)
+    }
+
+    /// Check required-argument presence and per-argument glob constraints,
+    /// returning a denial reason on the first violation.
+    pub(crate) fn validate_arguments(&self, arguments: &Value) -> Result<(), String> {
+        for required in &self.required_args {
+            if arguments.get(required).is_none() {
+                return Err(format!(
+                    "tool '{}' requires argument '{required}'",
+                    self.tool_name
+                ));
+            }
+        }
+        for (arg, glob) in &self.arg_globs {
+            let Some(value) = arguments.get(arg).and_then(Value::as_str) else {
+                return Err(format!(
+                    "tool '{}' requires string argument '{arg}' matching its declared pattern",
+                    self.tool_name
+                ));
+            };
+            if !glob.matches(value) {
+                return Err(format!(
+                    "tool '{}' argument '{arg}' value '{value}' does not match the allowed pattern",
+                    self.tool_name
+                ));
+            }
+        }
+        Ok(())
     }
 
     /// Derive a binding from a typed [`ToolSpec`], reusing its declared

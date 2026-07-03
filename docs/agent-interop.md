@@ -25,7 +25,12 @@ model output ─▶ dialect::parse_tool_calls ─▶ ToolCallGuard::check_all
   Typesec `action` (permission name) and `resource`. With
   `resource_from_arg("path")`, the resource is taken from the named string
   argument of each call — and the call is **denied** if that argument is
-  missing (fail closed, never widen).
+  missing (fail closed, never widen). Bindings can also constrain the
+  arguments themselves: `require_args(["version"])` denies calls missing an
+  argument, and `arg_glob("env", "infra/*")?` denies calls whose argument
+  doesn't match a compiled glob (a constrained argument is implicitly
+  required). In Python binding dicts these are `"required_args": "a, b"` and
+  `"arg_glob:<name>": "<pattern>"`.
 - **`ToolCallGuard`** — holds any `PolicyEngine` (RBAC, ODRL, graph, WorkOS,
   Arcade, or a `FallbackEngine` composition) plus the bindings. Unbound tools
   are denied by default. `Delegate` is *not* permission: an undecided call is

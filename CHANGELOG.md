@@ -13,6 +13,12 @@ by release version, then by the date the logical change landed.
   carrying an `isError: true` tool result — numeric ids survive the round
   trip, and `denial_with_id` echoes an original id verbatim for proxies.
   `ToolGate.guard_json` accepts `dialect="mcp"`.
+- **Interop: argument guards** (P3): `ToolBinding::require_args([...])`
+  denies calls missing a declared argument, and `arg_glob(arg, pattern)`
+  constrains a string argument to a glob (compiled once via the shared
+  `GlobPattern`; a constrained argument is implicitly required, and
+  non-string values are denied — fail closed). Python binding dicts accept
+  `"required_args": "a, b"` and `"arg_glob:<name>": "<pattern>"`.
 
 - **Agent-framework interop plane** (`FABLE-REVIEW-1.md` is the full review +
   roadmap): new `typesec_agent::interop` module — normalized

@@ -42,6 +42,21 @@ fn binding_from_map(spec: &HashMap<String, String>) -> PyResult<ToolBinding> {
     if let Some(arg) = spec.get("resource_arg") {
         binding = binding.resource_from_arg(arg.clone());
     }
+    if let Some(required) = spec.get("required_args") {
+        binding = binding.require_args(
+            required
+                .split(',')
+                .map(str::trim)
+                .filter(|arg| !arg.is_empty()),
+        );
+    }
+    for (key, pattern) in spec {
+        if let Some(arg) = key.strip_prefix("arg_glob:") {
+            binding = binding
+                .arg_glob(arg, pattern)
+                .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        }
+    }
     Ok(binding)
 }
 

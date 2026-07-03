@@ -123,6 +123,14 @@ impl ToolCallGuard {
                 verdict: ToolCallVerdict::Deny { reason },
             });
         };
+        if let Err(reason) = binding.validate_arguments(&request.arguments) {
+            return Err(GuardedToolCall {
+                action: Some(binding.action.clone()),
+                request,
+                resource: None,
+                verdict: ToolCallVerdict::Deny { reason },
+            });
+        }
         match binding.resolve_resource(&request.arguments) {
             Ok(resource) => Ok((request, binding.action.clone(), resource)),
             Err(reason) => Err(GuardedToolCall {

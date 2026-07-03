@@ -108,6 +108,78 @@ fn missing_resource_argument_fails_closed() {
     assert_eq!(call.resource, None);
 }
 
+#[test]
+fn required_arguments_and_arg_globs_fail_closed() {
+    let engine = typesec_rbac::RbacEngine::from_yaml(POLICY).expect("policy parses");
+    let guard = ToolCallGuard::new(Arc::new(engine)).bind(
+        ToolBinding::new("deploy", "execute", "infra/prod")
+            .require_args(["version"])
+            .arg_glob("env", "infra/*")
+            .expect("valid glob"),
+    );
+    let subject = SubjectId::from("agent:engineer");
+
+    let ok = guard.check(
+        &subject,
+        ToolCallRequest::new("deploy", json!({"version": "1.2.3", "env": "infra/prod"})),
+        &ctx(),
+    );
+    assert!(ok.verdict.is_allowed());
+
+    let missing_required = guard.check(
+        &subject,
+        ToolCallRequest::new("deploy", json!({"env": "infra/prod"})),
+        &ctx(),
+    );
+    assert!(
+        missing_required
+            .verdict
+            .reason()
+            .unwrap()
+            .contains("requires argument 'version'")
+    );
+
+    let missing_constrained = guard.check(
+        &subject,
+        ToolCallRequest::new("deploy", json!({"version": "1.2.3"})),
+        &ctx(),
+    );
+    assert!(
+        !missing_constrained.verdict.is_allowed(),
+        "constrained arg is required"
+    );
+
+    let out_of_pattern = guard.check(
+        &subject,
+        ToolCallRequest::new("deploy", json!({"version": "1.2.3", "env": "prod-db"})),
+        &ctx(),
+    );
+    assert!(
+        out_of_pattern
+            .verdict
+            .reason()
+            .unwrap()
+            .contains("does not match the allowed pattern")
+    );
+
+    let non_string = guard.check(
+        &subject,
+        ToolCallRequest::new("deploy", json!({"version": "1.2.3", "env": 5})),
+        &ctx(),
+    );
+    assert!(
+        !non_string.verdict.is_allowed(),
+        "non-string constrained arg is denied"
+    );
+
+    assert!(
+        ToolBinding::new("t", "read", "r")
+            .arg_glob("a", "[bad")
+            .is_err(),
+        "invalid glob is rejected at declaration time"
+    );
+}
+
 #[tokio::test]
 async fn async_check_matches_sync() {
     let guard = guard();
