@@ -7,6 +7,13 @@ by release version, then by the date the logical change landed.
 
 ### 2026-07-03
 
+- **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
+  JSON-RPC `tools/call` requests (single or batched; other methods pass
+  through as non-calls) and renders denials as complete JSON-RPC responses
+  carrying an `isError: true` tool result — numeric ids survive the round
+  trip, and `denial_with_id` echoes an original id verbatim for proxies.
+  `ToolGate.guard_json` accepts `dialect="mcp"`.
+
 - **Agent-framework interop plane** (`FABLE-REVIEW-1.md` is the full review +
   roadmap): new `typesec_agent::interop` module — normalized
   `ToolCallRequest`/`ToolBinding`/`GuardedToolCall` plus a deny-by-default

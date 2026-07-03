@@ -38,6 +38,7 @@ mod wire;
 
 pub mod anthropic;
 pub mod langchain;
+pub mod mcp;
 pub mod openai;
 pub mod pydantic_ai;
 

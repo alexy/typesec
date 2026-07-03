@@ -8,7 +8,7 @@ use pyo3::prelude::*;
 use serde_json::{Value, json};
 use typesec_agent::interop::{
     GuardedToolCall, InteropError, ToolBinding, ToolCallGuard, ToolCallRequest, anthropic,
-    langchain, openai, pydantic_ai,
+    langchain, mcp, openai, pydantic_ai,
 };
 use typesec_core::policy::SubjectId;
 
@@ -25,8 +25,9 @@ fn dialect_codec(dialect: &str) -> PyResult<(ParseFn, DenialFn)> {
         "anthropic" => Ok((anthropic::parse_tool_calls, anthropic::denial)),
         "langchain" => Ok((langchain::parse_tool_calls, langchain::denial)),
         "pydantic-ai" | "pydantic_ai" => Ok((pydantic_ai::parse_tool_calls, pydantic_ai::denial)),
+        "mcp" => Ok((mcp::parse_tool_calls, mcp::denial)),
         other => Err(PyValueError::new_err(format!(
-            "unknown dialect '{other}' (expected openai, anthropic, langchain, or pydantic-ai)"
+            "unknown dialect '{other}' (expected openai, anthropic, langchain, pydantic-ai, or mcp)"
         ))),
     }
 }

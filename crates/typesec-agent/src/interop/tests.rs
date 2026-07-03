@@ -250,6 +250,55 @@ fn pydantic_ai_binding_from_capability_metadata() {
 }
 
 #[test]
+fn mcp_parses_tools_call_requests_and_skips_other_methods() {
+    let batch = json!([
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+         "params": {"name": "read_report", "arguments": {"report": "reports/q1"}}},
+        {"jsonrpc": "2.0", "method": "notifications/progress", "params": {}}
+    ]);
+    let calls = mcp::parse_tool_calls(&batch).unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].tool_name, "read_report");
+    assert_eq!(calls[0].call_id.as_deref(), Some("2"));
+
+    let single = json!({"jsonrpc": "2.0", "id": "abc", "method": "tools/call",
+                        "params": {"name": "read_report"}});
+    let calls = mcp::parse_tool_calls(&single).unwrap();
+    assert_eq!(calls[0].call_id.as_deref(), Some("abc"));
+    assert_eq!(calls[0].arguments, json!({}));
+
+    let other = json!({"jsonrpc": "2.0", "id": 7, "method": "tools/list"});
+    assert!(mcp::parse_tool_calls(&other).unwrap().is_empty());
+    assert!(!mcp::is_tools_call(&other));
+}
+
+#[test]
+fn mcp_denial_is_a_jsonrpc_error_result() {
+    let request = json!({"jsonrpc": "2.0", "id": 42, "method": "tools/call",
+                         "params": {"name": "drop_tables", "arguments": {}}});
+    let calls = mcp::parse_tool_calls(&request).unwrap();
+    let call = guard().check(&SubjectId::from("agent:analyst"), calls[0].clone(), &ctx());
+
+    let denial = mcp::denial(&call).expect("unbound tool is denied");
+    assert_eq!(denial["jsonrpc"], "2.0");
+    assert_eq!(
+        denial["id"], 42,
+        "numeric JSON-RPC id survives the round trip"
+    );
+    assert_eq!(denial["result"]["isError"], true);
+    assert!(
+        denial["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("deny by default")
+    );
+
+    let echoed = mcp::denial_with_id(&call, json!("weird-id")).unwrap();
+    assert_eq!(echoed["id"], "weird-id");
+}
+
+#[test]
 fn malformed_payloads_error_instead_of_passing_silently() {
     assert!(openai::parse_tool_calls(&json!({"nope": 1})).is_err());
     assert!(

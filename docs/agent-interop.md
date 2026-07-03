@@ -40,6 +40,7 @@ model output ─▶ dialect::parse_tool_calls ─▶ ToolCallGuard::check_all
   | `anthropic` | `content` blocks with `type: "tool_use"` | `tool_result` block, `is_error: true` |
   | `langchain` | `AIMessage.tool_calls` / bare `ToolCall` dicts | `ToolMessage` dict, `status: "error"` |
   | `pydantic-ai` | response `parts` with `part_kind: "tool-call"` | `retry-prompt` part |
+  | `mcp` | JSON-RPC `tools/call` requests | JSON-RPC response with `isError: true` tool result |
 
 ## Rust
 
