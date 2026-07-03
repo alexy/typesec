@@ -53,6 +53,36 @@ impl ToolCallGuard {
         self.bindings.get(tool_name)
     }
 
+    /// Whether a tool should be *listed* to the model for `subject`.
+    ///
+    /// Listing is the cheapest control: what the model can't see, it won't
+    /// call (denial stays as the backstop). A tool is listed when it has a
+    /// binding and either its resource comes from an argument (only checkable
+    /// at call time) or the policy allows its fixed `(action, resource)`.
+    /// Unbound tools are never listed.
+    pub fn allows_listing(
+        &self,
+        subject: &SubjectId,
+        tool_name: &str,
+        ctx: &RequestContext,
+    ) -> bool {
+        let Some(binding) = self.bindings.get(tool_name) else {
+            return false;
+        };
+        if binding.resource_arg.is_some() {
+            return true;
+        }
+        matches!(
+            self.engine.check_with_context(
+                subject,
+                &binding.action,
+                &ResourceId::from(binding.resource.as_str()),
+                ctx,
+            ),
+            PolicyResult::Allow
+        )
+    }
+
     /// Check one tool call for `subject` under `ctx`.
     pub fn check(
         &self,

@@ -46,6 +46,23 @@ fn parse_call(item: &Value) -> Result<ToolCallRequest, InteropError> {
     Ok(request)
 }
 
+/// Filter a request's `tools` array down to the definitions `keep` accepts.
+/// Handles both the Chat Completions shape (`{"type": "function",
+/// "function": {"name": ...}}`) and the Responses API shape
+/// (`{"type": "function", "name": ...}`). Unidentifiable entries are dropped.
+pub fn filter_tools(tools: &Value, keep: &dyn Fn(&str) -> bool) -> Value {
+    wire::filter_tool_array(
+        tools,
+        |item| {
+            item.pointer("/function/name")
+                .or_else(|| item.get("name"))
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        },
+        keep,
+    )
+}
+
 /// Render a denied/undecided call as the `role: "tool"` message the chat
 /// history expects, so the model receives the refusal as tool output.
 /// Returns `None` for allowed calls.

@@ -21,18 +21,19 @@ tools:
     resource: docs/index
     arg_globs:
       query: "*"
+  - tool: admin_reset
+    action: write
+    resource: secrets/master
 "#;
 
 fn gate(filter_list: bool) -> Gate {
     let engine: std::sync::Arc<dyn typesec_core::policy::PolicyEngine> =
         std::sync::Arc::new(typesec_rbac::RbacEngine::from_yaml(POLICY).expect("policy parses"));
     let file: BindingsFile = serde_yaml::from_str(BINDINGS).expect("bindings parse");
-    let (guard, bound_tools) = build_guard(engine, file).expect("guard builds");
     Gate {
-        guard,
+        guard: build_guard(engine, file).expect("guard builds"),
         subject: SubjectId::from("agent:mcp"),
         ctx: RequestContext::default(),
-        bound_tools,
         filter_list,
         pending_list_ids: Mutex::new(HashSet::new()),
     }
@@ -110,8 +111,10 @@ fn tools_list_responses_are_filtered_to_bound_tools() {
         ClientAction::Forward
     ));
 
+    // rm_rf is unbound; admin_reset is bound but its fixed resource is
+    // outside the subject's role — both must be hidden.
     let response = serde_json::json!({"jsonrpc": "2.0", "id": 7, "result": {"tools": [
-        {"name": "read_file"}, {"name": "rm_rf"}, {"name": "search"}
+        {"name": "read_file"}, {"name": "rm_rf"}, {"name": "search"}, {"name": "admin_reset"}
     ]}});
     let filtered: serde_json::Value =
         serde_json::from_str(&gate.on_server_line(&response.to_string())).unwrap();

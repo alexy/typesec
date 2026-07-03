@@ -67,3 +67,24 @@ pub(super) fn required_str<'a>(
 pub(super) fn optional_str(object: &Value, key: &str) -> Option<String> {
     object.get(key).and_then(Value::as_str).map(str::to_owned)
 }
+
+/// Retain the tool definitions whose extracted name passes `keep`.
+///
+/// Entries whose name cannot be extracted are dropped — an unidentifiable
+/// tool definition must not slip past a listing filter (fail closed).
+pub(super) fn filter_tool_array(
+    tools: &Value,
+    name_of: impl Fn(&Value) -> Option<String>,
+    keep: &dyn Fn(&str) -> bool,
+) -> Value {
+    let Some(items) = tools.as_array() else {
+        return Value::Array(Vec::new());
+    };
+    Value::Array(
+        items
+            .iter()
+            .filter(|item| name_of(item).is_some_and(|name| keep(&name)))
+            .cloned()
+            .collect(),
+    )
+}

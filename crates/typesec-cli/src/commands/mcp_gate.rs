@@ -75,11 +75,9 @@ struct BindingsFile {
 fn build_guard(
     engine: std::sync::Arc<dyn typesec_core::policy::PolicyEngine>,
     file: BindingsFile,
-) -> Result<(ToolCallGuard, HashSet<String>)> {
+) -> Result<ToolCallGuard> {
     let mut guard = ToolCallGuard::new(engine);
-    let mut names = HashSet::new();
     for spec in file.tools {
-        names.insert(spec.tool.clone());
         let mut binding = ToolBinding::new(spec.tool, spec.action, spec.resource);
         if let Some(arg) = spec.resource_arg {
             binding = binding.resource_from_arg(arg);
@@ -93,7 +91,7 @@ fn build_guard(
         }
         guard = guard.bind(binding);
     }
-    Ok((guard, names))
+    Ok(guard)
 }
 
 /// What to do with one line received from the MCP client.
@@ -109,7 +107,6 @@ struct Gate {
     guard: ToolCallGuard,
     subject: SubjectId,
     ctx: RequestContext,
-    bound_tools: HashSet<String>,
     filter_list: bool,
     /// JSON-RPC ids of in-flight `tools/list` requests (string-normalized).
     pending_list_ids: Mutex<HashSet<String>>,
@@ -192,14 +189,11 @@ impl Gate {
                 return line.to_string();
             }
         }
-        if let Some(tools) = message
-            .pointer_mut("/result/tools")
-            .and_then(serde_json::Value::as_array_mut)
-        {
-            tools.retain(|tool| {
-                tool.get("name")
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|name| self.bound_tools.contains(name))
+        if let Some(result) = message.get_mut("result") {
+            // Policy-aware, not just bound-name: a bound tool whose fixed
+            // resource the subject cannot reach is hidden too.
+            *result = mcp::filter_tools(result, &|name| {
+                self.guard.allows_listing(&self.subject, name, &self.ctx)
             });
         }
         message.to_string()
@@ -216,13 +210,12 @@ pub async fn run(args: McpGateArgs) -> Result<()> {
         .with_context(|| format!("failed to read bindings {}", args.bindings.display()))?;
     let bindings: BindingsFile =
         serde_yaml::from_str(&bindings_yaml).context("failed to parse bindings YAML")?;
-    let (guard, bound_tools) = build_guard(engine, bindings)?;
+    let guard = build_guard(engine, bindings)?;
 
     let gate = std::sync::Arc::new(Gate {
         guard,
         subject: SubjectId::from(args.subject.as_str()),
         ctx: request_context(args.purpose.as_deref()),
-        bound_tools,
         filter_list: args.filter_list,
         pending_list_ids: Mutex::new(HashSet::new()),
     });

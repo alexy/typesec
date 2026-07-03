@@ -58,6 +58,20 @@ fn parse_request(request: &Value) -> Result<ToolCallRequest, InteropError> {
     Ok(call)
 }
 
+/// Filter a `tools/list` result (`{"tools": [...]}` or a bare array) down to
+/// the definitions `keep` accepts, returning the same shape it was given.
+pub fn filter_tools(payload: &Value, keep: &dyn Fn(&str) -> bool) -> Value {
+    let name_of = |item: &Value| wire::optional_str(item, "name");
+    match payload.get("tools") {
+        Some(tools) => {
+            let mut result = payload.clone();
+            result["tools"] = wire::filter_tool_array(tools, name_of, keep);
+            result
+        }
+        None => wire::filter_tool_array(payload, name_of, keep),
+    }
+}
+
 /// Render a denied/undecided call as a complete JSON-RPC *response* carrying
 /// an MCP tool result with `isError: true`, so the client receives the
 /// refusal as tool output. A `call_id` that parses as an integer is restored

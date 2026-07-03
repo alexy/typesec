@@ -28,6 +28,15 @@ by release version, then by the date the logical change landed.
   mint decision becomes a `typesec.decision` span with subject / action /
   resource / verdict (+ reason) attributes at the decision timestamp.
   Install via `set_audit_sink`; tested against the in-memory exporter.
+- **Interop: policy-aware tool listing, all dialects** (§6 item):
+  `ToolCallGuard::allows_listing` decides whether a tool should be *shown*
+  to the model (unbound → hidden; fixed resource the subject can't reach →
+  hidden; per-argument resource → listed, call-time guard still applies),
+  and every dialect gains `filter_tools(tools, keep)` over its
+  tool-definition request shape (unidentifiable entries dropped, fail
+  closed). Python: `ToolGate.filter_tools(subject, tools_json, dialect)`.
+  `typesec mcp-gate --filter-list` upgraded from bound-name to policy-aware
+  filtering.
 
 - **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
   JSON-RPC `tools/call` requests (single or batched; other methods pass

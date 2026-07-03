@@ -37,6 +37,14 @@ fn parse_part(part: &Value) -> Result<ToolCallRequest, InteropError> {
     Ok(request)
 }
 
+/// Filter a list of serialized `ToolDefinition`s (dicts with a `name`) down
+/// to the definitions `keep` accepts. The pure-Python
+/// `typesec.adapters.pydantic_ai.prepare_tools_filter` is the live-object
+/// equivalent for `Agent(prepare_tools=...)`.
+pub fn filter_tools(tools: &Value, keep: &dyn Fn(&str) -> bool) -> Value {
+    wire::filter_tool_array(tools, |item| wire::optional_str(item, "name"), keep)
+}
+
 /// Render a denied/undecided call as the `retry-prompt` part Pydantic AI
 /// feeds back to the model. Returns `None` for allowed calls.
 pub fn denial(call: &GuardedToolCall) -> Option<Value> {

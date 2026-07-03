@@ -30,6 +30,12 @@ fn parse_block(block: &Value) -> Result<ToolCallRequest, InteropError> {
     Ok(request)
 }
 
+/// Filter a request's `tools` array (`[{"name", "description",
+/// "input_schema"}]`) down to the definitions `keep` accepts.
+pub fn filter_tools(tools: &Value, keep: &dyn Fn(&str) -> bool) -> Value {
+    wire::filter_tool_array(tools, |item| wire::optional_str(item, "name"), keep)
+}
+
 /// Render a denied/undecided call as the `tool_result` content block the
 /// follow-up user message expects, flagged `is_error` so the model treats it
 /// as a failure. Returns `None` for allowed calls.

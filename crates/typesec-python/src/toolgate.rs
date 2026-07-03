@@ -18,6 +18,20 @@ use crate::format::PolicyFormat;
 
 type ParseFn = fn(&Value) -> Result<Vec<ToolCallRequest>, InteropError>;
 type DenialFn = fn(&GuardedToolCall) -> Option<Value>;
+type FilterFn = fn(&Value, &dyn Fn(&str) -> bool) -> Value;
+
+fn dialect_filter(dialect: &str) -> PyResult<FilterFn> {
+    match dialect {
+        "openai" => Ok(openai::filter_tools),
+        "anthropic" => Ok(anthropic::filter_tools),
+        "langchain" => Ok(langchain::filter_tools),
+        "pydantic-ai" | "pydantic_ai" => Ok(pydantic_ai::filter_tools),
+        "mcp" => Ok(mcp::filter_tools),
+        other => Err(PyValueError::new_err(format!(
+            "unknown dialect '{other}' (expected openai, anthropic, langchain, pydantic-ai, or mcp)"
+        ))),
+    }
+}
 
 fn dialect_codec(dialect: &str) -> PyResult<(ParseFn, DenialFn)> {
     match dialect {
@@ -169,6 +183,30 @@ impl ToolGate {
             .collect();
         serde_json::to_string(&report)
             .map_err(|err| PyValueError::new_err(format!("failed to encode report: {err}")))
+    }
+
+    /// Filter a tool-definition list (in the dialect's request shape) down
+    /// to tools the subject may be shown: what the model can't see, it won't
+    /// call. Returns the filtered JSON.
+    #[pyo3(signature = (subject, tools_json, dialect, purpose = None, context = None))]
+    fn filter_tools(
+        &self,
+        subject: &str,
+        tools_json: &str,
+        dialect: &str,
+        purpose: Option<&str>,
+        context: Option<std::collections::HashMap<String, String>>,
+    ) -> PyResult<String> {
+        let filter = dialect_filter(dialect)?;
+        let tools: Value = serde_json::from_str(tools_json)
+            .map_err(|err| PyValueError::new_err(format!("tools are not valid JSON: {err}")))?;
+        let ctx = request_context(purpose, context);
+        let subject = SubjectId::from(subject);
+        let filtered = filter(&tools, &|name| {
+            self.guard.allows_listing(&subject, name, &ctx)
+        });
+        serde_json::to_string(&filtered)
+            .map_err(|err| PyValueError::new_err(format!("failed to encode tools: {err}")))
     }
 }
 

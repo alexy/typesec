@@ -28,6 +28,12 @@ fn parse_call(item: &Value) -> Result<ToolCallRequest, InteropError> {
     Ok(request)
 }
 
+/// Filter a list of serialized tool definitions (dicts with a `name`) down
+/// to the definitions `keep` accepts.
+pub fn filter_tools(tools: &Value, keep: &dyn Fn(&str) -> bool) -> Value {
+    wire::filter_tool_array(tools, |item| wire::optional_str(item, "name"), keep)
+}
+
 /// Render a denied/undecided call as an error `ToolMessage` dict
 /// (`status: "error"`), so graphs/chains feed the refusal back to the model.
 /// Returns `None` for allowed calls.

@@ -494,6 +494,49 @@ assignments:
 }
 
 #[test]
+fn tool_listing_is_policy_aware_across_dialects() {
+    let guard = guard(); // binds read_report (fixed reports/q1) + read_file (per-arg)
+    let subject = SubjectId::from("agent:analyst");
+    let keep = |name: &str| guard.allows_listing(&subject, name, &ctx());
+
+    // analyst: read_report allowed, read_file listed (arg-resolved), others hidden.
+    assert!(keep("read_report"));
+    assert!(
+        keep("read_file"),
+        "per-argument resources are checked at call time"
+    );
+    assert!(!keep("unbound_tool"));
+
+    let engineer = SubjectId::from("agent:engineer");
+    assert!(
+        !guard.allows_listing(&engineer, "read_report", &ctx()),
+        "bound tool with unreachable fixed resource is hidden"
+    );
+
+    let openai_tools = json!([
+        {"type": "function", "function": {"name": "read_report"}},
+        {"type": "function", "function": {"name": "unbound_tool"}},
+        {"type": "function", "name": "read_file"},
+        {"type": "function"}  // unidentifiable: dropped, fail closed
+    ]);
+    let filtered = openai::filter_tools(&openai_tools, &keep);
+    assert_eq!(filtered.as_array().unwrap().len(), 2);
+
+    let anthropic_tools = json!([{"name": "read_report"}, {"name": "unbound_tool"}]);
+    assert_eq!(
+        anthropic::filter_tools(&anthropic_tools, &keep)
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let list_result = json!({"tools": [{"name": "read_report"}, {"name": "unbound_tool"}]});
+    let filtered = mcp::filter_tools(&list_result, &keep);
+    assert_eq!(filtered["tools"].as_array().unwrap().len(), 1);
+}
+
+#[test]
 fn delegation_is_not_permission() {
     let engine = typesec_odrl::OdrlEngine::from_yaml(
         r#"
