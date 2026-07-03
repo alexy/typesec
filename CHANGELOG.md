@@ -36,6 +36,10 @@ by release version, then by the date the logical change landed.
   before parse, expiry and future-dating rejected). Extends the unforgeable-
   capability invariant across process boundaries; positive-only by design.
   New `base64` workspace dep.
+- **Python: full `RequestContext`** (P6): `TypesecGate.check/require`, the
+  free `check`, and `ToolGate.check_tool/guard_json` all take an optional
+  `context={...}` dict feeding ODRL custom constraint operands (e.g.
+  `leftOperand: department`), alongside the existing `purpose`.
 
 - **Agent-framework interop plane** (`FABLE-REVIEW-1.md` is the full review +
   roadmap): new `typesec_agent::interop` module — normalized

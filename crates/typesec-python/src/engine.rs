@@ -44,10 +44,16 @@ impl CompiledPolicyEngine {
         action: &str,
         resource: &str,
         purpose: Option<&str>,
+        context: Option<std::collections::HashMap<String, String>>,
     ) -> PolicyResult {
         let subject = SubjectId::from(subject);
         let resource = ResourceId::from(resource);
-        self.check_with_context(&subject, action, &resource, &request_context(purpose))
+        self.check_with_context(
+            &subject,
+            action,
+            &resource,
+            &request_context(purpose, context),
+        )
     }
 }
 
@@ -79,8 +85,16 @@ impl PolicyEngine for CompiledPolicyEngine {
     }
 }
 
-pub(crate) fn request_context(purpose: Option<&str>) -> RequestContext {
-    purpose.map_or_else(RequestContext::default, |purpose| {
-        RequestContext::default().with_purpose(purpose.to_string())
-    })
+pub(crate) fn request_context(
+    purpose: Option<&str>,
+    custom: Option<std::collections::HashMap<String, String>>,
+) -> RequestContext {
+    let mut ctx = RequestContext::default();
+    if let Some(purpose) = purpose {
+        ctx = ctx.with_purpose(purpose.to_string());
+    }
+    if let Some(custom) = custom {
+        ctx.custom = custom;
+    }
+    ctx
 }

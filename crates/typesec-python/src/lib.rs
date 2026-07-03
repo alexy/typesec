@@ -36,31 +36,34 @@ impl TypesecGate {
         Self::new(yaml, format)
     }
 
-    #[pyo3(signature = (subject, action, resource, purpose = None))]
+    #[pyo3(signature = (subject, action, resource, purpose = None, context = None))]
     fn check(
         &self,
         subject: &str,
         action: &str,
         resource: &str,
         purpose: Option<&str>,
+        context: Option<std::collections::HashMap<String, String>>,
     ) -> PyResult<Decision> {
         Ok(decision_from_result(
             subject,
             action,
             resource,
-            self.engine.decide(subject, action, resource, purpose),
+            self.engine
+                .decide(subject, action, resource, purpose, context),
         ))
     }
 
-    #[pyo3(signature = (subject, action, resource, purpose = None))]
+    #[pyo3(signature = (subject, action, resource, purpose = None, context = None))]
     fn require(
         &self,
         subject: &str,
         action: &str,
         resource: &str,
         purpose: Option<&str>,
+        context: Option<std::collections::HashMap<String, String>>,
     ) -> PyResult<Decision> {
-        let decision = self.check(subject, action, resource, purpose)?;
+        let decision = self.check(subject, action, resource, purpose, context)?;
         if decision.allowed {
             Ok(decision)
         } else {
@@ -79,7 +82,7 @@ impl TypesecGate {
 /// This function is convenient for one-shot checks. For repeated decisions,
 /// construct `TypesecGate` once and call its `check()`/`require()` methods so
 /// the compiled policy engine is reused.
-#[pyo3(signature = (policy_yaml, subject, action, resource, format = None, purpose = None))]
+#[pyo3(signature = (policy_yaml, subject, action, resource, format = None, purpose = None, context = None))]
 fn check(
     policy_yaml: &str,
     subject: &str,
@@ -87,9 +90,18 @@ fn check(
     resource: &str,
     format: Option<&str>,
     purpose: Option<&str>,
+    context: Option<std::collections::HashMap<String, String>>,
 ) -> PyResult<Decision> {
     let format = PolicyFormat::detect(format, policy_yaml)?;
-    check_policy(policy_yaml, format, subject, action, resource, purpose)
+    check_policy(
+        policy_yaml,
+        format,
+        subject,
+        action,
+        resource,
+        purpose,
+        context,
+    )
 }
 
 #[pyfunction]
@@ -112,7 +124,7 @@ fn typesec_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pyo3::types::{PyAny, PyModule};
+    use pyo3::types::{PyAny, PyDict, PyModule};
 
     const RBAC: &str = include_str!("../../../policies/rbac-example.yaml");
     const ODRL: &str = include_str!("../../../policies/odrl-example.yaml");
@@ -173,6 +185,43 @@ mod tests {
                 ("agent:executive-chief", "write", "company/strategy"),
             )?;
             assert!(decision_allowed(&allowed)?);
+
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn typesec_gate_odrl_uses_custom_context_operands() -> PyResult<()> {
+        const CTX_POLICY: &str = r#"
+policies:
+  - uid: "policy:ctx"
+    type: Set
+    rules:
+      - type: permission
+        assignee: "agent:analyst"
+        action: read
+        target: "hr-data"
+        constraints:
+          - leftOperand: department
+            operator: eq
+            rightOperand: "hr"
+"#;
+        with_module(|module| {
+            let gate = module.getattr("TypesecGate")?.call1((CTX_POLICY, "odrl"))?;
+            let context = PyDict::new(module.py());
+            context.set_item("department", "hr")?;
+
+            let kwargs = PyDict::new(module.py());
+            kwargs.set_item("context", &context)?;
+            let allowed =
+                gate.call_method("check", ("agent:analyst", "read", "hr-data"), Some(&kwargs))?;
+            assert!(decision_allowed(&allowed)?);
+
+            let missing = gate.call_method1("check", ("agent:analyst", "read", "hr-data"))?;
+            assert!(
+                !decision_allowed(&missing)?,
+                "constraint without context must not allow"
+            );
 
             Ok(())
         })

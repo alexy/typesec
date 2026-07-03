@@ -102,13 +102,14 @@ impl ToolGate {
     }
 
     /// Check one tool call by name and (optional) JSON arguments.
-    #[pyo3(signature = (subject, tool_name, arguments_json = None, purpose = None))]
+    #[pyo3(signature = (subject, tool_name, arguments_json = None, purpose = None, context = None))]
     fn check_tool(
         &self,
         subject: &str,
         tool_name: &str,
         arguments_json: Option<&str>,
         purpose: Option<&str>,
+        context: Option<std::collections::HashMap<String, String>>,
     ) -> PyResult<Decision> {
         let arguments = match arguments_json {
             None => json!({}),
@@ -119,7 +120,7 @@ impl ToolGate {
         let call = self.guard.check(
             &SubjectId::from(subject),
             ToolCallRequest::new(tool_name, arguments),
-            &request_context(purpose),
+            &request_context(purpose, context),
         );
         Ok(decision_from_call(subject, &call))
     }
@@ -128,19 +129,20 @@ impl ToolGate {
     /// pydantic-ai) and return a JSON report: one entry per tool call with
     /// `allowed`, `reason`, and a framework-shaped `denial` message for
     /// blocked calls.
-    #[pyo3(signature = (subject, payload_json, dialect, purpose = None))]
+    #[pyo3(signature = (subject, payload_json, dialect, purpose = None, context = None))]
     fn guard_json(
         &self,
         subject: &str,
         payload_json: &str,
         dialect: &str,
         purpose: Option<&str>,
+        context: Option<std::collections::HashMap<String, String>>,
     ) -> PyResult<String> {
         let (parse, denial) = dialect_codec(dialect)?;
         let payload: Value = serde_json::from_str(payload_json)
             .map_err(|err| PyValueError::new_err(format!("payload is not valid JSON: {err}")))?;
         let requests = parse(&payload).map_err(|err| PyValueError::new_err(err.to_string()))?;
-        let ctx = request_context(purpose);
+        let ctx = request_context(purpose, context);
         let subject = SubjectId::from(subject);
         let report: Vec<Value> = requests
             .into_iter()

@@ -65,13 +65,14 @@ pub(crate) fn check_policy(
     action: &str,
     resource: &str,
     purpose: Option<&str>,
+    context: Option<std::collections::HashMap<String, String>>,
 ) -> PyResult<Decision> {
     let engine = compile_policy(yaml, format)?;
     Ok(decision_from_result(
         subject,
         action,
         resource,
-        engine.decide(subject, action, resource, purpose),
+        engine.decide(subject, action, resource, purpose, context),
     ))
 }
 
