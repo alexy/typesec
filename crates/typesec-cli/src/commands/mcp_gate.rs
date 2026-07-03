@@ -68,11 +68,11 @@ struct BindingSpec {
 }
 
 #[derive(Debug, Deserialize)]
-struct BindingsFile {
+pub(crate) struct BindingsFile {
     tools: Vec<BindingSpec>,
 }
 
-fn build_guard(
+pub(crate) fn build_guard(
     engine: std::sync::Arc<dyn typesec_core::policy::PolicyEngine>,
     file: BindingsFile,
 ) -> Result<ToolCallGuard> {

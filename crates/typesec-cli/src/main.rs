@@ -44,6 +44,8 @@ enum Commands {
     McpGate(commands::mcp_gate::McpGateArgs),
     /// Re-evaluate a recorded decision log against an edited policy.
     Replay(commands::replay::ReplayArgs),
+    /// Run an OpenAI/Anthropic-compatible enforcement proxy.
+    Proxy(commands::proxy::ProxyArgs),
 }
 
 #[tokio::main]
@@ -65,5 +67,6 @@ async fn main() -> Result<()> {
         Commands::Run(args) => commands::run::run(args).await,
         Commands::McpGate(args) => commands::mcp_gate::run(args).await,
         Commands::Replay(args) => commands::replay::run(args),
+        Commands::Proxy(args) => commands::proxy::run(args).await,
     }
 }

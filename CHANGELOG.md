@@ -54,6 +54,18 @@ by release version, then by the date the logical change landed.
   (default on) gating the grust stack, and the dialect codec dispatch moved
   to `interop::dialects` — one registry shared by Python, WASM, and the CLI.
   getrandom's JS backend is wired via `.cargo/config.toml` for wasm builds.
+- **CLI: `typesec proxy`** (§6 item): an OpenAI/Anthropic-compatible
+  enforcement proxy — point any SDK's base URL at it and it forwards to the
+  real upstream while enforcing tool authority in both directions:
+  `--filter-tools` prunes request `tools` arrays policy-aware, and denied
+  tool calls are scrubbed from responses (removed from
+  `choices[*].message.tool_calls` / replaced `tool_use` blocks, with a
+  visible `[typesec] blocked …` note; `finish_reason`/`stop_reason` restored
+  when nothing remains). Enforced paths: `…/chat/completions` (openai) and
+  `…/messages` (anthropic); other paths pass through; `"stream": true` on
+  enforced paths is rejected with 400 (not yet supported). Pure scrub core
+  with 4 unit tests; verified end-to-end against a scripted upstream. New
+  axum dep in the CLI; bindings YAML shared with mcp-gate.
 
 - **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
   JSON-RPC `tools/call` requests (single or batched; other methods pass
