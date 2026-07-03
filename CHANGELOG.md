@@ -153,11 +153,12 @@ by release version, then by the date the logical change landed.
   implements `PolicyEngine` directly (string entry point renamed `decide`).
   New four-dialect demo `examples/agent_interop_demo.py` (no SDKs or
   credentials needed) and guide `docs/agent-interop.md`.
-- **Build note:** the sibling `../grust` checkout currently carries WIP that
-  doesn't compile (`grust-cypher` vs. a new `Value::Graph` variant), so the
-  three grust workspace deps temporarily dropped their `path` keys and
-  resolve from crates.io (`0.11.0`); restore the `path` keys once grust is
-  green again (see FABLE-REVIEW-1.md, F9).
+- **Build note (resolved same day):** the sibling `../grust` checkout briefly
+  carried WIP that didn't compile (`grust-cypher` vs. a new `Value::Graph`
+  variant), so the three grust workspace deps temporarily dropped their
+  `path` keys and resolved from crates.io (`0.11.0`). The grust work landed
+  and the `path` keys are restored — local builds use the sibling checkout
+  again (FABLE-REVIEW-1.md, F9).
 
 ### 2026-06-26
 

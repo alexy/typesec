@@ -335,9 +335,9 @@ doc tracks roadmap status — **all items P1–P8 and the §6 second wave are
 implemented** (PyPI-ready `typesec` package + SDK adapters, args schemas,
 OTel sink, policy-aware listing, `#[typesec_tool]`, `typesec-wasm`,
 `typesec proxy`, lease attenuation, conversation typestate); see the two
-tables in §8. **Note:** the grust workspace deps are
-temporarily version-only (crates.io) because the sibling `../grust` checkout
-carries non-compiling WIP; restore the `path` keys when grust is green
+tables in §8. **Note:** the grust `path` keys were
+temporarily dropped (crates.io fallback) while `../grust` carried
+non-compiling WIP; the WIP landed and the path deps are restored
 (FABLE-REVIEW-1.md, F9).
 
 ## Releases

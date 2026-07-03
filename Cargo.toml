@@ -71,9 +71,9 @@ jsonschema = { version = "0.26", default-features = false }
 axum = "0.8"
 criterion = "0.5"
 proptest = "1"
-grust-graph = { version = "0.11.0", features = ["typed-zod-rs"] }
-grust-cypher = { version = "0.11.0" }
-grust-sail = { version = "0.11.0" }
+grust-graph = { version = "0.11.0", path = "../grust/crates/grust", features = ["typed-zod-rs"] }
+grust-cypher = { version = "0.11.0", path = "../grust/crates/grust-cypher" }
+grust-sail = { version = "0.11.0", path = "../grust/crates/grust-sail" }
 
 [profile.release]
 lto = true
