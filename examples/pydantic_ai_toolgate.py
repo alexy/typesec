@@ -1,7 +1,7 @@
 """A real Pydantic AI agent guarded by the native Typesec ToolGate.
 
 Where `pydantic_ai_capabilities.py` routes each check through the CLI, this
-example uses the Rust-backed `typesec_native.ToolGate` directly — the same
+example uses the Rust-backed `typesec.ToolGate` directly — the same
 deny-by-default guard the OpenAI/Anthropic/LangChain/MCP dialects share —
 inside a live Pydantic AI agent run over `TestModel` (no credentials needed):
 
@@ -23,10 +23,10 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.test import TestModel
 
 try:
-    from typesec_native import Decision, ToolGate
+    from typesec import Decision, ToolGate
 except ImportError as exc:  # pragma: no cover
     raise SystemExit(
-        "typesec_native is not installed in this environment.\n"
+        "typesec is not installed in this environment.\n"
         "Build it first:  uv run maturin develop -m crates/typesec-python/Cargo.toml"
     ) from exc
 

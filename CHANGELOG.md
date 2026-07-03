@@ -7,6 +7,17 @@ by release version, then by the date the logical change landed.
 
 ### 2026-07-03
 
+- **Python: PyPI-ready `typesec` package** (P2 rest): `typesec-python` is now
+  a mixed maturin project distributing package **`typesec`** — the native
+  module moves to `typesec._native`, re-exported from `typesec` alongside a
+  pure-Python layer: `ToolCallReport`/`GuardResult` dataclasses and
+  `typesec.guard(...)` over whole model turns, plus SDK adapters in
+  `typesec.adapters.{openai,anthropic,langchain,pydantic_ai,mcp}` (all
+  dependency-free; the Pydantic AI one adds a `prepare_tools_filter` hook
+  that hides denied tools from the model up front). New unittest suite
+  `tests/python/test_typesec_package.py`; examples/docs import
+  `from typesec import ...`. Publish with `maturin publish` when ready.
+
 - **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
   JSON-RPC `tools/call` requests (single or batched; other methods pass
   through as non-calls) and renders denials as complete JSON-RPC responses

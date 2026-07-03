@@ -112,7 +112,7 @@ fn validate(policy_yaml: &str, format: Option<&str>) -> PyResult<()> {
 }
 
 #[pymodule]
-fn typesec_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Decision>()?;
     m.add_class::<TypesecGate>()?;
     m.add_class::<ToolGate>()?;
@@ -274,7 +274,7 @@ policies:
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
             let module = PyModule::new(py, "typesec_native")?;
-            typesec_native(&module)?;
+            _native(&module)?;
             test(&module)
         })
     }

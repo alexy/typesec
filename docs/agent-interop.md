@@ -9,7 +9,7 @@ does, at two layers:
    without a `Capability<P, R>`, which only `mint_capability` can produce.
 2. **Wire (any framework, any language):** `typesec_agent::interop` — a
    deny-by-default guard over the JSON tool-call shapes of OpenAI, Anthropic,
-   LangChain, and Pydantic AI, exposed to Python as `typesec_native.ToolGate`.
+   LangChain, and Pydantic AI, exposed to Python as `typesec.ToolGate` (PyPI package `typesec`).
 
 ```text
 model output ─▶ dialect::parse_tool_calls ─▶ ToolCallGuard::check_all
@@ -76,7 +76,7 @@ so the wire guard and the capability-typed tools share one declaration.
 ## Python
 
 ```python
-from typesec_native import ToolGate
+from typesec import ToolGate
 
 gate = ToolGate.from_file("policies/rbac-example.yaml", [
     {"tool": "read_report", "action": "read", "resource": "reports/unspecified",

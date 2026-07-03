@@ -201,7 +201,7 @@ mod tests {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
             let module = PyModule::new(py, "typesec_native")?;
-            crate::typesec_native(&module)?;
+            crate::_native(&module)?;
             let gate = module
                 .getattr("ToolGate")?
                 .call1((RBAC, tool_bindings(py)?, "rbac"))?;

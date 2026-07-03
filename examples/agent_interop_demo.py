@@ -22,10 +22,10 @@ import json
 from pathlib import Path
 
 try:
-    from typesec_native import ToolGate
+    from typesec import ToolGate
 except ImportError as exc:  # pragma: no cover
     raise SystemExit(
-        "typesec_native is not installed in this environment.\n"
+        "typesec is not installed in this environment.\n"
         "Build it first:  uv run maturin develop -m crates/typesec-python/Cargo.toml"
     ) from exc
 
