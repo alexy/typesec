@@ -324,13 +324,17 @@ path dependency — see the workflow comments for the ref/token notes.
 `FABLE-REVIEW-1.md` (repo root) is the third full review: it assesses the
 platform's interoperability with Pydantic AI / LangChain / OpenAI / Anthropic
 agents, and its implemented outcome is the wire-level interop plane —
-`typesec_agent::interop` (deny-by-default `ToolCallGuard` + four dialect
-codecs), `typesec_native.ToolGate`, `examples/agent_interop_demo.py`, and
-`docs/agent-interop.md`. Its §5/§6 hold the agreed roadmap (MCP gateway, PyPI
-package, argument schemas, signed decision receipts, SecureValue-tainted tool
-results, …). **Note:** the grust workspace deps are temporarily version-only
-(crates.io) because the sibling `../grust` checkout carries non-compiling WIP;
-restore the `path` keys when grust is green (FABLE-REVIEW-1.md, F9).
+`typesec_agent::interop` (deny-by-default `ToolCallGuard` + five dialect
+codecs incl. MCP, argument guards, `protect_output` tainting),
+`typesec_native.ToolGate`, the `typesec mcp-gate` stdio proxy, signed
+decision receipts (`typesec_integrations::receipt`), `typesec check
+--audit-log` + `typesec replay`, `examples/agent_interop_demo.py` +
+`examples/pydantic_ai_toolgate.py`, and `docs/agent-interop.md`. §8 of the
+doc tracks roadmap status (P1–P8 done or partial; open: PyPI packaging,
+JSON-Schema args, OTel spans, …). **Note:** the grust workspace deps are
+temporarily version-only (crates.io) because the sibling `../grust` checkout
+carries non-compiling WIP; restore the `path` keys when grust is green
+(FABLE-REVIEW-1.md, F9).
 
 ## Releases
 

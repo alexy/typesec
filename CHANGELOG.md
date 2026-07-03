@@ -46,6 +46,21 @@ by release version, then by the date the logical change landed.
   edited.yaml --log decisions.jsonl [--json]` re-evaluates every record and
   reports verdicts that changed — policy edits become testable against real
   traffic before rollout. Exit 0 = no drift, 1 = at least one change.
+- **Interop: tainted tool output** (P5): `GuardedToolCall::protect_output`
+  wraps an *allowed* call's result in a `SecureValue<L, T, GenericResource>`
+  tied to the call's resolved resource id — revealing it downstream requires
+  a `CanReadSensitive` capability minted for that same resource. Denied /
+  unresolved calls refuse to label output (`TaintError`).
+- **Fuzzing** (P8): new `interop_dialects` fuzz target runs arbitrary JSON
+  through all five dialect parsers (must never panic). Note: `libfuzzer-sys`
+  currently fails to build on this machine (missing C++ stdlib headers; also
+  affects the pre-existing targets) — build with `cargo fuzz build` where a
+  C++ toolchain works.
+- **Examples** (P2, first slice): `examples/pydantic_ai_toolgate.py` — a live
+  Pydantic AI agent over `TestModel` whose tool is guarded by the native
+  `ToolGate` (allowed subject summarizes; denied subject raises
+  `PermissionError` with the policy reason before the payload reaches the
+  model). `agent_interop_demo.py` now also shows the `mcp` dialect.
 
 - **Agent-framework interop plane** (`FABLE-REVIEW-1.md` is the full review +
   roadmap): new `typesec_agent::interop` module — normalized

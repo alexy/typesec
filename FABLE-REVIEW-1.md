@@ -289,6 +289,29 @@ alongside the existing `rbac_yaml` target.
 
 ---
 
+## 8. Roadmap progress (updated 2026-07-03, second pass)
+
+The §5 roadmap was executed the same day, each item its own green commit:
+
+| Item | Status | Where |
+| --- | --- | --- |
+| P1 MCP dialect + gateway | **Done** | `interop::mcp` codec; `typesec mcp-gate` stdio proxy (denies never reach the server, `--filter-list` hides unbound tools); verified against a scripted MCP server |
+| P2 Python package | **Partial** | native adapters + `examples/pydantic_ai_toolgate.py` (live Pydantic AI agent over `TestModel` guarded by `ToolGate`, verified). PyPI packaging + per-SDK helper modules remain open |
+| P3 Argument schemas | **Done** (glob subset) | `ToolBinding::require_args` / `arg_glob` — fail-closed presence + compiled glob constraints; full JSON-Schema validation remains open |
+| P4 Signed receipts | **Done** | `typesec_integrations::receipt` — ed25519 `ReceiptIssuer`/`ReceiptVerifier`, expiry + tamper tests |
+| P5 Tainted tool results | **Done** | `GuardedToolCall::protect_output::<L, T>()` → `SecureValue` tied to the resolved resource id; reveal requires a matching minted capability (tested end to end) |
+| P6 Full context from Python | **Done** | `context={...}` on every check surface; ODRL custom-operand test |
+| P7 Decision observability | **Done** (replay half) | `typesec check --audit-log` JSONL + `typesec replay` verdict-drift detection (exit 1 on drift); OTel spans remain open |
+| P8 Fuzz the codecs | **Written, build-blocked** | `fuzz_targets/interop_dialects.rs` covers all five parsers; `libfuzzer-sys` won't compile on this machine (C++ stdlib headers missing — pre-existing, hits `rbac_yaml` too). Run `cargo fuzz build` on a machine with a working C++ toolchain |
+
+Still open from §5/§6, in suggested order: PyPI packaging (P2 rest),
+JSON-Schema argument validation (P3 rest), OTel audit spans (P7 rest),
+policy-aware tool listing beyond MCP, the `#[typesec::tool]` macro, WASM/TS
+bindings, the OpenAI-compatible proxy, capability attenuation, conversation
+typestate.
+
+---
+
 ¹ **grust path-dep note (F9).** `Cargo.toml` lines 70–72 temporarily read
 `grust-graph = { version = "0.11.0", features = ["typed-zod-rs"] }`,
 `grust-cypher = { version = "0.11.0" }`, `grust-sail = { version = "0.11.0" }`.

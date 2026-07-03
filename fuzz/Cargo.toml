@@ -10,6 +10,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 typesec-odrl = { path = "../crates/typesec-odrl" }
+typesec-agent = { path = "../crates/typesec-agent" }
+serde_json = "1"
 typesec-rbac = { path = "../crates/typesec-rbac" }
 
 [[bin]]
@@ -21,5 +23,11 @@ doc = false
 [[bin]]
 name = "odrl_yaml"
 path = "fuzz_targets/odrl_yaml.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "interop_dialects"
+path = "fuzz_targets/interop_dialects.rs"
 test = false
 doc = false

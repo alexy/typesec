@@ -34,6 +34,7 @@
 
 mod call;
 mod guard;
+mod taint;
 mod wire;
 
 pub mod anthropic;
@@ -44,6 +45,7 @@ pub mod pydantic_ai;
 
 pub use call::{GuardedToolCall, InteropError, ToolBinding, ToolCallRequest, ToolCallVerdict};
 pub use guard::ToolCallGuard;
+pub use taint::{TOOL_OUTPUT_KIND, TaintError};
 
 #[cfg(test)]
 mod tests;

@@ -382,6 +382,69 @@ fn malformed_payloads_error_instead_of_passing_silently() {
 }
 
 #[test]
+fn protected_output_requires_a_matching_capability_to_reveal() {
+    use typesec_core::permissions::CanReadSensitive;
+    use typesec_core::policy::mint_capability;
+    use typesec_core::secure_value::Sensitive;
+
+    let guard = guard();
+    let allowed = guard.check(
+        &SubjectId::from("agent:analyst"),
+        ToolCallRequest::new("read_report", json!({})),
+        &ctx(),
+    );
+    let secret = allowed
+        .protect_output::<Sensitive, _>("q1 revenue: 42".to_string())
+        .expect("allowed output can be protected");
+    assert_eq!(secret.resource_id(), "reports/q1");
+
+    // Revealing requires a CanReadSensitive capability minted for the same
+    // resource the call was checked against; the example policy grants the
+    // analyst read_sensitive on reports/*.
+    let engine = typesec_rbac::RbacEngine::from_yaml(
+        r#"
+roles:
+  - name: analyst
+    permissions: [read_sensitive]
+    resources: ["reports/*"]
+assignments:
+  - subject: "agent:analyst"
+    roles: [analyst]
+"#,
+    )
+    .expect("policy parses");
+    let resource = GenericResource::new("reports/q1", TOOL_OUTPUT_KIND);
+    let cap: typesec_core::Capability<CanReadSensitive, GenericResource> =
+        mint_capability(&engine, "agent:analyst", &resource).expect("cap mints");
+    assert_eq!(
+        secret.reveal(&cap).expect("matching cap reveals"),
+        "q1 revenue: 42"
+    );
+
+    // A denied call refuses to launder output into a labeled value.
+    let denied = guard.check(
+        &SubjectId::from("agent:engineer"),
+        ToolCallRequest::new("read_report", json!({})),
+        &ctx(),
+    );
+    assert!(matches!(
+        denied.protect_output::<Sensitive, _>("nope"),
+        Err(TaintError::NotAllowed { .. })
+    ));
+
+    // An unbound call has no resolved resource to label against.
+    let unbound = guard.check(
+        &SubjectId::from("agent:analyst"),
+        ToolCallRequest::new("mystery_tool", json!({})),
+        &ctx(),
+    );
+    assert!(matches!(
+        unbound.protect_output::<Sensitive, _>("nope"),
+        Err(TaintError::NotAllowed { .. })
+    ));
+}
+
+#[test]
 fn delegation_is_not_permission() {
     let engine = typesec_odrl::OdrlEngine::from_yaml(
         r#"

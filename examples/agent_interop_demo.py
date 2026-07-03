@@ -1,4 +1,4 @@
-"""One Typesec ToolGate guarding tool calls from four agent frameworks.
+"""One Typesec ToolGate guarding tool calls from five agent dialects.
 
 The demo speaks each framework's *wire shape* directly (the JSON the OpenAI,
 Anthropic, LangChain, and Pydantic AI SDKs put on the wire for tool calls), so
@@ -74,6 +74,11 @@ PYDANTIC_AI_RESPONSE = {
     ]
 }
 
+MCP_REQUEST = {
+    "jsonrpc": "2.0", "id": 7, "method": "tools/call",
+    "params": {"name": "deploy_service", "arguments": {}},
+}
+
 
 def show(title: str, subject: str, payload: object, dialect: str, gate: ToolGate) -> None:
     print(f"\n== {title} — subject {subject!r} ==")
@@ -105,6 +110,10 @@ def main() -> None:
 
     show("Pydantic AI model response", "agent:data-pipeline",
          PYDANTIC_AI_RESPONSE, "pydantic-ai", gate)
+
+    # MCP: the denial is a complete JSON-RPC response — exactly what
+    # `typesec mcp-gate` sends back instead of forwarding the call.
+    show("MCP tools/call request", "agent:summarizer", MCP_REQUEST, "mcp", gate)
 
     # The same gate also answers direct questions, outside any dialect.
     decision = gate.check_tool("agent:deploy-bot", "deploy_service")
