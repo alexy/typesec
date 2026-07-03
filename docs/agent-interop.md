@@ -113,6 +113,18 @@ permissions work per call.
   `gate`/`deps`, or centrally by guarding the model response parts with
   `dialect="pydantic-ai"`.
 
+- **MCP (any server, zero code):** front the server with the gate —
+
+  ```bash
+  typesec mcp-gate --policy policy.yaml --subject agent:mcp \
+      --bindings tools.yaml --filter-list -- npx my-mcp-server
+  ```
+
+  `tools.yaml` is a `tools:` list with `tool`/`action`/`resource` and
+  optional `resource_arg`, `required_args`, `arg_globs`. Denied `tools/call`s
+  are answered by the gate with an `isError` result and never reach the
+  server; `--filter-list` hides unbound tools from `tools/list`.
+
 Runnable end-to-end demo (all four dialects, no SDKs or credentials needed):
 
 ```bash

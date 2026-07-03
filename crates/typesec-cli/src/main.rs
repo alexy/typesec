@@ -40,6 +40,8 @@ enum Commands {
     Generate(commands::generate::GenerateArgs),
     /// Simulate agent execution under a policy.
     Run(commands::run::RunArgs),
+    /// Front an MCP server, enforcing a policy on every tools/call.
+    McpGate(commands::mcp_gate::McpGateArgs),
 }
 
 #[tokio::main]
@@ -59,5 +61,6 @@ async fn main() -> Result<()> {
         Commands::Check(args) => commands::check::run(args),
         Commands::Generate(args) => commands::generate::run(args),
         Commands::Run(args) => commands::run::run(args).await,
+        Commands::McpGate(args) => commands::mcp_gate::run(args).await,
     }
 }

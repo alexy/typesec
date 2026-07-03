@@ -19,6 +19,15 @@ by release version, then by the date the logical change landed.
   `GlobPattern`; a constrained argument is implicitly required, and
   non-string values are denied — fail closed). Python binding dicts accept
   `"required_args": "a, b"` and `"arg_glob:<name>": "<pattern>"`.
+- **CLI: `typesec mcp-gate`** (P1, the gateway half): a deny-by-default MCP
+  stdio proxy — `typesec mcp-gate --policy p.yaml --subject agent:x
+  --bindings tools.yaml [--filter-list] -- <server command>`. All JSON-RPC
+  traffic passes through except `tools/call`, which is checked first; denied
+  or malformed calls never reach the server (the gate answers them with an
+  `isError` tool result), and `--filter-list` prunes `tools/list` responses
+  to bound tools so the model never sees what it may not call. The
+  message-handling core is pure and unit-tested (6 tests); verified
+  end-to-end against a scripted MCP server.
 
 - **Agent-framework interop plane** (`FABLE-REVIEW-1.md` is the full review +
   roadmap): new `typesec_agent::interop` module — normalized
