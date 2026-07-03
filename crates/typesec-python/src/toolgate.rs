@@ -57,6 +57,14 @@ fn binding_from_map(spec: &HashMap<String, String>) -> PyResult<ToolBinding> {
                 .map_err(|err| PyValueError::new_err(err.to_string()))?;
         }
     }
+    if let Some(schema_json) = spec.get("args_schema") {
+        let schema: Value = serde_json::from_str(schema_json).map_err(|err| {
+            PyValueError::new_err(format!("args_schema is not valid JSON: {err}"))
+        })?;
+        binding = binding
+            .args_schema(schema)
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+    }
     Ok(binding)
 }
 

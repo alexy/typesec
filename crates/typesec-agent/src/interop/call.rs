@@ -1,10 +1,29 @@
 //! Normalized tool-call types shared by every framework dialect.
 
+use std::fmt;
+use std::sync::Arc;
+
 use serde_json::Value;
 use thiserror::Error;
 use typesec_core::GlobPattern;
 
 use crate::tool::ToolSpec;
+
+/// A compiled JSON Schema for tool arguments, kept alongside its source so
+/// bindings stay `Debug`/`Clone` (the validator itself is neither).
+#[derive(Clone)]
+pub(crate) struct ArgsSchema {
+    schema: Value,
+    validator: Arc<jsonschema::Validator>,
+}
+
+impl fmt::Debug for ArgsSchema {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ArgsSchema")
+            .field("schema", &self.schema)
+            .finish_non_exhaustive()
+    }
+}
 
 /// A framework payload could not be interpreted as tool calls.
 #[derive(Debug, Error)]
@@ -79,6 +98,8 @@ pub struct ToolBinding {
     /// constrained argument is implicitly required (fail closed: what is
     /// absent cannot be verified).
     arg_globs: Vec<(String, GlobPattern)>,
+    /// Full JSON-Schema validation of the arguments object, when declared.
+    args_schema: Option<ArgsSchema>,
 }
 
 impl ToolBinding {
@@ -95,6 +116,7 @@ impl ToolBinding {
             resource_arg: None,
             required_args: Vec::new(),
             arg_globs: Vec::new(),
+            args_schema: None,
         }
     }
 
@@ -129,9 +151,33 @@ impl ToolBinding {
         Ok(self)
     }
 
-    /// Check required-argument presence and per-argument glob constraints,
-    /// returning a denial reason on the first violation.
+    /// Validate the whole arguments object against a JSON Schema (compiled
+    /// once, here). Malformed or out-of-range arguments are denied before any
+    /// policy evaluation. Fails on an invalid schema.
+    pub fn args_schema(mut self, schema: Value) -> Result<Self, InteropError> {
+        let validator =
+            jsonschema::validator_for(&schema).map_err(|err| InteropError::Malformed {
+                dialect: "binding",
+                detail: format!("invalid args schema: {err}"),
+            })?;
+        self.args_schema = Some(ArgsSchema {
+            schema,
+            validator: Arc::new(validator),
+        });
+        Ok(self)
+    }
+
+    /// Check the args schema, required-argument presence, and per-argument
+    /// glob constraints, returning a denial reason on the first violation.
     pub(crate) fn validate_arguments(&self, arguments: &Value) -> Result<(), String> {
+        if let Some(args_schema) = &self.args_schema
+            && let Err(err) = args_schema.validator.validate(arguments)
+        {
+            return Err(format!(
+                "tool '{}' arguments failed schema validation: {err}",
+                self.tool_name
+            ));
+        }
         for required in &self.required_args {
             if arguments.get(required).is_none() {
                 return Err(format!(

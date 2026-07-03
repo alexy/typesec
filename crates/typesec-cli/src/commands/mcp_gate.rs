@@ -63,6 +63,8 @@ struct BindingSpec {
     required_args: Vec<String>,
     #[serde(default)]
     arg_globs: HashMap<String, String>,
+    #[serde(default)]
+    args_schema: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,6 +87,9 @@ fn build_guard(
         binding = binding.require_args(spec.required_args);
         for (arg, pattern) in spec.arg_globs {
             binding = binding.arg_glob(arg, &pattern).map_err(|e| anyhow!(e))?;
+        }
+        if let Some(schema) = spec.args_schema {
+            binding = binding.args_schema(schema).map_err(|e| anyhow!(e))?;
         }
         guard = guard.bind(binding);
     }

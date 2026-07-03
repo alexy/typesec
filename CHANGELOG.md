@@ -17,6 +17,12 @@ by release version, then by the date the logical change landed.
   that hides denied tools from the model up front). New unittest suite
   `tests/python/test_typesec_package.py`; examples/docs import
   `from typesec import ...`. Publish with `maturin publish` when ready.
+- **Interop: JSON-Schema argument validation** (P3 rest):
+  `ToolBinding::args_schema(schema)` compiles a JSON Schema once (via the
+  `jsonschema` crate, no network resolvers) and denies calls whose arguments
+  fail it — before any policy evaluation. Available from Python binding
+  dicts (`"args_schema": "<json>"`) and mcp-gate bindings YAML
+  (`args_schema:` mapping). Invalid schemas are rejected at declaration time.
 
 - **Interop: MCP dialect** (`FABLE-REVIEW-1.md` P1): `interop::mcp` parses
   JSON-RPC `tools/call` requests (single or batched; other methods pass

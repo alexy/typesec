@@ -180,6 +180,55 @@ fn required_arguments_and_arg_globs_fail_closed() {
     );
 }
 
+#[test]
+fn args_schema_denies_malformed_arguments_before_policy() {
+    let engine = typesec_rbac::RbacEngine::from_yaml(POLICY).expect("policy parses");
+    let guard = ToolCallGuard::new(Arc::new(engine)).bind(
+        ToolBinding::new("deploy", "execute", "infra/prod")
+            .args_schema(json!({
+                "type": "object",
+                "properties": {
+                    "replicas": {"type": "integer", "minimum": 1, "maximum": 10},
+                    "env": {"enum": ["staging", "prod"]},
+                },
+                "required": ["replicas"],
+                "additionalProperties": false,
+            }))
+            .expect("valid schema"),
+    );
+    let subject = SubjectId::from("agent:engineer");
+
+    let ok = guard.check(
+        &subject,
+        ToolCallRequest::new("deploy", json!({"replicas": 3, "env": "prod"})),
+        &ctx(),
+    );
+    assert!(ok.verdict.is_allowed());
+
+    for bad in [
+        json!({}),                             // missing required
+        json!({"replicas": 99}),               // out of range
+        json!({"replicas": 3, "env": "yolo"}), // not in enum
+        json!({"replicas": 3, "extra": true}), // additionalProperties
+    ] {
+        let call = guard.check(&subject, ToolCallRequest::new("deploy", bad), &ctx());
+        assert!(!call.verdict.is_allowed());
+        assert!(
+            call.verdict
+                .reason()
+                .unwrap()
+                .contains("failed schema validation")
+        );
+    }
+
+    assert!(
+        ToolBinding::new("t", "read", "r")
+            .args_schema(json!({"type": "not-a-type"}))
+            .is_err(),
+        "invalid schema is rejected at declaration time"
+    );
+}
+
 #[tokio::test]
 async fn async_check_matches_sync() {
     let guard = guard();
