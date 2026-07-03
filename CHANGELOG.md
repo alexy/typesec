@@ -40,6 +40,12 @@ by release version, then by the date the logical change landed.
   free `check`, and `ToolGate.check_tool/guard_json` all take an optional
   `context={...}` dict feeding ODRL custom constraint operands (e.g.
   `leftOperand: department`), alongside the existing `purpose`.
+- **CLI: decision log + `typesec replay`** (P7): `typesec check --audit-log
+  decisions.jsonl` appends one JSONL record per decision (subject, action,
+  resource, purpose, verdict, reason, timestamp); `typesec replay --policy
+  edited.yaml --log decisions.jsonl [--json]` re-evaluates every record and
+  reports verdicts that changed — policy edits become testable against real
+  traffic before rollout. Exit 0 = no drift, 1 = at least one change.
 
 - **Agent-framework interop plane** (`FABLE-REVIEW-1.md` is the full review +
   roadmap): new `typesec_agent::interop` module — normalized

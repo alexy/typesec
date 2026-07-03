@@ -37,6 +37,10 @@ pub struct CheckArgs {
     /// Print a machine-readable JSON decision.
     #[arg(long)]
     pub json: bool,
+
+    /// Append this decision to a JSONL log for `typesec replay`.
+    #[arg(long)]
+    pub audit_log: Option<PathBuf>,
 }
 
 pub fn run(args: CheckArgs) -> Result<()> {
@@ -48,6 +52,17 @@ pub fn run(args: CheckArgs) -> Result<()> {
 
     let engine = load_engine(format.as_deref(), &yaml)?;
     let result = engine.check_with_context(&subject, &args.action, &resource, &context);
+
+    if let Some(path) = &args.audit_log {
+        let record = super::replay::DecisionRecord::new(
+            &args.subject,
+            &args.action,
+            &args.resource,
+            args.purpose.as_deref(),
+            &result,
+        );
+        super::replay::append_record(path, &record)?;
+    }
 
     if args.json {
         print_json_result(&args, format.as_deref(), &result)?;

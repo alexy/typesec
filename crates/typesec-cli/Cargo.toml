@@ -49,6 +49,7 @@ typesec-rbac = { version = "0.11.0", path = "../typesec-rbac" }
 typesec-odrl = { version = "0.11.0", path = "../typesec-odrl" }
 typesec-agent = { version = "0.11.0", path = "../typesec-agent" }
 tokio = { workspace = true }
+chrono = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -42,6 +42,8 @@ enum Commands {
     Run(commands::run::RunArgs),
     /// Front an MCP server, enforcing a policy on every tools/call.
     McpGate(commands::mcp_gate::McpGateArgs),
+    /// Re-evaluate a recorded decision log against an edited policy.
+    Replay(commands::replay::ReplayArgs),
 }
 
 #[tokio::main]
@@ -62,5 +64,6 @@ async fn main() -> Result<()> {
         Commands::Generate(args) => commands::generate::run(args),
         Commands::Run(args) => commands::run::run(args).await,
         Commands::McpGate(args) => commands::mcp_gate::run(args).await,
+        Commands::Replay(args) => commands::replay::run(args),
     }
 }
