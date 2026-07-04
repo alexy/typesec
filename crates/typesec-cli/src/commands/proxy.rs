@@ -12,8 +12,9 @@
 //!
 //! Chat Completions (`…/chat/completions`, OpenAI dialect) and Messages
 //! (`…/messages`, Anthropic dialect) are enforced; every other path is
-//! passed through untouched. Streaming responses are not yet supported on
-//! enforced paths: requests with `"stream": true` are rejected with 400.
+//! passed through untouched. Streaming (SSE) responses are enforced too:
+//! tool-call deltas are buffered and reassembled before the guard decides
+//! (see [`stream`]), while OpenAI text deltas stream through live.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -32,7 +33,9 @@ use typesec_core::policy::{RequestContext, SubjectId};
 use super::engine::{detect_format, load_engine, request_context};
 
 mod scrub;
+mod stream;
 use scrub::{filter_request_tools, scrub_response};
+use stream::scrub_stream;
 
 /// CLI arguments for `typesec proxy`.
 #[derive(Args)]
@@ -71,6 +74,22 @@ pub(crate) struct ProxyState {
     pub(crate) filter_tools: bool,
     upstream: String,
     client: reqwest::Client,
+}
+
+impl ProxyState {
+    /// Test-only constructor with a stub upstream/client (the scrub and
+    /// stream paths never touch the network).
+    #[cfg(test)]
+    pub(crate) fn for_test(guard: ToolCallGuard, subject: SubjectId, ctx: RequestContext) -> Self {
+        Self {
+            guard,
+            subject,
+            ctx,
+            filter_tools: false,
+            upstream: "http://unused".into(),
+            client: reqwest::Client::new(),
+        }
+    }
 }
 
 /// Which enforcement dialect a request path gets, if any.
@@ -150,14 +169,6 @@ async fn forward(
         (Some(codec), true) => {
             let mut request: Value =
                 serde_json::from_slice(&body).context("request body is not valid JSON")?;
-            if request.get("stream").and_then(Value::as_bool) == Some(true) {
-                return Ok((
-                    StatusCode::BAD_REQUEST,
-                    "typesec proxy does not yet enforce streaming responses; \
-                     set stream=false or use an unenforced path",
-                )
-                    .into_response());
-            }
             filter_request_tools(state, codec, &mut request);
             Bytes::from(serde_json::to_vec(&request)?)
         }
@@ -178,6 +189,10 @@ async fn forward(
 
     let status = upstream_response.status();
     let mut response_headers = upstream_response.headers().clone();
+    let is_sse = response_headers
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|ct| ct.contains("text/event-stream"));
     response_headers.remove(axum::http::header::CONTENT_LENGTH);
     response_headers.remove(axum::http::header::TRANSFER_ENCODING);
     let response_body = upstream_response
@@ -185,8 +200,13 @@ async fn forward(
         .await
         .context("failed to read upstream response")?;
 
-    // Scrub denied tool calls out of enforced JSON responses.
+    // Scrub denied tool calls out of enforced responses — SSE streams are
+    // reassembled and re-emitted; JSON bodies are rewritten in place.
     let response_body = match (enforced, status.is_success()) {
+        (Some(codec), true) if is_sse => {
+            let text = String::from_utf8_lossy(&response_body);
+            Bytes::from(scrub_stream(state, codec, &text).into_bytes())
+        }
         (Some(codec), true) => match serde_json::from_slice::<Value>(&response_body) {
             Ok(mut json) => {
                 scrub_response(state, codec, &mut json);

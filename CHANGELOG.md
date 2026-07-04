@@ -62,10 +62,14 @@ by release version, then by the date the logical change landed.
   `choices[*].message.tool_calls` / replaced `tool_use` blocks, with a
   visible `[typesec] blocked …` note; `finish_reason`/`stop_reason` restored
   when nothing remains). Enforced paths: `…/chat/completions` (openai) and
-  `…/messages` (anthropic); other paths pass through; `"stream": true` on
-  enforced paths is rejected with 400 (not yet supported). Pure scrub core
-  with 4 unit tests; verified end-to-end against a scripted upstream. New
-  axum dep in the CLI; bindings YAML shared with mcp-gate.
+  `…/messages` (anthropic); other paths pass through. **Streaming (SSE) is
+  enforced too**: the model's `tool_calls`/`tool_use` deltas are buffered and
+  reassembled before the guard decides (a call can't be judged before its
+  arguments arrive), while OpenAI text deltas stream through live; denied
+  calls are dropped/annotated and the stream is re-emitted in the framework's
+  own event shape. Pure scrub + stream cores with 8 unit tests; verified
+  end-to-end against scripted non-streaming and SSE upstreams. New axum dep in
+  the CLI; bindings YAML shared with mcp-gate.
 - **Core: lease attenuation** (§6 item): `Capability::attenuated(max_remaining)`
   derives a proof whose expiry is capped at `min(current, now + max_remaining)`
   — attenuation narrows, never widens. Pairs with the existing
