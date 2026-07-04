@@ -46,8 +46,11 @@ by release version, then by the date the logical change landed.
   #10) exposing `WasmGate` (subject/action/resource decisions) and
   `WasmToolGate` (the JS twin of Python's `ToolGate`: full binding manifest
   incl. arg globs and args_schema, `guard_json` over all five dialects,
-  `filter_tools`) via wasm-bindgen; builds for `wasm32-unknown-unknown`
-  (package with `wasm-pack build --target web|nodejs`). Enablers, useful on
+  `filter_tools`) via wasm-bindgen; builds for `wasm32-unknown-unknown`.
+  An npm package pipeline (`crates/typesec-wasm/build-npm.sh` →
+  `pkg/`, for `nodejs`/`web`/`bundler` targets, with a committed `smoke.mjs`
+  Node test and README; the generated `pkg/` is git-ignored) turns it into a
+  publishable `typesec-wasm` module. Enablers, useful on
   their own: `typesec-agent` dropped its runtime deps on
   tokio/futures/rbac/odrl (test-only now — the interop layer is
   engine-agnostic and async-free), `typesec-rbac` gained a `graph` feature

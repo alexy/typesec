@@ -319,9 +319,24 @@ implemented, each as its own green commit:
 | Capability attenuation | `Capability::attenuated(max_remaining)` (lease can only shrink) alongside the pre-existing `coerce` (permission attenuation, compile-fail-guarded) |
 | Conversation typestate | `Conversation<Proposed → AwaitingConsent → Consented>`: consent is a minted `Capability<CanDelegate, _>` over `conversation/<peer>`, not a boolean |
 
-Remaining known limitation: streaming enforcement in `typesec proxy` (SSE
-tool-call deltas need incremental scrubbing) and npm packaging of
-`typesec-wasm` (needs `wasm-pack` locally; the crate builds for wasm32).
+**Both former limitations are now closed:**
+
+- **Streaming enforcement in `typesec proxy`** — SSE responses are enforced:
+  OpenAI/Anthropic tool-call deltas are buffered and reassembled before the
+  guard decides (reusing the non-streaming scrub for the verdict), while
+  OpenAI text deltas stream through live; denied calls are dropped/annotated
+  and the stream is re-emitted in the framework's event shape. 4 stream unit
+  tests + an end-to-end SSE smoke.
+- **npm packaging of `typesec-wasm`** — `build-npm.sh` builds the wasm,
+  generates `nodejs`/`web`/`bundler` bindings into `pkg/`, writes a
+  `package.json`, and runs a committed `smoke.mjs` Node test (guard +
+  filter + decision, all verified green). `pkg/` is git-ignored; `npm
+  publish` from it ships the `typesec-wasm` module.
+
+**Also completed:** the sibling `../grust` WIP landed and compiles, so the
+three grust workspace deps have their `path` keys restored (local builds use
+the sibling checkout again). The entire FABLE-REVIEW-1 program is now
+implemented and verified.
 
 ---
 
