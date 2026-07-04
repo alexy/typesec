@@ -5,6 +5,31 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+## 0.12.0 — Torcello
+
+### 2026-07-04
+
+Codename **Torcello** — the fourth Venetian-landmark release (after Burano).
+**The agent-interoperability release.** Typesec grows from an in-process Rust
+capability model into a security *platform* other agent stacks plug into: a
+wire-level, deny-by-default tool-call guard for **OpenAI, Anthropic,
+LangChain, Pydantic AI, and MCP**, exposed to Rust, Python (the PyPI-ready
+`typesec` package), and — new — JavaScript/TypeScript via the `typesec-wasm`
+crate (workspace member #10). Ships the full FABLE-REVIEW-1 program: the
+`typesec_agent::interop` plane, the `typesec mcp-gate` / `typesec proxy`
+enforcement gateways (the proxy enforces streaming SSE too), signed decision
+receipts, JSON-Schema argument guards, an OpenTelemetry audit sink, policy
+decision logging + `typesec replay`, the `#[typesec_tool]` macro, capability
+lease attenuation, and a consent-handshake conversation typestate. Tracks
+**Grust 0.12.0 (Lobster)**. ~50 new tests (279 total, plus 16 Python).
+`FABLE-REVIEW-1.md` (repo root) is the full review and roadmap behind it.
+
+### 2026-07-04
+
+- **Grust 0.12.0 (Lobster):** bumped the `grust-graph`/`grust-cypher`/
+  `grust-sail` dependency constraints from `0.11.0` to `0.12.0`; the full
+  workspace verifies green against the new release.
+
 ### 2026-07-03
 
 - **Python: PyPI-ready `typesec` package** (P2 rest): `typesec-python` is now
