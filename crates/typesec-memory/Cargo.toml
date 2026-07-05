@@ -1,0 +1,28 @@
+[package]
+name = "typesec-memory"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Marciana: capability-secured, information-flow-typed memory for AI agents"
+
+[features]
+default = []
+# The Grust-backed bi-temporal knowledge-graph store. Off by default so the
+# vault core (and its guarantees) build everywhere, incl. wasm32.
+graph-memory = ["dep:typesec-rbac"]
+
+[dependencies]
+typesec-core = { version = "0.12.0", path = "../typesec-core" }
+# Only pulled in for the graph store; kept optional so the core has no engine dep.
+typesec-rbac = { version = "0.12.0", path = "../typesec-rbac", optional = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+typesec-rbac = { version = "0.12.0", path = "../typesec-rbac" }
+trybuild = "1"

@@ -9,6 +9,7 @@ members = [
     "crates/typesec-integrations",
     "crates/typesec-macro",
     "crates/typesec-cli",
+    "crates/typesec-memory",
     "crates/typesec-python",
     "crates/typesec-wasm",
 ]
