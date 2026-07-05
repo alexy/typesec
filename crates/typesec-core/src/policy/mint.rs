@@ -1,7 +1,9 @@
 //! Capability minting — the single gated path from a policy check to a proof.
 
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
+
+use crate::time::SystemTime;
 
 use crate::capability::{CapabilityRevocationList, DEFAULT_CAPABILITY_TTL, RevocationEpoch};
 use crate::{Capability, Permission, Resource, ResourceId};

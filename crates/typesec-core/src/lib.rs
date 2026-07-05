@@ -49,6 +49,7 @@ pub mod resource;
 pub mod role;
 pub mod secure_value;
 mod string_id;
+pub mod time;
 pub mod typestate;
 
 // Re-export the most important types at crate root.

@@ -60,3 +60,26 @@ if (!ok) {
   process.exit(1);
 }
 console.log("SMOKE OK");
+
+// Memory vault: remember → recall (ceiling redaction) → forget.
+const { WasmMemoryVault } = await import("./pkg/typesec_wasm.js");
+const memPolicy = `
+roles:
+  - name: keeper
+    permissions: [read, write, delete]
+    resources: ["memory/**"]
+assignments:
+  - subject: "agent:js"
+    roles: [keeper]
+`;
+const vault = new WasmMemoryVault(memPolicy, "rbac");
+const { id } = JSON.parse(vault.remember("agent:js", "memory/user:alice/profile", "likes wasm"));
+const mem = JSON.parse(vault.recall("agent:js", "memory/user:alice/profile"));
+const memPublic = JSON.parse(vault.recall("agent:js", "memory/user:alice/profile", null, "public"));
+const gone = JSON.parse(vault.forget("agent:js", "memory/user:alice/profile", [id]));
+console.log("memory:", mem.hits.length, "hit;", memPublic.redacted.length, "redacted at public;",
+            gone.forgotten.length, "forgotten");
+const memOk = mem.hits.length === 1 && memPublic.hits.length === 0 &&
+              memPublic.redacted.length === 1 && gone.forgotten.length === 1;
+if (!memOk) { console.error("MEMORY SMOKE FAILED"); process.exit(1); }
+console.log("MEMORY SMOKE OK");
