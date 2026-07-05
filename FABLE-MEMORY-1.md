@@ -420,32 +420,45 @@ graph selection, session control, path values) that §5.2's items pressure-test.
 3. The **seam decision** above (sync `MemoryStore`, bridge lives in
    `querygraph-memory`).
 
-**Tier 2 — the `querygraph-memory` crate (the main remaining work):**
+**Tier 2 — the `querygraph-memory` crate — DONE** (grust branch
+`fable/querygraph-memory`, 13 lib tests + a multi-tenant integration test,
+clippy clean):
 
-1. *Persistent, incremental `MemoryStore`* over real `GraphStore` backends:
-   records/entities as nodes, `MENTIONS`/`RELATES` edges written
-   incrementally (the in-tree `GrustMemoryStore` rebuilds its projection per
-   traversal — fine for reference, wrong at scale), traversal pushed down as
-   GQL instead of manual BFS.
-2. *Transactional consolidation*: supersede-and-relink as one atomic unit via
-   grust-cypher 0.12 transactions (`begin`/`add_statement`/commit;
-   `transactional_backends()` gates eligibility).
-3. *GQL recall library*: point-in-time (bi-temporal edge predicates) and
-   lineage queries as GQL library functions — doubling as the real-workload
-   pressure test for Lobster's index DDL (F1), graph type DDL (F2), and
-   named-graph selection (F4, one graph per vault for tenancy).
-4. *`SemanticIndex` at scale*: embedding pipeline + ANN over `grust-lancedb`,
-   hybrid BM25 + vector + graph-proximity ranking (Zep-style), honoring the
-   label-aware embedder-placement contract; `grust-cocoindex` for
-   export/ingest pipelines.
-5. *Cognition batch tier over sail*: entity resolution, community detection +
-   summaries (Graphiti-style), contradiction detection, importance/decay
-   scoring — sail jobs whose **only output is `ConsolidationPlan`s consumed
-   through the vault's front door**. Analytics never writes storage directly;
-   that invariant is what keeps labels, quarantine, and audit intact at scale.
-6. *Multi-tenant memory service*: one Grust cluster, many vaults, typesec
-   policies as the tenancy boundary; per-tenant `memory-serve` MCP frontends;
-   deletion receipts for the GDPR story; the conformance harness in CI.
+1. *Persistent, incremental `MemoryStore`* over any Grust `GraphMutationStore`
+   — **done.** `GraphStoreMemoryStore<G>`: records/entities as nodes,
+   `MENTIONS`/`RELATES` edges written incrementally; neighborhood recall via
+   `traverse`. Owns the sanctioned sync→async bridge (dedicated runtime,
+   scoped thread when already inside tokio — MCP-safe, tested). Passes the
+   full conformance corpus incl. graph reachability.
+2. *Transactional consolidation* — **done.** `MemoryStore::apply_batch`
+   (added to typesec-memory: `StoreBatchOp`, default sequential) maps the
+   whole supersede-and-relink plan to one grust `apply_mutations` call, atomic
+   on any backend that overrides it transactionally. The vault's
+   `consolidate` emits one batch; an end-to-end test supersedes over the
+   Grust backend with the SecLib join preserved.
+3. *Space-filter pushdown* — **done.** `query` starts from
+   `Start::NodesByProperty` on the record's `space` prop, so a scoped query is
+   pushed to the backend and never scans other tenants. (Fuller GQL
+   point-in-time/lineage pushdown remains a future optimization — correctness
+   is pinned by conformance today.)
+4. *Vector `SemanticIndex`* — **done.** `VectorIndex<E: Embedder>` with the
+   embedding-privacy rule **enforced by construction**: `Embedder::is_local`,
+   and above-`Internal` content is only ever embedded locally (a remote
+   embedder declines to index it — content never egresses). Cosine ranking +
+   an optional bounded hybrid graph re-rank (co-mentioned entities). LanceDB
+   ANN is now "supply an `Embedder` over `grust-lancedb`".
+5. *Cognition batch analytics* — **done.** `analytics`: dedup, contradiction
+   detection, decay/importance scoring — whose **only output is a
+   `ConsolidationPlan` applied through the vault front door**, never a direct
+   store write. End-to-end test runs a contradiction plan through the vault.
+   (Production swaps the bodies for grust-sail jobs; the contract is the
+   durable part.)
+6. *Multi-tenant isolation* — **done.** Integration test: one shared Grust
+   store behind two vaults, typesec policies as the tenancy boundary — a
+   tenant can neither mint a capability for nor point its own capability at
+   another tenant's spaces, despite records sharing one graph. The hosted
+   service (per-tenant `memory-serve` frontends, deletion-receipt GDPR flow,
+   conformance in CI) is now assembly of shipped parts.
 
 **Tier 3 — grust-core enablers (discover as tier 2 proceeds):**
 edge-property indexes tuned for bi-temporal window predicates, and exposing
