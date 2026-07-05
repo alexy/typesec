@@ -424,10 +424,28 @@ workspace member #11):
   and §5.1 the QueryGraph handoff spec. *Follow-on:* `OllamaExtractor`
   (local-model extraction) via `typesec-integrations`' `DidOllamaClient`.
 
-38 crate tests (all features) + 2 runnable examples; the whole workspace is
-315 tests green. Remaining follow-ons are the Python/MCP/WASM agent surfaces,
-the deeper grust GQL/transaction integration, and the Ollama extractor —
-tracked for the next cycle.
+**Follow-on wave (same branch): all agent surfaces + the Ollama extractor
+are now done too.**
+
+- **Python `MemoryGate`** — remember/recall/forget from Python, every op
+  minting its capability; clearance strings fail closed; denials raise
+  `PermissionError`. (typesec-python + unittest coverage.)
+- **`typesec memory-serve`** — Marciana as an MCP stdio server: initialize /
+  tools/list / tools/call, each call through guard-then-mint; denials are
+  `isError` results. Verified e2e over stdio. (Also fixed a real bug it
+  surfaced: CLI logs went to stdout, corrupting JSON-RPC streams — now
+  stderr.)
+- **`WasmMemoryVault`** — session-scoped secure memory for JS/edge agents;
+  verified from Node. (Enabler: `typesec_core::time` shims `web-time` on
+  wasm32, since `SystemTime::now()` panics on bare wasm.)
+- **`OllamaExtractor`** (`ollama` feature) — local-model extraction with a
+  strict JSON output contract (malformed output fails closed) and
+  episode-provenance drafts (the model cannot upgrade its own trust); raw
+  episodes never leave the box. Mock-HTTP tests, no network.
+
+42 crate tests (all features) + 2 runnable examples; 322 workspace tests
+green. Remaining deeper work: grust GQL query surface + transactional
+consolidation, and the `querygraph-memory` scale tier (§5.1).
 
 ## 7. Open questions
 

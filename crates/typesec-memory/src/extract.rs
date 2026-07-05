@@ -8,6 +8,11 @@
 //! extractor sees only what you feed it; a local one (Ollama) keeps sensitive
 //! episodes on-box.
 
+#[cfg(feature = "ollama")]
+pub mod ollama;
+#[cfg(feature = "ollama")]
+pub use ollama::OllamaExtractor;
+
 use crate::record::{MemoryContent, MemoryDraft, Provenance};
 use crate::space::MemoryKind;
 use crate::vault::{ConsolidationPlan, ConsolidationStep};
