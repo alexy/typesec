@@ -17,6 +17,16 @@ by release version, then by the date the logical change landed.
   and cognition hooks (`RuleExtractor` + local-model `OllamaExtractor`,
   fail-closed output contract). Fixes en route: CLI logs moved to stderr
   (JSON-RPC stdout corruption), `typesec_core::time` web-time shim for wasm.
+  **QueryGraph handoff prerequisites** (design §5.2 tier 1): the
+  `SemanticIndex` trait (ids-in/ids-out ranking with a documented
+  embedding-privacy contract — content above `Internal` never goes to a
+  remote embedder) + `KeywordIndex` reference impl, vault wiring
+  (`with_index` / `recall_semantic` behind the same label gate, best-effort
+  index maintenance on remember/forget/reap), and the `conformance` feature —
+  a versioned fixture corpus + `run_store_conformance` harness that both
+  reference stores pass in-tree, so "Marciana-compatible" is a test any
+  backend can run. Sync/async seam decided: `MemoryStore` stays sync; the
+  async-GraphStore bridge lives in `querygraph-memory`.
 
 - **Design: `FABLE-MEMORY-1.md` — Marciana**, a capability-secured AI memory
   subsystem (mem0/Zep/cognee-class, minus their security gap): memory spaces

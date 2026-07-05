@@ -508,3 +508,62 @@ fn purpose_binds_recall() {
         .unwrap();
     assert_eq!(support.hits.len(), 1);
 }
+
+#[test]
+fn semantic_recall_ranks_through_the_label_gate() {
+    use crate::index::KeywordIndex;
+    use std::sync::Arc;
+
+    let space = MemorySpace::new("user:alice", "semantic");
+    let vault = MemoryVault::new(InMemoryStore::new()).with_index(Arc::new(KeywordIndex::new()));
+    let write: Capability<CanWrite, _> = cap("agent:keeper", &space);
+    let read: Capability<CanRead, _> = cap("agent:keeper", &space);
+    let delete: Capability<CanDelete, _> = cap("agent:keeper", &space);
+
+    vault
+        .remember(
+            &space,
+            &write,
+            draft("Alice lives in Venice", Provenance::Operator),
+        )
+        .unwrap();
+    let secret_id = vault
+        .remember(
+            &space,
+            &write,
+            draft("Venice safehouse address", Provenance::Operator).with_label(Label::Sensitive),
+        )
+        .unwrap();
+    vault
+        .remember(&space, &write, draft("Bob likes tea", Provenance::Operator))
+        .unwrap();
+
+    // Internal ceiling: the Venice match is a hit, the Sensitive one is
+    // redacted, and the unrelated record isn't ranked at all.
+    let (hits, redacted) = vault
+        .recall_semantic(&space, &read, "venice", 10, Label::Internal)
+        .unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].content.text, "Alice lives in Venice");
+    assert_eq!(redacted.len(), 1);
+    assert_eq!(redacted[0].id, secret_id);
+
+    // Forget prunes the index: the sensitive record stops ranking entirely.
+    vault
+        .forget(&space, &delete, ForgetSelector::Ids(vec![secret_id]))
+        .unwrap();
+    let (_, redacted) = vault
+        .recall_semantic(&space, &read, "venice", 10, Label::Internal)
+        .unwrap();
+    assert!(redacted.is_empty(), "forgotten record no longer surfaces");
+
+    // Without an index attached, semantic recall is Unsupported.
+    let bare = MemoryVault::new(InMemoryStore::new());
+    let err = bare
+        .recall_semantic(&space, &read, "venice", 10, Label::Internal)
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        MemoryError::Store(crate::store::StoreError::Unsupported)
+    ));
+}

@@ -21,6 +21,7 @@ use typesec_core::{
 };
 
 use crate::error::MemoryError;
+use crate::index::SemanticIndex;
 use crate::label::{Clearance, Label};
 use crate::record::{MemoryContent, MemoryDraft, StoredRecord};
 use crate::space::{MemoryId, MemorySpace};
@@ -36,6 +37,7 @@ use crate::store::MemoryStore;
 pub struct MemoryVault<S: MemoryStore> {
     store: S,
     engine: Option<Arc<dyn PolicyEngine>>,
+    index: Option<Arc<dyn SemanticIndex>>,
 }
 
 impl<S: MemoryStore> MemoryVault<S> {
@@ -44,6 +46,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         Self {
             store,
             engine: None,
+            index: None,
         }
     }
 
@@ -54,6 +57,35 @@ impl<S: MemoryStore> MemoryVault<S> {
     pub fn with_policy(mut self, engine: Arc<dyn PolicyEngine>) -> Self {
         self.engine = Some(engine);
         self
+    }
+
+    /// Attach a [`SemanticIndex`]: `remember` feeds it, `forget`/`reap_expired`
+    /// prune it, and [`recall_semantic`][Self::recall_semantic] ranks with it.
+    /// Ranking upgrade only — the index returns ids and the vault's label
+    /// gate still decides what is revealed. Index failures are logged, never
+    /// fatal: a flaky index must not break memory itself.
+    #[must_use]
+    pub fn with_index(mut self, index: Arc<dyn SemanticIndex>) -> Self {
+        self.index = Some(index);
+        self
+    }
+
+    /// Best-effort index maintenance with a warn on failure.
+    fn index_record(&self, id: &MemoryId, label: Label, text: &str) {
+        if let Some(index) = &self.index
+            && let Err(err) = index.index(id, label, text)
+        {
+            tracing::warn!(%id, %err, "semantic index update failed");
+        }
+    }
+
+    /// Best-effort index pruning with a warn on failure.
+    fn unindex_record(&self, id: &MemoryId) {
+        if let Some(index) = &self.index
+            && let Err(err) = index.remove(id)
+        {
+            tracing::warn!(%id, %err, "semantic index removal failed");
+        }
     }
 
     /// Borrow the underlying store (read-only; bypasses no gates because the
@@ -119,6 +151,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         };
         let now = Utc::now();
         let id = MemoryId::next();
+        let text = draft.content.text.clone();
 
         let record = StoredRecord::assemble(
             id.clone(),
@@ -135,6 +168,7 @@ impl<S: MemoryStore> MemoryVault<S> {
             draft.content,
         );
         self.store.put(record)?;
+        self.index_record(&id, label, &text);
 
         audit(
             "memory:write",
@@ -273,6 +307,67 @@ impl<S: MemoryStore> MemoryVault<S> {
         Ok((hits, redacted))
     }
 
+    /// Semantic recall: rank record ids via the attached [`SemanticIndex`],
+    /// then apply the same label gate as every other recall path — the index
+    /// ranks, the vault reveals. Errors if no index is attached.
+    pub fn recall_semantic(
+        &self,
+        space: &MemorySpace,
+        cap: &Capability<CanRead, MemorySpace>,
+        query_text: &str,
+        limit: usize,
+        ceiling: Label,
+    ) -> Result<(Vec<RecalledMemory>, Vec<RedactedHit>), MemoryError> {
+        self.authorize(space, cap, &RequestContext::default())?;
+        let index = self
+            .index
+            .as_ref()
+            .ok_or(MemoryError::Store(crate::store::StoreError::Unsupported))?;
+        let ids = index.search(query_text, limit).map_err(|err| {
+            MemoryError::Store(crate::store::StoreError::Backend(err.to_string()))
+        })?;
+
+        let mut hits = Vec::new();
+        let mut redacted = Vec::new();
+        for id in ids {
+            let Ok(record) = self.fetch_in_space(space, &id) else {
+                continue; // other space, or already gone — the index only ranks
+            };
+            if record.invalid_at.is_some() || record.quarantined {
+                continue;
+            }
+            if record.label <= ceiling {
+                hits.push(RecalledMemory {
+                    id: record.id.clone(),
+                    kind: record.kind,
+                    label: record.label,
+                    content: record.content().clone(),
+                    entities: record.entities.clone(),
+                    provenance: record.provenance.clone(),
+                    valid_from: record.valid_from,
+                });
+            } else {
+                redacted.push(RedactedHit {
+                    id: record.id.clone(),
+                    kind: record.kind,
+                    label: record.label,
+                    entities: record.entities.clone(),
+                });
+            }
+        }
+        audit(
+            "memory:read_semantic",
+            cap.subject(),
+            space,
+            &format!(
+                "limit={limit} hits={} redacted={}",
+                hits.len(),
+                redacted.len()
+            ),
+        );
+        Ok((hits, redacted))
+    }
+
     /// Escalate one redacted hit to its content. Requires `CanReadSensitive`,
     /// which clears records up to `Sensitive`; `Secret` records remain sealed
     /// (they need a stronger authority than M1 models).
@@ -380,6 +475,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         for id in ids {
             // Only forget records actually in this space.
             if self.fetch_in_space(space, &id).is_ok() && self.store.tombstone(&id)? {
+                self.unindex_record(&id);
                 forgotten.push(id);
             }
         }
@@ -418,6 +514,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         let mut forgotten = Vec::new();
         for id in expired {
             if self.store.tombstone(&id)? {
+                self.unindex_record(&id);
                 forgotten.push(id);
             }
         }

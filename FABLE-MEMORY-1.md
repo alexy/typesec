@@ -373,6 +373,88 @@ The contract QueryGraph implements against, versioned with `typesec-memory`:
 - **Versioning:** `querygraph-memory` tracks `typesec-memory`'s minor version;
   a trait change is a minor bump in both, and the conformance fixtures carry
   a schema version so a backend can assert compatibility at build time.
+- **The sync/async seam (decided 2026-07-04):** `MemoryStore` stays
+  **synchronous** — the vault is sync, wasm-friendly, and its invariants are
+  easiest to audit without an executor in the loop. Grust's `GraphStore` is
+  `async_trait`, so `querygraph-memory` owns the bridge: each backend impl
+  holds a runtime handle and `block_on`s inside its `MemoryStore` methods.
+  One sanctioned bridge in one crate, not N ad-hoc ones.
+
+### 5.2 QueryGraph work plan (repo surveyed 2026-07-04)
+
+A survey of the grust repo sharpened the plan in three ways.
+
+**Naming:** the crate name `grust-memory` is **taken** — it is grust's
+deterministic *in-RAM `GraphStore` backend*, unrelated to AI memory. The AI
+memory tier is therefore `querygraph-memory`, unambiguous and product-scoped.
+
+**Substrate that already exists** (more than this design assumed): grust's
+async `GraphStore` trait with persistent backends (`grust-postgres`,
+`grust-falkor`, `grust-helix`, `grust-surreal`, `grust-turso`,
+`grust-pggraph`), **`grust-lancedb`** (LanceDB — a vector store — as a
+`GraphStore` backend, the natural ANN substrate), `grust-sail` (Spark
+Connect, the batch tier), and `grust-cocoindex` (target-state export
+pipelines). The 0.12 "Lobster" release adds the transaction surface and the
+Full39075 GQL completion (index DDL, graph type DDL, catalog metadata, named
+graph selection, session control, path values) that §5.2's items pressure-test.
+
+**Tier 1 — typesec-side prerequisites (this repo; done on `fable/memory`):**
+
+1. The **`SemanticIndex` trait** now exists (`typesec_memory::index`):
+   `index(id, label, text)` / `remove(id)` / `search(query, limit) -> ids`.
+   It is id-in/id-out — search can *rank*, only the vault *reveals* — and it
+   receives each record's `Label` so implementations can enforce the
+   embedding-privacy rule: content labeled above `Internal` must never be
+   sent to a remote embedder (open question #4, now a documented contract on
+   the trait). A deterministic `KeywordIndex` reference impl ships with it,
+   and `MemoryVault::with_index` + `recall_semantic` wire ranking into the
+   vault behind the same label gate as every other recall path.
+2. The **conformance suite** now ships: `typesec_memory::conformance`
+   (feature `conformance`) embeds a versioned JSON corpus + expected results
+   and runs any `MemoryStore` through query semantics (space/label/validity/
+   quarantine/purpose/entity/text), invalidate/tombstone behavior, and —
+   for graph stores — neighborhood reachability. `InMemoryStore` and
+   `GrustMemoryStore` both pass it in-tree; `querygraph-memory` runs the same
+   harness per backend in its CI. "Marciana-compatible" is now a test, not a
+   claim.
+3. The **seam decision** above (sync `MemoryStore`, bridge lives in
+   `querygraph-memory`).
+
+**Tier 2 — the `querygraph-memory` crate (the main remaining work):**
+
+1. *Persistent, incremental `MemoryStore`* over real `GraphStore` backends:
+   records/entities as nodes, `MENTIONS`/`RELATES` edges written
+   incrementally (the in-tree `GrustMemoryStore` rebuilds its projection per
+   traversal — fine for reference, wrong at scale), traversal pushed down as
+   GQL instead of manual BFS.
+2. *Transactional consolidation*: supersede-and-relink as one atomic unit via
+   grust-cypher 0.12 transactions (`begin`/`add_statement`/commit;
+   `transactional_backends()` gates eligibility).
+3. *GQL recall library*: point-in-time (bi-temporal edge predicates) and
+   lineage queries as GQL library functions — doubling as the real-workload
+   pressure test for Lobster's index DDL (F1), graph type DDL (F2), and
+   named-graph selection (F4, one graph per vault for tenancy).
+4. *`SemanticIndex` at scale*: embedding pipeline + ANN over `grust-lancedb`,
+   hybrid BM25 + vector + graph-proximity ranking (Zep-style), honoring the
+   label-aware embedder-placement contract; `grust-cocoindex` for
+   export/ingest pipelines.
+5. *Cognition batch tier over sail*: entity resolution, community detection +
+   summaries (Graphiti-style), contradiction detection, importance/decay
+   scoring — sail jobs whose **only output is `ConsolidationPlan`s consumed
+   through the vault's front door**. Analytics never writes storage directly;
+   that invariant is what keeps labels, quarantine, and audit intact at scale.
+6. *Multi-tenant memory service*: one Grust cluster, many vaults, typesec
+   policies as the tenancy boundary; per-tenant `memory-serve` MCP frontends;
+   deletion receipts for the GDPR story; the conformance harness in CI.
+
+**Tier 3 — grust-core enablers (discover as tier 2 proceeds):**
+edge-property indexes tuned for bi-temporal window predicates, and exposing
+LanceDB's ANN query surface beyond the plain `GraphStore` interface if it is
+not already reachable. Both will surface naturally from the GQL recall
+library.
+
+**Order:** tier 1 (done) → persistent store → transactions → GQL recall →
+lancedb ANN → sail analytics → service.
 
 ## 6. Implementation plan (next; each milestone green + changelogged)
 
@@ -443,9 +525,14 @@ are now done too.**
   episode-provenance drafts (the model cannot upgrade its own trust); raw
   episodes never leave the box. Mock-HTTP tests, no network.
 
-42 crate tests (all features) + 2 runnable examples; 322 workspace tests
-green. Remaining deeper work: grust GQL query surface + transactional
-consolidation, and the `querygraph-memory` scale tier (§5.1).
+**Tier-1 prerequisites (§5.2) also done:** the `SemanticIndex` trait +
+`KeywordIndex` reference impl, vault wiring (`with_index`, index-on-remember,
+prune-on-forget/reap, `recall_semantic` behind the label gate), and the
+`conformance` feature (versioned corpus + `run_store_conformance`, passed by
+both `InMemoryStore` and `GrustMemoryStore` in-tree). 48 crate tests (all
+features) + 2 runnable examples. Remaining work is QueryGraph-side per the
+§5.2 tiers: the `querygraph-memory` crate (persistent store, transactions,
+GQL recall, lancedb ANN, sail analytics, multi-tenant service).
 
 ## 7. Open questions
 

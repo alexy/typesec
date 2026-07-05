@@ -21,6 +21,10 @@ ollama = ["dep:typesec-integrations"]
 # The agent surface: guarded memory tool bindings + a router that turns
 # authorized memory tool calls into vault operations.
 agent = ["dep:typesec-agent"]
+# The backend conformance harness + versioned fixture corpus. Backend crates
+# (querygraph-memory) enable this in dev-dependencies and run
+# `conformance::run_store_conformance` against each store.
+conformance = []
 
 [dependencies]
 typesec-core = { version = "0.12.0", path = "../typesec-core" }

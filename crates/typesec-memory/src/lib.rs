@@ -53,8 +53,11 @@
 
 #[cfg(feature = "agent")]
 pub mod agent;
+#[cfg(feature = "conformance")]
+pub mod conformance;
 pub mod error;
 pub mod extract;
+pub mod index;
 pub mod label;
 #[cfg(feature = "receipts")]
 mod receipt;
@@ -65,6 +68,7 @@ pub mod vault;
 
 pub use error::MemoryError;
 pub use extract::{Episode, ExtractError, Extractor, MemorySummary, RuleExtractor};
+pub use index::{IndexError, KeywordIndex, SemanticIndex};
 pub use label::{Clearance, Label};
 pub use record::{EntityRef, MemoryContent, MemoryDraft, Provenance, StoredRecord};
 pub use space::{MemoryId, MemoryKind, MemorySpace};
