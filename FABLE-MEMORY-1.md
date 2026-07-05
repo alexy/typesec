@@ -343,6 +343,37 @@ The seam is clean because it's the seam we already operate: typesec-rbac
 defines the policy contract, grust supplies the graph. Marciana repeats the
 pattern one level up.
 
+### 5.1 QueryGraph handoff spec (`querygraph-memory`)
+
+The contract QueryGraph implements against, versioned with `typesec-memory`:
+
+- **Traits to implement:** `MemoryStore` (required) and `SemanticIndex`
+  (optional, for ANN/hybrid ranking). Both are `Send + Sync`, take
+  `StoredRecord`/`StoreQuery` by value/ref, and must **never** expose record
+  content (the field is crate-private in `typesec-memory`; QueryGraph stores
+  persist `StoredRecord` via its `Serialize`/`Deserialize` and hand it back
+  whole — the vault does all content access). The Grust reference store
+  (`GrustMemoryStore`, M4) is the conformance template.
+- **Invariants a backend must preserve** (checked by a shared conformance
+  suite QueryGraph runs): `query` honors every `StoreQuery` field with the
+  documented semantics (label ceiling, bi-temporal `valid_at`, quarantine,
+  purpose overlap); `invalidate` sets `invalid_at` without destroying;
+  `tombstone` destroys and returns existence; `neighborhood` returns only ids
+  reachable within `hops`. A backend that *widens* any filter fails the
+  suite.
+- **Fixtures:** `typesec-memory` ships (in `tests/`) a corpus of records +
+  expected `query`/`neighborhood` results as JSON; `querygraph-memory` runs
+  the same corpus. "Marciana-compatible" is thereby checkable.
+- **What QueryGraph adds on top** (not in the trait, layered beside it):
+  embedding pipelines feeding `SemanticIndex`, entity resolution and
+  community summaries as batch jobs over grust-sail that emit
+  `ConsolidationPlan`s back through the vault's front door, point-in-time and
+  lineage queries as GQL library functions, and the multi-tenant hosted
+  service (typesec policies as the tenancy boundary).
+- **Versioning:** `querygraph-memory` tracks `typesec-memory`'s minor version;
+  a trait change is a minor bump in both, and the conformance fixtures carry
+  a schema version so a backend can assert compatibility at build time.
+
 ## 6. Implementation plan (next; each milestone green + changelogged)
 
 - **M1 — vault core** (`typesec-memory`): `MemorySpace`, records, runtime
@@ -367,6 +398,36 @@ pattern one level up.
   conformance tests).
 
 Non-goals for this cycle: hosted service, embedding model training, UI.
+
+### Implementation status (2026-07-04, branch `fable/memory`)
+
+All five milestones landed as green, tested commits (`typesec-memory`,
+workspace member #11):
+
+- **M1 done** — `MemorySpace`/records/runtime `Label` + single rehydration
+  site (compile-fail-guarded), `MemoryVault` (remember/recall::<L>/reveal/
+  consolidate/forget), `InMemoryStore`, quarantine, provenance birth labels,
+  bi-temporal invalidation, audit.
+- **M2 done** — `with_policy` per-op ODRL re-check at use time, `reap_expired`
+  retention reaper, signed deletion receipts (`receipts` feature),
+  attenuated-delegation.
+- **M3 done (Rust surface)** — `memory_bindings()` + `MemoryToolRouter`
+  (`agent` feature): memory as guarded tool calls across all five dialects;
+  `recall_at` runtime-clearance path; `examples/memory_agent.rs`. *Follow-ons
+  still open:* Python `MemoryGate`, `typesec memory-serve` (MCP), WASM vault.
+- **M4 done** — `GrustMemoryStore` (`graph-memory` feature): record CRUD +
+  Grust entity graph, `neighborhood` BFS recall, `recall_neighborhood`
+  through the label gate. *Follow-ons:* full GQL query surface, transactional
+  consolidation on grust.
+- **M5 done** — `Extractor` trait + deterministic `RuleExtractor`,
+  `examples/memory_consolidation.rs` (learn → supersede, history preserved),
+  and §5.1 the QueryGraph handoff spec. *Follow-on:* `OllamaExtractor`
+  (local-model extraction) via `typesec-integrations`' `DidOllamaClient`.
+
+38 crate tests (all features) + 2 runnable examples; the whole workspace is
+315 tests green. Remaining follow-ons are the Python/MCP/WASM agent surfaces,
+the deeper grust GQL/transaction integration, and the Ollama extractor —
+tracked for the next cycle.
 
 ## 7. Open questions
 

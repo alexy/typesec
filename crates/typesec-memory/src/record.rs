@@ -161,6 +161,12 @@ impl MemoryDraft {
         self.purposes.extend(purposes.into_iter().map(Into::into));
         self
     }
+
+    /// The draft's text (read-only view for extractors and consolidation
+    /// planners deciding what supersedes what).
+    pub fn content_text(&self) -> &str {
+        &self.content.text
+    }
 }
 
 /// A record as it lives in a store: metadata is public, **content is not**.

@@ -51,7 +51,11 @@ fn main() {
     let verdict = guard.check(&reader, write_call, &ctx);
     println!(
         "reader tries to remember → {}",
-        if verdict.verdict.is_allowed() { "ALLOWED" } else { "DENIED (guard)" }
+        if verdict.verdict.is_allowed() {
+            "ALLOWED"
+        } else {
+            "DENIED (guard)"
+        }
     );
 
     // 2. The router: execute authorized calls against a vault.

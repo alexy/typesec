@@ -47,6 +47,10 @@ path = "../../examples/typedid_agent_communications.rs"
 name = "memory_agent"
 path = "../../examples/memory_agent.rs"
 
+[[example]]
+name = "memory_consolidation"
+path = "../../examples/memory_consolidation.rs"
+
 [dependencies]
 typesec-core = { version = "0.12.0", path = "../typesec-core" }
 typesec-rbac = { version = "0.12.0", path = "../typesec-rbac" }
