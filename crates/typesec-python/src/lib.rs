@@ -6,11 +6,13 @@ use pyo3::prelude::*;
 mod decision;
 mod engine;
 mod format;
+mod memorygate;
 mod toolgate;
 
 use decision::{Decision, check_policy, decision_from_result};
 use engine::{CompiledPolicyEngine, compile_policy};
 use format::PolicyFormat;
+use memorygate::MemoryGate;
 use toolgate::ToolGate;
 
 #[pyclass]
@@ -116,6 +118,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Decision>()?;
     m.add_class::<TypesecGate>()?;
     m.add_class::<ToolGate>()?;
+    m.add_class::<MemoryGate>()?;
     m.add_function(wrap_pyfunction!(check, m)?)?;
     m.add_function(wrap_pyfunction!(validate, m)?)?;
     Ok(())

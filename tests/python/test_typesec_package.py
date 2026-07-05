@@ -95,5 +95,52 @@ class ToolGatePackageTests(unittest.TestCase):
         self.assertEqual([t.name for t in kept], ["read_report"])
 
 
+
+@unittest.skipUnless(HAVE_NATIVE, "typesec native module not built (run maturin develop)")
+class MemoryGateTests(unittest.TestCase):
+    POLICY = """
+roles:
+  - name: keeper
+    permissions: [read, write, delete]
+    resources: ["memory/**"]
+assignments:
+  - subject: "agent:keeper"
+    roles: [keeper]
+"""
+
+    def setUp(self) -> None:
+        from typesec import MemoryGate
+
+        self.gate = MemoryGate(self.POLICY, "rbac")
+
+    def test_remember_recall_forget(self) -> None:
+        import json
+
+        mem_id = self.gate.remember(
+            "agent:keeper", "memory/user:alice/profile", "prefers dark mode"
+        )
+        recall = json.loads(
+            self.gate.recall("agent:keeper", "memory/user:alice/profile")
+        )
+        self.assertEqual([h["text"] for h in recall["hits"]], ["prefers dark mode"])
+
+        # Public clearance redacts the Internal-labeled record.
+        public = json.loads(
+            self.gate.recall(
+                "agent:keeper", "memory/user:alice/profile", clearance="public"
+            )
+        )
+        self.assertEqual(public["hits"], [])
+        self.assertEqual(len(public["redacted"]), 1)
+
+        self.assertEqual(
+            self.gate.forget("agent:keeper", "memory/user:alice/profile", [mem_id]),
+            [mem_id],
+        )
+
+    def test_denied_subject_raises_permission_error(self) -> None:
+        with self.assertRaises(PermissionError):
+            self.gate.remember("agent:stranger", "memory/user:alice/profile", "x")
+
 if __name__ == "__main__":
     unittest.main()

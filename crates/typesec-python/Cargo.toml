@@ -19,5 +19,6 @@ typesec-core = { version = "0.12.0", path = "../typesec-core" }
 typesec-rbac = { version = "0.12.0", path = "../typesec-rbac" }
 typesec-odrl = { version = "0.12.0", path = "../typesec-odrl" }
 typesec-agent = { version = "0.12.0", path = "../typesec-agent" }
+typesec-memory = { version = "0.12.0", path = "../typesec-memory", features = ["agent"] }
 pyo3 = { workspace = true }
 serde_json = { workspace = true }
