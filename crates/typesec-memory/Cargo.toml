@@ -12,11 +12,16 @@ default = []
 # The Grust-backed bi-temporal knowledge-graph store. Off by default so the
 # vault core (and its guarantees) build everywhere, incl. wasm32.
 graph-memory = ["dep:typesec-rbac"]
+# Signed, offline-verifiable deletion receipts (ed25519 via
+# typesec-integrations). Off by default to keep the core dependency-light.
+receipts = ["dep:typesec-integrations"]
 
 [dependencies]
 typesec-core = { version = "0.12.0", path = "../typesec-core" }
 # Only pulled in for the graph store; kept optional so the core has no engine dep.
 typesec-rbac = { version = "0.12.0", path = "../typesec-rbac", optional = true }
+# Only for the `receipts` feature.
+typesec-integrations = { version = "0.12.0", path = "../typesec-integrations", optional = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -25,4 +30,8 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 typesec-rbac = { version = "0.12.0", path = "../typesec-rbac" }
+typesec-odrl = { version = "0.12.0", path = "../typesec-odrl" }
+typesec-integrations = { version = "0.12.0", path = "../typesec-integrations" }
+ed25519-dalek = { workspace = true }
+chrono = { workspace = true }
 trybuild = "1"

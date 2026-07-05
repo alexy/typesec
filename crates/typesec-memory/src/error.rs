@@ -23,6 +23,16 @@ pub enum MemoryError {
     /// A referenced record does not exist (or is not in the target space).
     #[error("no such record '{0}' in this space")]
     NotFound(String),
+    /// A configured policy engine denied the operation under the current
+    /// request context (e.g. an ODRL purpose/time constraint failed at use
+    /// time), even though a matching capability was presented.
+    #[error("policy denied '{action}' at use time: {detail}")]
+    PolicyDenied {
+        /// The action that was denied.
+        action: &'static str,
+        /// The engine's rationale.
+        detail: String,
+    },
     /// A record was requested at a clearance below its label.
     #[error("record '{id}' is labeled {label} — above the recall ceiling {ceiling}")]
     AboveCeiling {

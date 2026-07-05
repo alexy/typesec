@@ -12,9 +12,13 @@ pub use types::{
     RecalledMemory, RedactedHit, Tombstone,
 };
 
-use chrono::Utc;
-use typesec_core::policy::{RequestContext, SubjectId};
-use typesec_core::{CanDelete, CanRead, CanReadSensitive, CanWrite, Capability, Resource};
+use std::sync::Arc;
+
+use chrono::{DateTime, Utc};
+use typesec_core::policy::{PolicyEngine, PolicyResult, RequestContext, SubjectId};
+use typesec_core::{
+    CanDelete, CanRead, CanReadSensitive, CanWrite, Capability, Permission, Resource,
+};
 
 use crate::error::MemoryError;
 use crate::label::{Clearance, Label};
@@ -23,14 +27,33 @@ use crate::space::{MemoryId, MemorySpace};
 use crate::store::MemoryStore;
 
 /// A capability-secured memory store.
+///
+/// An optional policy engine ([`with_policy`][Self::with_policy]) re-checks
+/// each operation against the request context *at use time* — so ODRL
+/// purpose/time constraints bind per query, not merely at capability-mint
+/// time. The capability is always the primary gate; the engine is defense in
+/// depth that can additionally enforce contextual rules.
 pub struct MemoryVault<S: MemoryStore> {
     store: S,
+    engine: Option<Arc<dyn PolicyEngine>>,
 }
 
 impl<S: MemoryStore> MemoryVault<S> {
-    /// Wrap a store.
+    /// Wrap a store with capability-only enforcement.
     pub fn new(store: S) -> Self {
-        Self { store }
+        Self {
+            store,
+            engine: None,
+        }
+    }
+
+    /// Additionally re-evaluate `engine` on every operation with the request
+    /// context — binds contextual ODRL constraints (purpose, time window) at
+    /// use time.
+    #[must_use]
+    pub fn with_policy(mut self, engine: Arc<dyn PolicyEngine>) -> Self {
+        self.engine = Some(engine);
+        self
     }
 
     /// Borrow the underlying store (read-only; bypasses no gates because the
@@ -39,13 +62,16 @@ impl<S: MemoryStore> MemoryVault<S> {
         &self.store
     }
 
-    /// Verify a capability covers `space` and is currently usable.
+    /// Verify a capability covers `space`, is usable, and — if a policy engine
+    /// is configured — that the engine still allows this `action` under `ctx`.
     fn authorize<P>(
+        &self,
         space: &MemorySpace,
         cap: &Capability<P, MemorySpace>,
+        ctx: &RequestContext,
     ) -> Result<(), MemoryError>
     where
-        P: typesec_core::Permission,
+        P: Permission,
     {
         if cap.resource_id().as_str() != space.resource_id() {
             return Err(MemoryError::SpaceMismatch {
@@ -54,6 +80,18 @@ impl<S: MemoryStore> MemoryVault<S> {
             });
         }
         cap.ensure_active()?;
+        if let Some(engine) = &self.engine {
+            let resource = typesec_core::ResourceId::from(space.resource_id());
+            match engine.check_with_context(cap.subject(), P::name(), &resource, ctx) {
+                PolicyResult::Allow => {}
+                other => {
+                    return Err(MemoryError::PolicyDenied {
+                        action: P::name(),
+                        detail: other.to_string(),
+                    });
+                }
+            }
+        }
         Ok(())
     }
 
@@ -66,7 +104,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         cap: &Capability<CanWrite, MemorySpace>,
         draft: MemoryDraft,
     ) -> Result<MemoryId, MemoryError> {
-        Self::authorize(space, cap)?;
+        self.authorize(space, cap, &RequestContext::default())?;
 
         let birth = draft.provenance.default_label();
         let quarantined = draft.provenance.is_untrusted();
@@ -117,7 +155,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         query: RecallQuery,
         ctx: &RequestContext,
     ) -> Result<Recall<L>, MemoryError> {
-        Self::authorize(space, cap)?;
+        self.authorize(space, cap, ctx)?;
 
         let purposes = ctx.purpose.iter().cloned().collect();
         let store_query = query.to_store_query(space.resource_id(), purposes);
@@ -170,7 +208,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         cap: &Capability<CanReadSensitive, MemorySpace>,
         id: &MemoryId,
     ) -> Result<MemoryContent, MemoryError> {
-        Self::authorize(space, cap)?;
+        self.authorize(space, cap, &RequestContext::default())?;
         let record = self.fetch_in_space(space, id)?;
         if record.label > Label::Sensitive {
             return Err(MemoryError::AboveCeiling {
@@ -193,7 +231,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         cap: &Capability<CanWrite, MemorySpace>,
         plan: ConsolidationPlan,
     ) -> Result<ConsolidationReport, MemoryError> {
-        Self::authorize(space, cap)?;
+        self.authorize(space, cap, &RequestContext::default())?;
         let now = Utc::now();
         let mut report = ConsolidationReport::default();
 
@@ -248,7 +286,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         cap: &Capability<CanDelete, MemorySpace>,
         selector: ForgetSelector,
     ) -> Result<Tombstone, MemoryError> {
-        Self::authorize(space, cap)?;
+        self.authorize(space, cap, &RequestContext::default())?;
         let ids = match selector {
             ForgetSelector::Ids(ids) => ids,
             ForgetSelector::Matching(query) => {
@@ -279,6 +317,43 @@ impl<S: MemoryStore> MemoryVault<S> {
             &format!("forgotten={}", forgotten.len()),
         );
         Ok(Tombstone { forgotten, at })
+    }
+
+    /// Retention reaper: forget every record in `space` whose retention
+    /// deadline has passed at `now`. Requires `CanDelete`. Run on a schedule
+    /// to enforce ODRL/GDPR retention windows; the removals are tombstoned
+    /// and audited exactly like [`forget`][Self::forget].
+    pub fn reap_expired(
+        &self,
+        space: &MemorySpace,
+        cap: &Capability<CanDelete, MemorySpace>,
+        now: DateTime<Utc>,
+    ) -> Result<Tombstone, MemoryError> {
+        self.authorize(space, cap, &RequestContext::default())?;
+        let mut store_query = crate::store::StoreQuery::in_space(space.resource_id());
+        store_query.include_invalidated = true;
+        store_query.include_quarantined = true;
+        let expired: Vec<MemoryId> = self
+            .store
+            .query(&store_query)?
+            .into_iter()
+            .filter(|r| r.is_expired_at(now))
+            .map(|r| r.id)
+            .collect();
+
+        let mut forgotten = Vec::new();
+        for id in expired {
+            if self.store.tombstone(&id)? {
+                forgotten.push(id);
+            }
+        }
+        audit(
+            "memory:reap",
+            cap.subject(),
+            space,
+            &format!("reaped={}", forgotten.len()),
+        );
+        Ok(Tombstone { forgotten, at: now })
     }
 
     /// Fetch a record and confirm it belongs to `space`.

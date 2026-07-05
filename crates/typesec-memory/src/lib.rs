@@ -53,6 +53,8 @@
 
 pub mod error;
 pub mod label;
+#[cfg(feature = "receipts")]
+mod receipt;
 pub mod record;
 pub mod space;
 pub mod store;

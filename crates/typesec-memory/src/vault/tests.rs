@@ -329,6 +329,148 @@ fn forget_is_destructive_and_scoped() {
 }
 
 #[test]
+fn retention_reaper_forgets_expired_records() {
+    use chrono::{TimeZone, Utc};
+    let space = MemorySpace::new("user:alice", "episodic");
+    let vault = vault();
+    let write: Capability<CanWrite, _> = cap("agent:keeper", &space);
+    let delete: Capability<CanDelete, _> = cap("agent:keeper", &space);
+    let read: Capability<CanRead, _> = cap("agent:keeper", &space);
+
+    let past = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
+    vault
+        .remember(
+            &space,
+            &write,
+            draft("ephemeral", Provenance::Operator).expires_at(past),
+        )
+        .unwrap();
+    vault
+        .remember(&space, &write, draft("durable", Provenance::Operator))
+        .unwrap();
+
+    let tomb = vault.reap_expired(&space, &delete, Utc::now()).unwrap();
+    assert_eq!(tomb.forgotten.len(), 1, "only the expired record is reaped");
+
+    let recall = vault
+        .recall::<Sensitive>(
+            &space,
+            &read,
+            RecallQuery::all(),
+            &RequestContext::default(),
+        )
+        .unwrap();
+    assert_eq!(recall.hits.len(), 1);
+    assert_eq!(recall.hits[0].content.text, "durable");
+}
+
+#[test]
+fn attenuated_delegation_hands_a_weaker_shorter_capability() {
+    use std::time::Duration;
+    let space = MemorySpace::new("user:alice", "profile");
+    let vault = vault();
+    let planner_write: Capability<CanWrite, _> = cap("agent:keeper", &space);
+    vault
+        .remember(
+            &space,
+            &planner_write,
+            draft("shared fact", Provenance::Operator),
+        )
+        .unwrap();
+
+    // A read cap the planner holds, coerced down the lattice and lease-capped
+    // before handing to a sub-agent for one short delegated recall.
+    let planner_read: Capability<CanRead, _> = cap("agent:keeper", &space);
+    let delegated: Capability<CanRead, _> = planner_read.attenuated(Duration::from_secs(300));
+
+    let recall = vault
+        .recall::<Sensitive>(
+            &space,
+            &delegated,
+            RecallQuery::all(),
+            &RequestContext::default(),
+        )
+        .unwrap();
+    assert_eq!(
+        recall.hits.len(),
+        1,
+        "sub-agent reads with the attenuated cap"
+    );
+    assert!(delegated.expires_at() <= planner_read.expires_at());
+}
+
+#[test]
+fn configured_policy_engine_binds_purpose_at_use_time() {
+    // An ODRL policy that only permits reading this space for the "support"
+    // purpose. The capability is minted (mint uses default ctx here via a
+    // permissive companion RBAC), then recall is re-checked per purpose.
+    let odrl = typesec_odrl::OdrlEngine::from_yaml(
+        r#"
+policies:
+  - uid: "policy:mem"
+    type: Set
+    rules:
+      - type: permission
+        assignee: "agent:keeper"
+        action: read
+        target: "memory/user:alice/profile"
+        constraints:
+          - leftOperand: purpose
+            operator: eq
+            rightOperand: "support"
+"#,
+    )
+    .expect("odrl parses");
+
+    let space = MemorySpace::new("user:alice", "profile");
+    // Seed with a permissive vault, then read through a policy-bound one.
+    let write: Capability<CanWrite, _> = cap("agent:keeper", &space);
+    let store = InMemoryStore::new();
+    MemoryVault::new(store)
+        .remember(&space, &write, draft("ticket note", Provenance::Operator))
+        .ok();
+
+    // Build a fresh vault sharing a store isn't trivial with owned stores;
+    // instead seed and read in one policy-bound vault via a permissive engine
+    // for the write and the ODRL engine for reads is not compositional here,
+    // so we assert the engine denies a wrong-purpose read directly.
+    let vault = MemoryVault::new(InMemoryStore::new()).with_policy(std::sync::Arc::new(odrl));
+    let seed_write: Capability<CanWrite, _> = cap("agent:keeper", &space);
+    // Writing needs `write`, which the ODRL policy doesn't grant → PolicyDenied.
+    let write_err = vault
+        .remember(&space, &seed_write, draft("x", Provenance::Operator))
+        .unwrap_err();
+    assert!(matches!(write_err, MemoryError::PolicyDenied { .. }));
+
+    // A read with the wrong purpose is denied; the right purpose is allowed
+    // (there are no records, but authorization is what we're testing).
+    let read: Capability<CanRead, _> = cap("agent:keeper", &space);
+    let denied = vault
+        .recall::<Sensitive>(
+            &space,
+            &read,
+            RecallQuery::all(),
+            &RequestContext::default(),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(denied, MemoryError::PolicyDenied { .. }),
+        "no purpose → denied"
+    );
+
+    let allowed = vault.recall::<Sensitive>(
+        &space,
+        &read,
+        RecallQuery::all(),
+        &RequestContext::default().with_purpose("support"),
+    );
+    assert!(
+        allowed.is_ok(),
+        "support purpose satisfies the ODRL constraint"
+    );
+}
+
+#[test]
 fn purpose_binds_recall() {
     let space = MemorySpace::new("user:alice", "profile");
     let vault = vault();
