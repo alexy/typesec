@@ -187,7 +187,11 @@ assignments:
             let id: String = gate
                 .call_method1(
                     "remember",
-                    ("agent:keeper", "memory/user:alice/profile", "likes espresso"),
+                    (
+                        "agent:keeper",
+                        "memory/user:alice/profile",
+                        "likes espresso",
+                    ),
                 )?
                 .extract()?;
             assert!(id.starts_with("mem-"));
@@ -202,7 +206,11 @@ assignments:
             let forgotten: Vec<String> = gate
                 .call_method1(
                     "forget",
-                    ("agent:keeper", "memory/user:alice/profile", vec![id.clone()]),
+                    (
+                        "agent:keeper",
+                        "memory/user:alice/profile",
+                        vec![id.clone()],
+                    ),
                 )?
                 .extract()?;
             assert_eq!(forgotten, vec![id]);

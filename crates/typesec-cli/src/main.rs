@@ -42,6 +42,8 @@ enum Commands {
     Run(commands::run::RunArgs),
     /// Front an MCP server, enforcing a policy on every tools/call.
     McpGate(commands::mcp_gate::McpGateArgs),
+    /// Serve capability-secured agent memory over MCP (stdio).
+    MemoryServe(commands::memory_serve::MemoryServeArgs),
     /// Re-evaluate a recorded decision log against an edited policy.
     Replay(commands::replay::ReplayArgs),
     /// Run an OpenAI/Anthropic-compatible enforcement proxy.
@@ -58,7 +60,12 @@ async fn main() -> Result<()> {
     } else {
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"))
     };
-    tracing_subscriber::fmt().with_env_filter(filter).init();
+    // Logs go to stderr: stdout is data/protocol (check --json, mcp-gate and
+    // memory-serve speak JSON-RPC over stdout — a log line there corrupts it).
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
 
     match cli.command {
         Commands::Validate(args) => commands::validate::run(args),
@@ -66,6 +73,7 @@ async fn main() -> Result<()> {
         Commands::Generate(args) => commands::generate::run(args),
         Commands::Run(args) => commands::run::run(args).await,
         Commands::McpGate(args) => commands::mcp_gate::run(args).await,
+        Commands::MemoryServe(args) => commands::memory_serve::run(args).await,
         Commands::Replay(args) => commands::replay::run(args),
         Commands::Proxy(args) => commands::proxy::run(args).await,
     }
