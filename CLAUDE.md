@@ -340,6 +340,14 @@ temporarily dropped (crates.io fallback) while `../grust` carried
 non-compiling WIP; the WIP landed and the path deps are restored
 (FABLE-REVIEW-1.md, F9).
 
+## Memory design (2026-07-04)
+
+`FABLE-MEMORY-1.md` (repo root) designs **Marciana** — capability-secured AI
+memory (labeled `SecureValue` contents, clearance-typed recall, quarantine vs.
+memory poisoning, ODRL retention, Grust bi-temporal knowledge graph, interop
+tool bindings). Planned crate: `typesec-memory`; scale tier lands in
+QueryGraph as `querygraph-memory`. Implementation milestones M1–M5 are in §6.
+
 ## Releases
 
 Versioning is `0.MINOR.0` (a minor bump per release; in 0.x, minor may include

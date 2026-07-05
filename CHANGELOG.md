@@ -5,6 +5,19 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+### 2026-07-04
+
+- **Design: `FABLE-MEMORY-1.md` — Marciana**, a capability-secured AI memory
+  subsystem (mem0/Zep/cognee-class, minus their security gap): memory spaces
+  as resources, capability-gated `MemoryVault` ops, SecLib-labeled contents
+  with clearance-typed `recall::<L>`, provenance-based quarantine against
+  memory poisoning, ODRL purpose/retention, audited tombstones + signed
+  deletion receipts, bi-temporal knowledge graph on Grust (0.12 transactions),
+  and agent access via the existing interop tool-call plane. Placement:
+  security core as `typesec-memory` (member #11); scale/cognition tier
+  (`SemanticIndex` at scale, entity resolution, community summaries) as
+  `querygraph-memory` in the QueryGraph stack. Implementation M1–M5 next.
+
 ## 0.12.0 — Torcello
 
 ### 2026-07-04
