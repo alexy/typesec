@@ -216,6 +216,63 @@ impl<S: MemoryStore> MemoryVault<S> {
         Ok((hits, redacted))
     }
 
+    /// Graph recall: find records in the knowledge-graph neighborhood of
+    /// `entity` (within `hops`), then apply the clearance ceiling exactly as
+    /// [`recall_at`][Self::recall_at] — the graph returns ids, the vault
+    /// returns content, so the store is never an authorization bypass.
+    /// Requires a store that supports `neighborhood` (the Grust backend).
+    pub fn recall_neighborhood(
+        &self,
+        space: &MemorySpace,
+        cap: &Capability<CanRead, MemorySpace>,
+        entity: &str,
+        hops: u8,
+        ceiling: Label,
+    ) -> Result<(Vec<RecalledMemory>, Vec<RedactedHit>), MemoryError> {
+        self.authorize(space, cap, &RequestContext::default())?;
+        let ids = self.store.neighborhood(entity, hops)?;
+
+        let mut hits = Vec::new();
+        let mut redacted = Vec::new();
+        for id in ids {
+            let Ok(record) = self.fetch_in_space(space, &id) else {
+                continue; // id from another space or already gone
+            };
+            if record.invalid_at.is_some() || record.quarantined {
+                continue;
+            }
+            if record.label <= ceiling {
+                hits.push(RecalledMemory {
+                    id: record.id.clone(),
+                    kind: record.kind,
+                    label: record.label,
+                    content: record.content().clone(),
+                    entities: record.entities.clone(),
+                    provenance: record.provenance.clone(),
+                    valid_from: record.valid_from,
+                });
+            } else {
+                redacted.push(RedactedHit {
+                    id: record.id.clone(),
+                    kind: record.kind,
+                    label: record.label,
+                    entities: record.entities.clone(),
+                });
+            }
+        }
+        audit(
+            "memory:read_graph",
+            cap.subject(),
+            space,
+            &format!(
+                "entity={entity} hops={hops} hits={} redacted={}",
+                hits.len(),
+                redacted.len()
+            ),
+        );
+        Ok((hits, redacted))
+    }
+
     /// Escalate one redacted hit to its content. Requires `CanReadSensitive`,
     /// which clears records up to `Sensitive`; `Secret` records remain sealed
     /// (they need a stronger authority than M1 models).

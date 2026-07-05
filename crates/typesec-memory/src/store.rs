@@ -17,6 +17,11 @@ use crate::space::{MemoryId, MemoryKind};
 pub mod memory;
 pub use memory::InMemoryStore;
 
+#[cfg(feature = "graph-memory")]
+pub mod grust;
+#[cfg(feature = "graph-memory")]
+pub use grust::GrustMemoryStore;
+
 /// A store operation failed.
 #[derive(Debug, Error)]
 pub enum StoreError {

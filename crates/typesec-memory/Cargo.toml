@@ -11,7 +11,7 @@ description = "Marciana: capability-secured, information-flow-typed memory for A
 default = []
 # The Grust-backed bi-temporal knowledge-graph store. Off by default so the
 # vault core (and its guarantees) build everywhere, incl. wasm32.
-graph-memory = ["dep:typesec-rbac"]
+graph-memory = ["dep:grust-graph"]
 # Signed, offline-verifiable deletion receipts (ed25519 via
 # typesec-integrations). Off by default to keep the core dependency-light.
 receipts = ["dep:typesec-integrations"]
@@ -21,8 +21,9 @@ agent = ["dep:typesec-agent"]
 
 [dependencies]
 typesec-core = { version = "0.12.0", path = "../typesec-core" }
-# Only pulled in for the graph store; kept optional so the core has no engine dep.
-typesec-rbac = { version = "0.12.0", path = "../typesec-rbac", optional = true }
+# Only for the `graph-memory` store; kept optional so the core stays lean and
+# wasm-buildable.
+grust-graph = { workspace = true, optional = true }
 # Only for the `receipts` feature.
 typesec-integrations = { version = "0.12.0", path = "../typesec-integrations", optional = true }
 # Only for the `agent` feature.
