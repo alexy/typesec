@@ -147,7 +147,9 @@ impl<S: MemoryStore> MemoryVault<S> {
 
     /// Recall into a context of clearance `L`. Records at or below `L` are
     /// returned in the clear; records above it come back as [`RedactedHit`]s.
-    /// The `RequestContext` purpose binds ODRL-style purpose filtering.
+    /// The `RequestContext` purpose binds ODRL-style purpose filtering. The
+    /// clearance rides on [`Recall`] as a type parameter, so recalls of
+    /// different sensitivity cannot be mixed.
     pub fn recall<L: Clearance>(
         &self,
         space: &MemorySpace,
@@ -155,13 +157,28 @@ impl<S: MemoryStore> MemoryVault<S> {
         query: RecallQuery,
         ctx: &RequestContext,
     ) -> Result<Recall<L>, MemoryError> {
+        let (hits, redacted) = self.recall_at(space, cap, query, ctx, L::ceiling())?;
+        Ok(Recall::new(hits, redacted))
+    }
+
+    /// Recall with a *runtime* clearance ceiling — the untyped path used at
+    /// the JSON tool-call boundary (a clearance string can't be a type
+    /// parameter). Prefer [`recall`][Self::recall] in Rust code, which keeps
+    /// the clearance in the type.
+    pub fn recall_at(
+        &self,
+        space: &MemorySpace,
+        cap: &Capability<CanRead, MemorySpace>,
+        query: RecallQuery,
+        ctx: &RequestContext,
+        ceiling: Label,
+    ) -> Result<(Vec<RecalledMemory>, Vec<RedactedHit>), MemoryError> {
         self.authorize(space, cap, ctx)?;
 
         let purposes = ctx.purpose.iter().cloned().collect();
         let store_query = query.to_store_query(space.resource_id(), purposes);
         let records = self.store.query(&store_query)?;
 
-        let ceiling = L::ceiling();
         let mut hits = Vec::new();
         let mut redacted = Vec::new();
         for record in records {
@@ -196,7 +213,7 @@ impl<S: MemoryStore> MemoryVault<S> {
                 redacted.len()
             ),
         );
-        Ok(Recall::new(hits, redacted))
+        Ok((hits, redacted))
     }
 
     /// Escalate one redacted hit to its content. Requires `CanReadSensitive`,

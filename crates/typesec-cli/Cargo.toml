@@ -43,6 +43,10 @@ path = "../../examples/did_messaging.rs"
 name = "typedid_agent_communications"
 path = "../../examples/typedid_agent_communications.rs"
 
+[[example]]
+name = "memory_agent"
+path = "../../examples/memory_agent.rs"
+
 [dependencies]
 typesec-core = { version = "0.12.0", path = "../typesec-core" }
 typesec-rbac = { version = "0.12.0", path = "../typesec-rbac" }
@@ -66,3 +70,4 @@ grust-graph = { workspace = true, features = ["memory"] }
 grust-cypher = { workspace = true }
 grust-sail = { workspace = true }
 typesec-integrations = { version = "0.12.0", path = "../typesec-integrations" }
+typesec-memory = { version = "0.12.0", path = "../typesec-memory", features = ["agent"] }

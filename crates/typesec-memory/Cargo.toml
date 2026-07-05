@@ -15,6 +15,9 @@ graph-memory = ["dep:typesec-rbac"]
 # Signed, offline-verifiable deletion receipts (ed25519 via
 # typesec-integrations). Off by default to keep the core dependency-light.
 receipts = ["dep:typesec-integrations"]
+# The agent surface: guarded memory tool bindings + a router that turns
+# authorized memory tool calls into vault operations.
+agent = ["dep:typesec-agent"]
 
 [dependencies]
 typesec-core = { version = "0.12.0", path = "../typesec-core" }
@@ -22,6 +25,8 @@ typesec-core = { version = "0.12.0", path = "../typesec-core" }
 typesec-rbac = { version = "0.12.0", path = "../typesec-rbac", optional = true }
 # Only for the `receipts` feature.
 typesec-integrations = { version = "0.12.0", path = "../typesec-integrations", optional = true }
+# Only for the `agent` feature.
+typesec-agent = { version = "0.12.0", path = "../typesec-agent", optional = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

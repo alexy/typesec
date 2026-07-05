@@ -51,6 +51,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs, clippy::all)]
 
+#[cfg(feature = "agent")]
+pub mod agent;
 pub mod error;
 pub mod label;
 #[cfg(feature = "receipts")]
