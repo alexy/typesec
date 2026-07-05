@@ -27,6 +27,11 @@ by release version, then by the date the logical change landed.
   reference stores pass in-tree, so "Marciana-compatible" is a test any
   backend can run. Sync/async seam decided: `MemoryStore` stays sync; the
   async-GraphStore bridge lives in `querygraph-memory`.
+  **Transactional consolidation:** `MemoryStore::apply_batch(ops)` (default
+  sequential, overridable) + `StoreBatchOp`; `MemoryVault::consolidate` now
+  emits one batch for the whole plan so a transactional backend never leaves
+  a half-merged memory (the SecLib label-join and index maintenance are
+  preserved). Verified: consolidation makes exactly one `apply_batch` call.
 
 - **Design: `FABLE-MEMORY-1.md` — Marciana**, a capability-secured AI memory
   subsystem (mem0/Zep/cognee-class, minus their security gap): memory spaces

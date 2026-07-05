@@ -126,6 +126,20 @@ impl StoreQuery {
     }
 }
 
+/// One write within an atomic [`apply_batch`](MemoryStore::apply_batch).
+#[derive(Debug, Clone)]
+pub enum StoreBatchOp {
+    /// Insert or replace a record.
+    Put(StoredRecord),
+    /// Invalidate a record at `at` (bi-temporal supersede).
+    Invalidate {
+        /// Record to invalidate.
+        id: MemoryId,
+        /// Invalidation instant.
+        at: DateTime<Utc>,
+    },
+}
+
 /// Opaque persistence for memory records. Graph capabilities are optional and
 /// default to [`StoreError::Unsupported`].
 pub trait MemoryStore: Send + Sync {
@@ -144,6 +158,22 @@ pub trait MemoryStore: Send + Sync {
     /// Hard-delete a record's content, leaving a tombstone the store may keep
     /// for audit. Returns whether a record existed.
     fn tombstone(&self, id: &MemoryId) -> Result<bool, StoreError>;
+
+    /// Apply a batch of writes.
+    ///
+    /// The default is **sequential and non-atomic** — a later failure leaves
+    /// earlier ops applied. Backends with transactions should override this to
+    /// apply the whole batch in one unit; the vault routes consolidation
+    /// (supersede-and-relink) through here so it is atomic where supported.
+    fn apply_batch(&self, ops: Vec<StoreBatchOp>) -> Result<(), StoreError> {
+        for op in ops {
+            match op {
+                StoreBatchOp::Put(record) => self.put(record)?,
+                StoreBatchOp::Invalidate { id, at } => self.invalidate(&id, at)?,
+            }
+        }
+        Ok(())
+    }
 
     /// Link two entities in the knowledge graph (graph stores only).
     fn link(

@@ -88,6 +88,48 @@ impl<S: MemoryStore> MemoryVault<S> {
         }
     }
 
+    /// Assemble a `StoredRecord` from a draft, resolving its label.
+    ///
+    /// `label_floor` raises the record to at least that level — used by
+    /// consolidation to enforce the SecLib join (a summary is at least as
+    /// sensitive as its sources). The untrusted-source rule still applies:
+    /// a quarantined draft can only *raise* above its birth floor.
+    fn build_record(
+        space: &MemorySpace,
+        draft: MemoryDraft,
+        label_floor: Option<Label>,
+    ) -> StoredRecord {
+        let birth = draft.provenance.default_label();
+        let quarantined = draft.provenance.is_untrusted();
+        // A trusted source's declared label is authoritative (it may set
+        // anything, including a lower level for genuinely public facts). An
+        // untrusted source may only *raise* above the floor — fail closed, so
+        // an injection can never talk its way down to Public.
+        let mut label = if quarantined {
+            draft.label.map_or(birth, |l| l.max(birth))
+        } else {
+            draft.label.unwrap_or(birth)
+        };
+        if let Some(floor) = label_floor {
+            label = label.max(floor);
+        }
+        let now = Utc::now();
+        StoredRecord::assemble(
+            MemoryId::next(),
+            space.resource_id().to_string(),
+            draft.kind,
+            label,
+            quarantined,
+            draft.entities,
+            draft.provenance,
+            now,
+            draft.valid_from.unwrap_or(now),
+            draft.expires_at,
+            draft.purposes,
+            draft.content,
+        )
+    }
+
     /// Borrow the underlying store (read-only; bypasses no gates because the
     /// store cannot read record content — that is the vault's private path).
     pub fn store(&self) -> &S {
@@ -137,35 +179,12 @@ impl<S: MemoryStore> MemoryVault<S> {
         draft: MemoryDraft,
     ) -> Result<MemoryId, MemoryError> {
         self.authorize(space, cap, &RequestContext::default())?;
-
-        let birth = draft.provenance.default_label();
-        let quarantined = draft.provenance.is_untrusted();
-        // A trusted source's declared label is authoritative (it may set
-        // anything, including a lower level for genuinely public facts). An
-        // untrusted source may only *raise* above the floor — fail closed, so
-        // an injection can never talk its way down to Public.
-        let label = if quarantined {
-            draft.label.map_or(birth, |l| l.max(birth))
-        } else {
-            draft.label.unwrap_or(birth)
-        };
-        let now = Utc::now();
-        let id = MemoryId::next();
-        let text = draft.content.text.clone();
-
-        let record = StoredRecord::assemble(
-            id.clone(),
-            space.resource_id().to_string(),
-            draft.kind,
-            label,
-            quarantined,
-            draft.entities,
-            draft.provenance,
-            now,
-            draft.valid_from.unwrap_or(now),
-            draft.expires_at,
-            draft.purposes,
-            draft.content,
+        let record = Self::build_record(space, draft, None);
+        let (id, label, quarantined, text) = (
+            record.id.clone(),
+            record.label,
+            record.quarantined,
+            record.content().text.clone(),
         );
         self.store.put(record)?;
         self.index_record(&id, label, &text);
@@ -403,35 +422,64 @@ impl<S: MemoryStore> MemoryVault<S> {
         self.authorize(space, cap, &RequestContext::default())?;
         let now = Utc::now();
         let mut report = ConsolidationReport::default();
+        // Every store write for the whole plan, applied as one unit so a
+        // transactional backend never leaves a half-merged memory. Index
+        // maintenance is deferred until the batch commits — the index is a
+        // ranking cache, not part of the atomic write.
+        let mut batch: Vec<crate::store::StoreBatchOp> = Vec::new();
+        let mut to_index: Vec<(MemoryId, Label, String)> = Vec::new();
+        let mut to_unindex: Vec<MemoryId> = Vec::new();
 
         for step in plan.steps {
             match step {
                 ConsolidationStep::Invalidate { ids } => {
                     for id in ids {
                         self.fetch_in_space(space, &id)?;
-                        self.store.invalidate(&id, now)?;
+                        batch.push(crate::store::StoreBatchOp::Invalidate {
+                            id: id.clone(),
+                            at: now,
+                        });
                         report.invalidated.push(id);
                     }
                 }
                 ConsolidationStep::Supersede {
                     superseded,
-                    mut replacement,
+                    replacement,
                 } => {
+                    // SecLib join: the summary is at least as sensitive as
+                    // every record it supersedes.
                     let mut join = Label::Public;
                     for id in &superseded {
-                        let record = self.fetch_in_space(space, id)?;
-                        join = join.join(record.label);
+                        join = join.join(self.fetch_in_space(space, id)?.label);
                     }
-                    // Raise the replacement to at least the join.
-                    replacement.label = Some(replacement.label.map_or(join, |l| l.max(join)));
                     for id in &superseded {
-                        self.store.invalidate(id, now)?;
+                        batch.push(crate::store::StoreBatchOp::Invalidate {
+                            id: id.clone(),
+                            at: now,
+                        });
                         report.invalidated.push(id.clone());
+                        to_unindex.push(id.clone());
                     }
-                    let created = self.remember(space, cap, replacement)?;
-                    report.created.push(created);
+                    let record = Self::build_record(space, replacement, Some(join));
+                    let (id, label, text) = (
+                        record.id.clone(),
+                        record.label,
+                        record.content().text.clone(),
+                    );
+                    batch.push(crate::store::StoreBatchOp::Put(record));
+                    to_index.push((id.clone(), label, text));
+                    report.created.push(id);
                 }
             }
+        }
+
+        self.store.apply_batch(batch)?;
+        // Post-commit index maintenance (best-effort, like remember/forget).
+        for id in &to_unindex {
+            self.unindex_record(id);
+        }
+        for (id, label, text) in &to_index {
+            self.index_record(id, *label, text);
         }
 
         audit(

@@ -567,3 +567,96 @@ fn semantic_recall_ranks_through_the_label_gate() {
         MemoryError::Store(crate::store::StoreError::Unsupported)
     ));
 }
+
+#[test]
+fn consolidation_batches_all_writes_atomically() {
+    // A custom store that counts apply_batch calls proves consolidation
+    // emits a *single* batch rather than interleaved put/invalidate calls.
+    use crate::store::{StoreBatchOp, StoreError, StoreQuery};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct CountingStore {
+        inner: InMemoryStore,
+        batches: AtomicUsize,
+    }
+    impl MemoryStore for CountingStore {
+        fn put(&self, r: StoredRecord) -> Result<(), StoreError> {
+            self.inner.put(r)
+        }
+        fn get(&self, id: &MemoryId) -> Result<Option<StoredRecord>, StoreError> {
+            self.inner.get(id)
+        }
+        fn query(&self, q: &StoreQuery) -> Result<Vec<StoredRecord>, StoreError> {
+            self.inner.query(q)
+        }
+        fn invalidate(
+            &self,
+            id: &MemoryId,
+            at: chrono::DateTime<chrono::Utc>,
+        ) -> Result<(), StoreError> {
+            self.inner.invalidate(id, at)
+        }
+        fn tombstone(&self, id: &MemoryId) -> Result<bool, StoreError> {
+            self.inner.tombstone(id)
+        }
+        fn apply_batch(&self, ops: Vec<StoreBatchOp>) -> Result<(), StoreError> {
+            self.batches.fetch_add(1, Ordering::Relaxed);
+            for op in ops {
+                match op {
+                    StoreBatchOp::Put(r) => self.inner.put(r)?,
+                    StoreBatchOp::Invalidate { id, at } => self.inner.invalidate(&id, at)?,
+                }
+            }
+            Ok(())
+        }
+    }
+
+    let space = MemorySpace::new("user:alice", "semantic");
+    let store = CountingStore {
+        inner: InMemoryStore::new(),
+        batches: AtomicUsize::new(0),
+    };
+    let vault = MemoryVault::new(store);
+    let write: Capability<CanWrite, _> = cap("agent:keeper", &space);
+    let read: Capability<CanRead, _> = cap("agent:keeper", &space);
+
+    let a = vault
+        .remember(
+            &space,
+            &write,
+            draft("likes coffee", Provenance::Operator).with_label(Label::Public),
+        )
+        .unwrap();
+    let b = vault
+        .remember(
+            &space,
+            &write,
+            draft("medical note", Provenance::Operator).with_label(Label::Sensitive),
+        )
+        .unwrap();
+
+    let plan = ConsolidationPlan::new().then(ConsolidationStep::Supersede {
+        superseded: vec![a, b],
+        replacement: draft("health summary", Provenance::Operator).with_label(Label::Public),
+    });
+    let report = vault.consolidate(&space, &write, plan).unwrap();
+    assert_eq!(report.invalidated.len(), 2);
+    assert_eq!(report.created.len(), 1);
+    assert_eq!(
+        vault.store().batches.load(Ordering::Relaxed),
+        1,
+        "one atomic batch, not 3 store calls"
+    );
+
+    // The summary was raised to Sensitive by the join — hidden at Public.
+    let public = vault
+        .recall::<Public>(
+            &space,
+            &read,
+            RecallQuery::all(),
+            &RequestContext::default(),
+        )
+        .unwrap();
+    assert!(public.hits.is_empty());
+    assert_eq!(public.redacted.len(), 1);
+}

@@ -72,7 +72,7 @@ pub use index::{IndexError, KeywordIndex, SemanticIndex};
 pub use label::{Clearance, Label};
 pub use record::{EntityRef, MemoryContent, MemoryDraft, Provenance, StoredRecord};
 pub use space::{MemoryId, MemoryKind, MemorySpace};
-pub use store::{InMemoryStore, MemoryStore, StoreError, StoreQuery};
+pub use store::{InMemoryStore, MemoryStore, StoreBatchOp, StoreError, StoreQuery};
 pub use vault::{
     ConsolidationPlan, ConsolidationReport, ConsolidationStep, ForgetSelector, MemoryVault, Recall,
     RecallQuery, RecalledMemory, RedactedHit, Tombstone,
