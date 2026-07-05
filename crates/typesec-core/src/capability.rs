@@ -36,7 +36,9 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
+
+use crate::time::SystemTime;
 
 use crate::{Permission, Resource, ResourceId, SubjectId};
 

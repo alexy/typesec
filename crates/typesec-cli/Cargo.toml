@@ -43,11 +43,20 @@ path = "../../examples/did_messaging.rs"
 name = "typedid_agent_communications"
 path = "../../examples/typedid_agent_communications.rs"
 
+[[example]]
+name = "memory_agent"
+path = "../../examples/memory_agent.rs"
+
+[[example]]
+name = "memory_consolidation"
+path = "../../examples/memory_consolidation.rs"
+
 [dependencies]
 typesec-core = { version = "0.12.0", path = "../typesec-core" }
 typesec-rbac = { version = "0.12.0", path = "../typesec-rbac" }
 typesec-odrl = { version = "0.12.0", path = "../typesec-odrl" }
 typesec-agent = { version = "0.12.0", path = "../typesec-agent" }
+typesec-memory = { version = "0.12.0", path = "../typesec-memory", features = ["agent"] }
 tokio = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }

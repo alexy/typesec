@@ -7,6 +7,27 @@ by release version, then by the date the logical change landed.
 
 ### 2026-07-04
 
+- **Marciana (branch `fable/memory`): `typesec-memory`** — capability-secured
+  AI memory per `FABLE-MEMORY-1.md`, M1–M5 plus all agent-surface follow-ons:
+  vault core (clearance-typed recall, quarantine, bi-temporal supersede,
+  compile-fail-guarded content privacy), policy depth (use-time ODRL binding,
+  retention reaper, signed deletion receipts), memory as guarded tool calls
+  (Rust router + Python `MemoryGate` + `typesec memory-serve` MCP server +
+  `WasmMemoryVault`), the Grust entity-graph store with neighborhood recall,
+  and cognition hooks (`RuleExtractor` + local-model `OllamaExtractor`,
+  fail-closed output contract). Fixes en route: CLI logs moved to stderr
+  (JSON-RPC stdout corruption), `typesec_core::time` web-time shim for wasm.
+  **QueryGraph handoff prerequisites** (design §5.2 tier 1): the
+  `SemanticIndex` trait (ids-in/ids-out ranking with a documented
+  embedding-privacy contract — content above `Internal` never goes to a
+  remote embedder) + `KeywordIndex` reference impl, vault wiring
+  (`with_index` / `recall_semantic` behind the same label gate, best-effort
+  index maintenance on remember/forget/reap), and the `conformance` feature —
+  a versioned fixture corpus + `run_store_conformance` harness that both
+  reference stores pass in-tree, so "Marciana-compatible" is a test any
+  backend can run. Sync/async seam decided: `MemoryStore` stays sync; the
+  async-GraphStore bridge lives in `querygraph-memory`.
+
 - **Design: `FABLE-MEMORY-1.md` — Marciana**, a capability-secured AI memory
   subsystem (mem0/Zep/cognee-class, minus their security gap): memory spaces
   as resources, capability-gated `MemoryVault` ops, SecLib-labeled contents

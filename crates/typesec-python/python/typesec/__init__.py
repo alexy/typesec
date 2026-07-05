@@ -11,11 +11,12 @@ every decision; this package is the Python face of it:
 - :mod:`typesec.adapters` — per-SDK helpers.
 """
 
-from ._native import Decision, ToolGate, TypesecGate, check, validate
+from ._native import Decision, MemoryGate, ToolGate, TypesecGate, check, validate
 from .report import GuardResult, ToolCallReport, guard
 
 __all__ = [
     "Decision",
+    "MemoryGate",
     "GuardResult",
     "ToolCallReport",
     "ToolGate",

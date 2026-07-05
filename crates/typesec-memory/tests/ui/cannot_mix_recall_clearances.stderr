@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/ui/cannot_mix_recall_clearances.rs:12:17
+   |
+12 |     only_public(sensitive);
+   |     ----------- ^^^^^^^^^ expected `Recall<Public>`, found `Recall<Sensitive>`
+   |     |
+   |     arguments to this function are incorrect
+   |
+   = note: expected struct `Recall<PublicLevel>`
+              found struct `Recall<typesec_core::Sensitive>`
+note: function defined here
+  --> tests/ui/cannot_mix_recall_clearances.rs:8:4
+   |
+ 8 | fn only_public(_: Recall<Public>) {}
+   |    ^^^^^^^^^^^ -----------------

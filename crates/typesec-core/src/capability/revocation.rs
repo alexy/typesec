@@ -10,11 +10,11 @@
 //! - [`CapabilityRevocationList`] — a set of individual [`CapabilityId`]s, for
 //!   revoking one minted proof without affecting other holders.
 
+use crate::time::SystemTime;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{PoisonError, RwLock};
-use std::time::SystemTime;
 
 use super::CapabilityId;
 

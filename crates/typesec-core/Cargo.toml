@@ -23,3 +23,7 @@ trybuild = "1"
 [[bench]]
 name = "policy_check"
 harness = false
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+# SystemTime that reads the JS clock on bare wasm (std's panics there).
+web-time = "1"

@@ -1,0 +1,5 @@
+error[E0616]: field `content` of struct `StoredRecord` is private
+ --> tests/ui/cannot_read_record_content.rs:9:27
+  |
+9 |     let _stolen = &record.content;
+  |                           ^^^^^^^ private field

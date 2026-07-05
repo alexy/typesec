@@ -36,7 +36,10 @@ use typesec_core::ResourceId;
 use typesec_core::policy::{PolicyEngine, PolicyResult, RequestContext, SubjectId};
 use wasm_bindgen::prelude::*;
 
-fn compile(policy_yaml: &str, format: &str) -> Result<Arc<dyn PolicyEngine>, String> {
+mod memory;
+pub use memory::WasmMemoryVault;
+
+pub(crate) fn compile(policy_yaml: &str, format: &str) -> Result<Arc<dyn PolicyEngine>, String> {
     match format {
         "rbac" => Ok(Arc::new(
             typesec_rbac::RbacEngine::from_yaml(policy_yaml)
@@ -56,11 +59,11 @@ fn dialect_or_err(name: &str) -> Result<&'static Dialect, String> {
     dialect(name).ok_or_else(|| unknown_dialect_message(name))
 }
 
-fn js_err(message: String) -> JsError {
+pub(crate) fn js_err(message: String) -> JsError {
     JsError::new(&message)
 }
 
-fn request_context(purpose: Option<String>) -> RequestContext {
+pub(crate) fn request_context(purpose: Option<String>) -> RequestContext {
     purpose.map_or_else(RequestContext::default, |purpose| {
         RequestContext::default().with_purpose(purpose)
     })
