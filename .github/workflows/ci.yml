@@ -30,7 +30,8 @@ jobs:
           # bump deliberately when the typesec/Grust contract changes. If
           # querygraph/grust is private, also pass a token with read access:
           #   token: ${{ secrets.GRUST_CHECKOUT_TOKEN }}
-          ref: cypher-gql-full
+          # typesec 0.12 (Torcello) tracks Grust 0.12 (Lobster), on main.
+          ref: main
 
       - name: Show toolchain (pinned by rust-toolchain.toml)
         working-directory: typesec
@@ -39,14 +40,15 @@ jobs:
           cargo --version
 
       # `cargo fmt --all` also reformats the Grust path dependency, so the fmt
-      # check is scoped to the typesec packages.
+      # check is scoped to the typesec packages. Keep this list in sync with
+      # the workspace `members` in Cargo.toml.
       - name: rustfmt
         working-directory: typesec
         run: >
           cargo fmt --check
           -p typesec-core -p typesec-rbac -p typesec-odrl -p typesec-agent
           -p typesec-integrations -p typesec-macro -p typesec-cli
-          -p typesec-python -p typesec
+          -p typesec-memory -p typesec-python -p typesec-wasm -p typesec
 
       - name: clippy
         working-directory: typesec
@@ -55,6 +57,21 @@ jobs:
       - name: test
         working-directory: typesec
         run: cargo test --workspace
+
+      # The default `--workspace` test only exercises typesec-memory's default
+      # features; run its full feature matrix (graph-memory, receipts, agent,
+      # ollama, conformance) so a feature-gated regression can't slip through.
+      - name: test typesec-memory (all features)
+        working-directory: typesec
+        run: cargo test -p typesec-memory --all-features
+
+      # typesec-wasm must keep cross-compiling to wasm32; the host `--workspace`
+      # build doesn't prove that. (Uses .cargo/config.toml's getrandom cfg.)
+      - name: wasm build
+        working-directory: typesec
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo build -p typesec-wasm --target wasm32-unknown-unknown
 
       # Run every Criterion benchmark once (no measurement) so a broken bench —
       # like the ODRL bench that used to panic on malformed YAML — fails CI
