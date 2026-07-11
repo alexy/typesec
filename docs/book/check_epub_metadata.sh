@@ -65,6 +65,16 @@ expected_title_pattern="$(regex_escape "$expected_title")"
 expected_stem="${expected_title% (*}"
 stable_epub="$dist_dir/$expected_stem.epub"
 version_marker="$dist_dir/VERSION.md"
+kindle_epub="$dist_dir/$(
+  awk -F: '
+    $1 == "epub_link" {
+      value = $2
+      sub(/^[[:space:]]*/, "", value)
+      print value
+      exit
+    }
+  ' "$version_marker"
+)"
 
 require_pattern "<dc:title[^>]*>$expected_title_pattern</dc:title>" "$opf" "missing dc:title"
 require_pattern "<meta[^>]*refines=\"#epub-title-1\"[^>]*property=\"file-as\"[^>]*>$expected_title_pattern</meta>" "$opf" "missing title sort metadata"
@@ -125,7 +135,7 @@ fi
 stem_pattern="$(regex_escape "$expected_stem")"
 require_pattern "^kindle_name: $expected_title_pattern$" "$version_marker" "VERSION.md missing Kindle name"
 require_pattern '^version_stamp: [0-9]+\.[0-9]+\.[0-9]+-[0-9a-z]+$' "$version_marker" "VERSION.md missing version stamp"
-require_pattern '^built_at: [0-9]{4}-[0-9]{2}-[0-9]{2}$' "$version_marker" "VERSION.md missing build date"
+require_pattern '^built_at: [0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)?$' "$version_marker" "VERSION.md missing build date"
 require_pattern "^epub_file: $(regex_escape "$(basename "$stable_epub")")$" "$version_marker" "VERSION.md missing stable EPUB filename"
 require_pattern "^pdf_file: ${stem_pattern}\.pdf$" "$version_marker" "VERSION.md missing stable PDF filename"
 require_pattern "^epub_link: ${stem_pattern} \(.+\)\.epub$" "$version_marker" "VERSION.md missing versioned EPUB link"

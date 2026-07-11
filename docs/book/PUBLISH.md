@@ -9,6 +9,7 @@ the TypeSec book in its current shape.
 - Cover source: `docs/book/cover.md`
 - EPUB metadata: `docs/book/metadata.yaml`
 - Build script: `docs/book/build.sh`
+- Shared configuration: `book.build.json`
 - EPUB layout fixer: `docs/book/fix_epub_layout.sh`
 - EPUB validator: `docs/book/check_epub_metadata.sh`
 - Final artifacts: `docs/book/dist/`
@@ -125,7 +126,13 @@ From the repository root:
 docs/book/build.sh
 ```
 
-The build script:
+The repository wrapper delegates to
+`~/src/firstpair/publishing/scripts/build-library-book.sh`. The checked-in
+`book.build.json` owns the TypeSec paths, Mermaid filter environment, EPUB
+layout repair hook, and local metadata validator; FirstPair owns rendering,
+versioned links, the complete manifest, and mandatory artifact verification.
+
+The shared build:
 
 1. Reads the workspace version from `Cargo.toml`.
 2. Reads `title_stem` from `docs/book/metadata.yaml`.

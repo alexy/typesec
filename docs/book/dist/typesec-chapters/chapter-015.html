@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov" />
+  <meta name="dcterms.date" content="2026-07-11" />
+  <title>Examples</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">Typesec</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">Typesec</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-016.html" accesskey="n" rel="next">Tests and Validation</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-014.html" accesskey="p" rel="previous">CLI</a>
+</span>
+</div>
+</nav>
+<h1 data-number="14" id="examples"><span
+class="header-section-number">14</span> Examples</h1>
+<p>Typesec includes examples at several layers: pure Rust RBAC, pure
+Rust ODRL, OAuth-provider integration, and company-graph integrations
+that show how an agent tool boundary might look in a larger system.</p>
+<h2 data-number="14.1" id="rbac-agent"><span
+class="header-section-number">14.1</span> RBAC Agent</h2>
+<p>The RBAC example shows an authenticated agent requesting a capability
+and then executing a protected action. The interesting part is not the
+business object. The interesting part is the call shape: the protected
+operation is not called until after policy has minted a capability.</p>
+<p>The example also demonstrates denial. An agent assigned to a role
+with read permissions cannot use a write permission unless the policy
+grants it.</p>
+<p>The updated RBAC example also demonstrates the SecLib-inspired data
+container. It protects a report summary as
+<code>SecureValue&lt;Sensitive, String, GenericResource&gt;</code>, maps
+it to a length digest while it remains opaque, denies declassification
+for the ordinary analyst, and then allows a
+<code>privacy_reviewer</code> role to declassify the digest after policy
+mints <code>Capability&lt;CanDeclassify, GenericResource&gt;</code>.</p>
+<h2 data-number="14.2" id="odrl-agent"><span
+class="header-section-number">14.2</span> ODRL Agent</h2>
+<p>The ODRL example demonstrates contextual policy. Purpose matters. A
+read for analytics may be allowed while a read for billing delegates or
+denies. An exfiltration action can be prohibited even if a different
+action on the same target is allowed.</p>
+<h2 data-number="14.3" id="oauth-provider-integrations"><span
+class="header-section-number">14.3</span> OAuth Provider
+Integrations</h2>
+<p>The provider integration example is the concrete demonstration of the
+Arcade and WorkOS architecture described above. It does not require live
+provider credentials. Instead, it uses <code>StaticHttpClient</code> to
+stand in for WorkOS and Arcade responses while still exercising the same
+policy-engine and capability-minting path.</p>
+<p>Run it with:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-p</span> typesec-cli <span class="at">--example</span> provider_integrations</span></code></pre></div>
+<p>The example composes three engines:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> engine <span class="op">=</span> <span class="pp">PolicyEngineBuilder::</span>new()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(jwt_claims)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(workos)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(arcade)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>strategy(<span class="pp">CombineStrategy::</span>PriorityOrder)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>build()<span class="op">;</span></span></code></pre></div>
+<p>The flow demonstrates three grants:</p>
+<pre class="text"><code>read org/acme              allowed from JWT claims
+write project/proj_123     delegated to mocked WorkOS FGA
+execute Gmail.ListEmails   delegated to mocked Arcade tool auth</code></pre>
+<p>The final step invokes a
+<code>ProtectedTool&lt;CanExecute, _, _&gt;</code>. That is the key
+piece of the example: after the provider engines allow the tool
+execution, Typesec still requires the local tool implementation to
+receive the typed execute capability before it can run.</p>
+<h2 data-number="14.4" id="company-graph-with-grust-and-sail"><span
+class="header-section-number">14.4</span> Company Graph with Grust and
+Sail</h2>
+<p>The company graph example is the most complete integration. It models
+a company hierarchy:</p>
+<pre class="text"><code>employee:evelyn CEO
+  &lt;- REPORTS_TO employee:priya VP Engineering
+      &lt;- REPORTS_TO employee:marco Engineering Manager
+          &lt;- REPORTS_TO employee:nia Senior Software Engineer
+          &lt;- REPORTS_TO employee:omar Data Engineer</code></pre>
+<p>The policy assigns different graph-writing powers to different
+agents:</p>
+<pre class="text"><code>agent:executive-chief   writes executive data, company graph, and sensitive network
+agent:hr-onboarding     writes non-executive employees and reporting lines
+agent:employee-nia      writes only Nia&#39;s public self-service profile</code></pre>
+<p>The Rust example uses the <code>grust</code> facade to build a
+backend-neutral property graph and to write the graph through the Sail
+adapter when a Sail SparkConnect server is available at
+<code>127.0.0.1:50051</code>. If Sail is not running, the example still
+demonstrates the Typesec decisions and prints the graph.</p>
+<p>The import shape is:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">grust::prelude::</span><span class="op">*;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">grust_sail::</span><span class="op">{</span>SailConfig<span class="op">,</span> SailGraphStore<span class="op">};</span></span></code></pre></div>
+<p>The prelude pulls in the core graph types; the Sail adapter types
+(<code>SailConfig</code>, <code>SailGraphStore</code>) come from the
+separate <code>grust-sail</code> crate.</p>
+<h2 data-number="14.5" id="python-langchain-style-tool-gating"><span
+class="header-section-number">14.5</span> Python LangChain-Style Tool
+Gating</h2>
+<p>The Python example is intentionally self-contained. It does not
+require LangChain to be installed and it does not call an LLM. Instead,
+it uses the shape of a LangChain tool wrapper:</p>
+<pre class="text"><code>tool call requested
+  -&gt; TypesecGate.allowed(subject, action, resource)
+  -&gt; cargo run -q -p typesec-cli -- check ...
+  -&gt; only then mutate the graph</code></pre>
+<p>This is a realistic integration boundary. Python agents can ask the
+Rust CLI for a policy decision before calling a tool. The Python code
+treats exit code <code>0</code> as allow and any nonzero exit code as
+blocked. A denied tool call raises <code>PermissionError</code> before
+the graph mutates.</p>
+<p>This is not as strong as Rust’s type-level API, because Python cannot
+enforce the same phantom-type proof. But it gives Python systems a
+practical, testable gate today.</p>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "$schema": "../firstpair/publishing/book.build.schema.json",
+  "schemaVersion": 1,
+  "bookRoot": "docs/book",
+  "manuscript": "docs/book/typesec.md",
+  "metadata": "docs/book/metadata.yaml",
+  "cover": "docs/book/cover.md",
+  "css": "docs/book/epub.css",
+  "stem": "typesec",
+  "version": {
+    "source": "cargo",
+    "file": "Cargo.toml"
+  },
+  "kindleName": "${stem} (${version})",
+  "dist": "docs/book/dist",
+  "buildDir": "docs/book/build/firstpair",
+  "edition": "full",
+  "primaryFormat": "typst",
+  "mobi": true,
+  "environment": {
+    "MERMAID_OUT": "${tmpDir}/diagrams",
+    "MERMAID_PUPPETEER": "${repoRoot}/docs/book/puppeteer-config.json"
+  },
+  "pandoc": {
+    "reader": "markdown+smart",
+    "tocDepth": 2,
+    "resourcePaths": ["${repoRoot}", "${tmpDir}", "${tmpDir}/diagrams"],
+    "commonArgs": ["--lua-filter", "${repoRoot}/docs/book/mermaid.lua"]
+  },
+  "html": {
+    "luaFilter": "docs/book/mermaid.lua",
+    "splitLevel": 1
+  },
+  "hooks": {
+    "prepare": "mkdir -p \"${tmpDir}/diagrams\"",
+    "postEpub": "docs/book/fix_epub_layout.sh \"${epub}\" \"${kindleName}\""
+  },
+  "validators": [
+    "docs/book/check_epub_metadata.sh \"${distDir}/${stem}.epub\" \"${kindleName}\""
+  ]
+}

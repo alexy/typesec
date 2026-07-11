@@ -5,6 +5,12 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+### 2026-07-11
+
+- Unified the book build with FirstPair's pinned Pandoc/Typst toolchain,
+  machine-readable `book.build.json`, shared HTML/chapter generation, complete
+  `VERSION.md`, and mandatory rendered PDF plus EPUB/HTML verification.
+
 ### 2026-07-04
 
 - **Marciana (branch `fable/memory`): `typesec-memory`** — capability-secured

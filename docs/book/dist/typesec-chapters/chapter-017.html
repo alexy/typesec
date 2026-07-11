@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov" />
+  <meta name="dcterms.date" content="2026-07-11" />
+  <title>What We Improved</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">Typesec</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">Typesec</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-018.html" accesskey="n" rel="next">Design Tradeoffs</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-016.html" accesskey="p" rel="previous">Tests and Validation</a>
+</span>
+</div>
+</nav>
+<h1 data-number="16" id="what-we-improved"><span
+class="header-section-number">16</span> What We Improved</h1>
+<p>The archived improvement notes in
+<code>docs/completed/improvements.md</code> record a useful snapshot of
+the early engineering work.</p>
+<p>The workspace was upgraded to Rust 2024. Compiler failures were fixed
+across lattice tests, proc-macro parsing, examples, and doctests. Clippy
+was made to pass across all targets by tightening APIs, deriving
+defaults, documenting public ODRL fields, and applying
+simplifications.</p>
+<p>The audit integration test was stabilized with a global capture
+subscriber for the test binary. That avoids a racy thread-local
+subscriber and makes the audit story more credible.</p>
+<p>Python smoke tests were added around <code>typesec check</code>,
+giving non-Rust agent wrappers a low-friction test path.</p>
+<p>The company graph examples were added to show Typesec at an
+application boundary, not just inside small unit tests. The Rust version
+proves the typed capability story with Grust. The Python version proves
+that the CLI can gate side-effecting tools in a LangChain-like
+shape.</p>
+<p>The provider integration layer was added to show how Typesec fits
+under OAuth-based systems instead of replacing them.
+<code>JwtAuthenticator</code>, <code>JwtClaimsEngine</code>,
+<code>WorkOsFgaEngine</code>, and <code>ArcadeToolAuthEngine</code> all
+feed the same <code>PolicyEngine</code> boundary.
+<code>ProtectedTool</code> then demonstrates the local last mile:
+provider authorization is not merely observed; it becomes a typed
+capability required by the handler.</p>
+<p>The new comparison document,
+<code>docs/typesec-and-auth-frameworks.md</code>, explains the strategic
+position: WorkOS handles enterprise identity and resource authorization,
+Arcade handles agent-oriented SaaS tool authorization, and Typesec makes
+the resulting local authority impossible to forget at the call site.</p>
+<p>The Grust dependency was bumped to the 0.11 line (codename Crab).
+Grust is published on crates.io, and the workspace pins each Grust crate
+with both a <code>version</code> and a local <code>path</code>
+(<code>../grust</code>): a checkout with a sibling Grust working copy
+builds against it, while the published <code>version</code> resolves for
+crates.io builds and when Typesec itself is published — see the
+Workspace Tour.</p>
+<p>A security review pass then hardened the runtime half of the system
+to match what the type-level half advertises. <code>SecureValue</code>
+stopped deriving <code>Debug</code> and <code>PartialEq</code>, so
+protected data cannot leak through logging or serve as an equality
+oracle. Capabilities became instance-bound at every consumption site:
+<code>reveal</code>, <code>declassify</code>, and <code>execute</code>
+compare the capability’s resource id and subject against the value or
+agent actually in hand. The typestate transition gained a real trust
+root through the <code>Authenticator</code> trait, with the unverified
+path renamed to say what it is. The demo DID cryptography moved behind a
+<code>demo-crypto</code> feature, replaced in production by an Ed25519
+key store with X25519 agreement and ChaCha20-Poly1305 sealing.
+Capabilities became short-lived leases.</p>
+<p>A follow-up pass finished the remaining items. Capabilities gained
+configurable TTLs through <code>MintOptions</code> and mid-lease
+revocation through <code>RevocationEpoch</code>. Bearer secrets moved
+into the <code>Token</code> newtype, which redacts itself from
+<code>Debug</code> the same way <code>SecureValue</code> does. The async
+agent now awaits the async policy surface; synchronous engines keep the
+default adapter, and I/O-bound engines can override it to avoid blocking
+the executor. The unmaintained <code>serde_yaml</code> dependency was
+replaced by the API-compatible <code>serde_norway</code> fork via a
+package rename, and <code>thiserror</code> moved to major version 2.</p>
+<h2 data-number="16.1" id="rialto-0.9.0"><span
+class="header-section-number">16.1</span> Rialto (0.9.0)</h2>
+<p>The Rialto release — the first of a Venetian-landmark release line —
+is a workspace-wide pass for human reviewability and a round of security
+and correctness hardening. Every Rust source file was brought under
+roughly four hundred lines: the 2,635-line DID module became an
+eleven-file <code>did/</code> directory, the policy engine, combinators,
+secure values, and the graph-policy engine were split along their
+natural seams, and every unit-test module moved into its own file.
+Duplicated logic was consolidated — eight combinator strategy functions
+became one accumulator, four role-inheritance traversals became one
+walker, and the WorkOS and Arcade providers now share a single HTTP
+shell.</p>
+<p>On the security side, DID envelopes now sign the <code>kid</code> and
+<code>nonce</code>, the gateway rejects replays and implausibly
+future-dated envelopes, the negotiated payload cap is enforced, and the
+encrypted payload is bound to its envelope identity as ChaCha20-Poly1305
+associated data. The ODRL audit trail was completed: a rule that matches
+but fails a constraint now emits a <code>ConstraintFailed</code> event
+instead of vanishing, and every matched permission is recorded. The CLI
+<code>run</code> command now reflects its decision in the exit code, and
+a GitHub Actions pipeline runs formatting, clippy, tests, and a
+benchmark smoke step on every change.</p>
+<h2 data-number="16.2" id="murano-0.10.0"><span
+class="header-section-number">16.2</span> Murano (0.10.0)</h2>
+<p>The Murano release — the second Venetian landmark in the line —
+tracks the Grust <strong>0.11.0 (Crab)</strong> dependency. The upgrade
+is source-compatible: the workspace builds and the full test suite
+passes with no changes to the typesec crates, so Murano is a
+dependency-tracking and version-bump release. The codename pool and the
+release-cutting checklist now live in <code>RELEASES.md</code>.</p>
+<h2 data-number="16.3" id="burano-0.11.0"><span
+class="header-section-number">16.3</span> Burano (0.11.0)</h2>
+<p>The Burano release — the third Venetian landmark — is a
+workspace-wide quality, DRY, and test-coverage pass (the codebase was
+already free of monolithic files), adding roughly forty tests. Glob
+matching, previously reimplemented three times across the RBAC, graph,
+and ODRL engines with subtly different wildcard semantics, was unified
+into a single <code>typesec_core::glob::GlobPattern</code>; ODRL now
+compiles each rule’s target once at load rather than on every check.
+This carries one <strong>behavior change</strong>: a single
+<code>*</code> in a subject, resource, or target pattern no longer
+crosses <code>/</code> separators, so <code>reports/*</code> grants
+<code>reports/q1</code> but not <code>reports/2024/q1</code> (use
+<code>reports/**</code>) — the safer authorization default, and the
+semantics the documentation already described. The graph engine now
+cross-checks every loaded policy graph against the declarative company
+schema using Grust 0.11’s <code>GraphSchema::validate_graph</code>, so
+the schema and the graph can no longer silently drift. JWT verification
+was hardened to never seed its validator from the token’s own
+<code>alg</code> header, and the public error types
+(<code>CapabilityError</code>, <code>AgentError</code>,
+<code>TaskError</code>) are now nameable by callers.</p>
+</body>
+</html>

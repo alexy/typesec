@@ -9,3 +9,5 @@ __pycache__/
 .venv/
 docs/book/dist/* (*).epub
 docs/book/dist/* (*).pdf
+docs/book/dist/* (*).html
+docs/book/dist/* (*)-chapters

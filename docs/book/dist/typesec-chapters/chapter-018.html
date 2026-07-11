@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov" />
+  <meta name="dcterms.date" content="2026-07-11" />
+  <title>Design Tradeoffs</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">Typesec</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">Typesec</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-019.html" accesskey="n" rel="next">Roadmap</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-017.html" accesskey="p" rel="previous">What We Improved</a>
+</span>
+</div>
+</nav>
+<h1 data-number="17" id="design-tradeoffs"><span
+class="header-section-number">17</span> Design Tradeoffs</h1>
+<p>Typesec deliberately separates runtime policy from compile-time
+proof. This is a tradeoff.</p>
+<p>Putting all policy in types would be too rigid. Real policies come
+from YAML, databases, admin consoles, customer configuration, and
+external governance systems. They change without recompiling the
+application.</p>
+<p>Leaving all policy at runtime is too easy to bypass. A forgotten
+guard can become a production vulnerability.</p>
+<p>Typesec’s compromise is:</p>
+<pre class="text"><code>runtime policy decides
+typed capability proves the decision happened
+protected APIs require the proof</code></pre>
+<p>Another tradeoff is that capabilities prove a decision at mint time.
+They now carry a short lease, and capabilities minted with a
+<code>RevocationEpoch</code> can be invalidated immediately when
+governance changes — <code>revoke_all()</code> kills every outstanding
+proof minted before the bump. Capabilities can also be bound to a
+<code>CapabilityRevocationList</code> for exact single-proof revocation.
+What remains unmodeled is <em>distributed</em> revocation: the epoch is
+an in-process counter, so a fleet of agents sharing one policy service
+still needs a propagation story (a shared CRL, a policy-version claim, a
+shared epoch service, or capability re-validation against the engine)
+before revocation is truly global.</p>
+<p>The CLI is one of two Python boundaries, and choosing between them is
+a pragmatic tradeoff. Rust code gets the strongest type-level story.
+Python code can either shell out to <code>typesec check --json</code> (a
+subprocess oracle: weaker, but trivial to sandbox, inspect, and test) or
+link the in-process <code>typesec-python</code> PyO3 extension
+(<code>typesec_native</code>), which is a built workspace crate, not a
+hypothetical — see the Macros/CLI and Python example sections.</p>
+<p>The Grust integration also records a naming tradeoff. The package is
+named <code>grust-graph</code>, but it exposes the facade library as
+<code>grust</code>, so examples can keep the natural
+<code>use grust::prelude::*</code> shape.</p>
+<p>The graph-policy example now uses two validation boundaries. Zod
+validates author-facing YAML and JSON before the policy graph is built.
+Grust’s <code>GraphSchema</code> validates backend writes through
+<code>put_typed_graph</code>, so the same <code>Agent</code>,
+<code>Role</code>, <code>Employee</code>, <code>HAS_ROLE</code>, and
+<code>REPORTS_TO</code> model protects both policy loading and graph
+persistence.</p>
+<p>The OAuth provider integration records a different tradeoff. Typesec
+should not be a token vault, a hosted IdP, or a full MCP runtime. The
+integration crate therefore uses small provider-specific policy engines
+and injectable HTTP clients. That keeps provider decisions at the edge
+while preserving the core invariant: only an allow through
+<code>PolicyEngine</code> can mint the capability that local code
+requires.</p>
+<p>The new <code>SecureValue</code> API is another compromise. It brings
+information-flow style labeled data into the Rust workspace without
+pretending to be a full language-level IFC system. The type-level
+<code>Join</code> lattice is intentionally small and sealed. That keeps
+the model reviewable, while still giving examples a real opaque value
+that can be transformed before explicit reveal or declassification.</p>
+</body>
+</html>

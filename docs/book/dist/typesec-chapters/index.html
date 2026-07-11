@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov" />
+  <meta name="dcterms.date" content="2026-07-11" />
+  <title>Typesec</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+</span>
+<span class="navlink">
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-001.html" accesskey="n" rel="next">Typesec</a>
+</span>
+<span class="navlink">
+</span>
+</div>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Typesec</h1>
+<p class="subtitle">Type-Level Security for Agentic AI</p>
+<p class="author">Alexy Khrabrov</p>
+<p class="date">2026-07-11</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="chapter-002.html#preface" id="toc-preface"><span
+class="toc-section-number">1</span> Preface</a></li>
+<li><a href="chapter-003.html#the-problem" id="toc-the-problem"><span
+class="toc-section-number">2</span> The Problem</a></li>
+<li><a href="chapter-004.html#the-security-model"
+id="toc-the-security-model"><span class="toc-section-number">3</span>
+The Security Model</a></li>
+<li><a href="chapter-005.html#architecture-at-a-glance"
+id="toc-architecture-at-a-glance"><span
+class="toc-section-number">4</span> Architecture at a Glance</a></li>
+<li><a href="chapter-006.html#workspace-tour"
+id="toc-workspace-tour"><span class="toc-section-number">5</span>
+Workspace Tour</a></li>
+<li><a href="chapter-007.html#typesec-core" id="toc-typesec-core"><span
+class="toc-section-number">6</span> <code>typesec-core</code></a>
+<ul>
+<li><a href="chapter-007.html#capabilities" id="toc-capabilities"><span
+class="toc-section-number">6.1</span> Capabilities</a></li>
+<li><a href="chapter-007.html#permissions" id="toc-permissions"><span
+class="toc-section-number">6.2</span> Permissions</a></li>
+<li><a href="chapter-007.html#secure-values"
+id="toc-secure-values"><span class="toc-section-number">6.3</span>
+Secure Values</a></li>
+<li><a href="chapter-007.html#resources" id="toc-resources"><span
+class="toc-section-number">6.4</span> Resources</a></li>
+<li><a href="chapter-007.html#policy-results"
+id="toc-policy-results"><span class="toc-section-number">6.5</span>
+Policy Results</a></li>
+<li><a href="chapter-007.html#minting" id="toc-minting"><span
+class="toc-section-number">6.6</span> Minting</a></li>
+<li><a href="chapter-007.html#typestate" id="toc-typestate"><span
+class="toc-section-number">6.7</span> Typestate</a></li>
+<li><a href="chapter-007.html#combinators" id="toc-combinators"><span
+class="toc-section-number">6.8</span> Combinators</a></li>
+</ul></li>
+<li><a href="chapter-008.html#oauth-arcade-workos-and-typesec"
+id="toc-oauth-arcade-workos-and-typesec"><span
+class="toc-section-number">7</span> OAuth, Arcade, WorkOS, and
+Typesec</a>
+<ul>
+<li><a href="chapter-008.html#the-comparison"
+id="toc-the-comparison"><span class="toc-section-number">7.1</span> The
+Comparison</a></li>
+<li><a href="chapter-008.html#where-dids-fit"
+id="toc-where-dids-fit"><span class="toc-section-number">7.2</span>
+Where DIDs Fit</a></li>
+<li><a href="chapter-008.html#did-wrapped-prompts-and-ollama"
+id="toc-did-wrapped-prompts-and-ollama"><span
+class="toc-section-number">7.3</span> DID-Wrapped Prompts and
+Ollama</a></li>
+<li><a href="chapter-008.html#did-examples" id="toc-did-examples"><span
+class="toc-section-number">7.4</span> DID Examples</a></li>
+<li><a href="chapter-008.html#what-arcade-does"
+id="toc-what-arcade-does"><span class="toc-section-number">7.5</span>
+What Arcade Does</a></li>
+<li><a href="chapter-008.html#what-workos-does"
+id="toc-what-workos-does"><span class="toc-section-number">7.6</span>
+What WorkOS Does</a></li>
+<li><a href="chapter-008.html#the-integrative-architecture"
+id="toc-the-integrative-architecture"><span
+class="toc-section-number">7.7</span> The Integrative
+Architecture</a></li>
+</ul></li>
+<li><a href="chapter-009.html#typesec-agent"
+id="toc-typesec-agent"><span class="toc-section-number">8</span>
+<code>typesec-agent</code></a></li>
+<li><a href="chapter-010.html#typesec-integrations"
+id="toc-typesec-integrations"><span class="toc-section-number">9</span>
+<code>typesec-integrations</code></a></li>
+<li><a href="chapter-011.html#rbac" id="toc-rbac"><span
+class="toc-section-number">10</span> RBAC</a></li>
+<li><a href="chapter-012.html#odrl" id="toc-odrl"><span
+class="toc-section-number">11</span> ODRL</a></li>
+<li><a href="chapter-013.html#macros" id="toc-macros"><span
+class="toc-section-number">12</span> Macros</a></li>
+<li><a href="chapter-014.html#cli" id="toc-cli"><span
+class="toc-section-number">13</span> CLI</a></li>
+<li><a href="chapter-015.html#examples" id="toc-examples"><span
+class="toc-section-number">14</span> Examples</a>
+<ul>
+<li><a href="chapter-015.html#rbac-agent" id="toc-rbac-agent"><span
+class="toc-section-number">14.1</span> RBAC Agent</a></li>
+<li><a href="chapter-015.html#odrl-agent" id="toc-odrl-agent"><span
+class="toc-section-number">14.2</span> ODRL Agent</a></li>
+<li><a href="chapter-015.html#oauth-provider-integrations"
+id="toc-oauth-provider-integrations"><span
+class="toc-section-number">14.3</span> OAuth Provider
+Integrations</a></li>
+<li><a href="chapter-015.html#company-graph-with-grust-and-sail"
+id="toc-company-graph-with-grust-and-sail"><span
+class="toc-section-number">14.4</span> Company Graph with Grust and
+Sail</a></li>
+<li><a href="chapter-015.html#python-langchain-style-tool-gating"
+id="toc-python-langchain-style-tool-gating"><span
+class="toc-section-number">14.5</span> Python LangChain-Style Tool
+Gating</a></li>
+</ul></li>
+<li><a href="chapter-016.html#tests-and-validation"
+id="toc-tests-and-validation"><span class="toc-section-number">15</span>
+Tests and Validation</a></li>
+<li><a href="chapter-017.html#what-we-improved"
+id="toc-what-we-improved"><span class="toc-section-number">16</span>
+What We Improved</a>
+<ul>
+<li><a href="chapter-017.html#rialto-0.9.0" id="toc-rialto-0.9.0"><span
+class="toc-section-number">16.1</span> Rialto (0.9.0)</a></li>
+<li><a href="chapter-017.html#murano-0.10.0"
+id="toc-murano-0.10.0"><span class="toc-section-number">16.2</span>
+Murano (0.10.0)</a></li>
+<li><a href="chapter-017.html#burano-0.11.0"
+id="toc-burano-0.11.0"><span class="toc-section-number">16.3</span>
+Burano (0.11.0)</a></li>
+</ul></li>
+<li><a href="chapter-018.html#design-tradeoffs"
+id="toc-design-tradeoffs"><span class="toc-section-number">17</span>
+Design Tradeoffs</a></li>
+<li><a href="chapter-019.html#roadmap" id="toc-roadmap"><span
+class="toc-section-number">18</span> Roadmap</a></li>
+<li><a href="chapter-020.html#conclusion" id="toc-conclusion"><span
+class="toc-section-number">19</span> Conclusion</a></li>
+</ul>
+</nav>
+
+</body>
+</html>

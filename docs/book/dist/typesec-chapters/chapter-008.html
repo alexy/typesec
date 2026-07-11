@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov" />
+  <meta name="dcterms.date" content="2026-07-11" />
+  <title>OAuth, Arcade, WorkOS, and Typesec</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">Typesec</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">Typesec</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-009.html" accesskey="n" rel="next"><code>typesec-agent</code></a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-007.html" accesskey="p" rel="previous"><code>typesec-core</code></a>
+</span>
+</div>
+</nav>
+<h1 data-number="7" id="oauth-arcade-workos-and-typesec"><span
+class="header-section-number">7</span> OAuth, Arcade, WorkOS, and
+Typesec</h1>
+<p>Typesec is not an OAuth replacement. That point matters because the
+modern agent-security stack already has strong identity and delegation
+systems. OAuth, OIDC, AuthKit, WorkOS, Arcade, and provider-specific
+consent flows all solve real problems that Typesec should not try to
+reimplement.</p>
+<p>The better architecture is layered:</p>
+<pre class="text"><code>OAuth/OIDC proves identity and delegates external authority
+WorkOS models enterprise users, organizations, sessions, RBAC, and FGA
+Arcade manages agent-facing OAuth/tool authorization for SaaS tools
+Typesec converts allowed decisions into typed local capabilities</code></pre>
+<p>This comparison is also recorded in
+<code>docs/typesec-and-auth-frameworks.md</code>. The short version
+is:</p>
+<blockquote>
+<p>OAuth proves and delegates identity. Typesec turns authorization
+decisions into compile-time-visible authority inside agent/tool
+code.</p>
+</blockquote>
+<h2 data-number="7.1" id="the-comparison"><span
+class="header-section-number">7.1</span> The Comparison</h2>
+<p>The systems operate at different layers:</p>
+<pre class="text"><code>Typesec   code-level enforcement for agent/tool execution
+Arcade    MCP/tool runtime and delegated user auth for external services
+WorkOS    identity, OAuth apps, RBAC/FGA, enterprise auth infrastructure</code></pre>
+<p>Typesec’s core primitive is <code>Capability&lt;P, R&gt;</code> plus
+typestate <code>Agent&lt;Authenticated&gt;</code>. Arcade’s core runtime
+primitive is a user-specific tool authorization and managed
+OAuth/API-key token state. WorkOS’s primitives are OAuth/OIDC tokens,
+organization claims, roles, permissions, and FGA access checks.</p>
+<p>That gives each system a natural strength:</p>
+<pre class="text"><code>Use WorkOS when you need enterprise login, SSO, organizations, RBAC, IdP sync,
+and resource-scoped FGA for application objects.
+
+Use Arcade when an agent needs to act as a user inside external SaaS systems
+such as Gmail, Slack, GitHub, Jira, or Google Drive.
+
+Use Typesec when local tool code must not run unless the program holds a typed
+proof that authorization already happened.</code></pre>
+<p>Arcade and WorkOS still return runtime facts. A token verifies. A
+consent flow completes. An authorization API returns
+<code>authorized: true</code>. Those facts are important, but ordinary
+application code can still ignore them unless every call site is
+disciplined. Typesec adds the local last mile: the handler is written to
+require a typed capability, so the call cannot be made by accident.</p>
+<h2 data-number="7.2" id="where-dids-fit"><span
+class="header-section-number">7.2</span> Where DIDs Fit</h2>
+<p>DIDs add another edge identity and messaging pattern. They are useful
+when an agent, user, service, model gateway, or organization needs a
+portable cryptographic identifier that can be resolved without depending
+on one OAuth provider. A DID document can advertise verification methods
+and service endpoints. A message can be signed by the sender DID and
+encrypted for the recipient DID.</p>
+<p>That does not replace Typesec policy. DID verification answers:</p>
+<pre class="text"><code>Did the sender control did:key:z... when it signed this envelope?
+Was the ciphertext encrypted for this local recipient DID?
+Which keys and endpoints are advertised by the DID document?</code></pre>
+<p>Typesec answers a different question:</p>
+<pre class="text"><code>May did:key:z... run ai:infer on prompt/session/123?
+May this code reveal a Secret prompt?
+May the result be sent outside the current trust boundary?</code></pre>
+<p>The DID support therefore belongs in
+<code>typesec-integrations</code>, not <code>typesec-core</code>. The
+integration crate verifies and decrypts the message at the edge, then
+hands the result to the same <code>PolicyEngine</code> and
+<code>SecureValue</code> machinery as every other integration.</p>
+<p>The current implementation is deliberately modest:</p>
+<pre class="text"><code>Did                 parsed decentralized identifier string
+DidDocument         verification methods, key agreement, service endpoints
+DidResolver         trait for resolving a DID to a DID document
+DidKeyStore         trait for signing, verifying, encrypting, and decrypting
+DidEnvelope         encrypted DID-wrapped prompt envelope
+DidMessageGateway  verifier/decrypter that returns a protected prompt
+DidOllamaClient    Ollama bridge for verified or still-wrapped prompts</code></pre>
+<p><code>StaticDidResolver</code> keeps local resolution deterministic,
+and <code>Ed25519DidKeyStore</code> provides the default local
+cryptographic key store. The optional <code>DemoDidKeyStore</code> is
+non-cryptographic and available only for tests or with the
+<code>demo-crypto</code> feature. Production deployments can implement
+the same traits with DIDComm/JWE, HPKE, HSM/KMS-backed keys, Hyperledger
+Indy VDR, <code>did:web</code>, <code>did:key</code>, or a Universal
+Resolver client.</p>
+<p>The Ed25519 store is rotation-aware.
+<code>rotate_key(did, key)</code> adds a new active version,
+<code>active_key_version(did)</code> reports what new envelopes will
+use, and <code>document(did)</code> advertises non-retired verification
+methods as <code>active</code> or <code>previous</code>. Previous keys
+keep in-flight envelopes valid until
+<code>retire_key(did, version)</code> removes them from new documents
+and makes that verification method fail.</p>
+<h2 data-number="7.3" id="did-wrapped-prompts-and-ollama"><span
+class="header-section-number">7.3</span> DID-Wrapped Prompts and
+Ollama</h2>
+<p>The first concrete DID use case is an encrypted prompt for a local or
+modified Ollama server. The conservative path keeps Typesec in charge of
+reveal:</p>
+<pre class="text"><code>DID envelope arrives
+  -&gt; DidResolver resolves sender and recipient DID documents
+  -&gt; DidKeyStore verifies the sender signature
+  -&gt; DidKeyStore decrypts for the local recipient DID
+  -&gt; DidMessageGateway returns VerifiedDidPrompt
+  -&gt; prompt is SecureValue&lt;Secret, String, GenericResource&gt;
+  -&gt; PolicyEngine mints AiCanInfer and CanReadSensitive capabilities
+  -&gt; DidOllamaClient sends plaintext to Ollama</code></pre>
+<p>The important detail is the <code>SecureValue</code> boundary. The
+decrypted prompt is not returned as an ordinary string. It becomes:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>SecureValue<span class="op">&lt;</span>Secret<span class="op">,</span> <span class="dt">String</span><span class="op">,</span> GenericResource<span class="op">&gt;</span></span></code></pre></div>
+<p>That means the client must hold a sensitive-read capability to reveal
+it:</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> verified <span class="op">=</span> gateway<span class="op">.</span>open_prompt(<span class="op">&amp;</span>envelope)<span class="op">?;</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> infer<span class="op">:</span> Capability<span class="op">&lt;</span>AiCanInfer<span class="op">,</span> _<span class="op">&gt;</span> <span class="op">=</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    mint_capability(engine<span class="op">,</span> verified<span class="op">.</span>subject<span class="op">.</span>as_str()<span class="op">,</span> <span class="op">&amp;</span>verified<span class="op">.</span>resource)<span class="op">?;</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> read<span class="op">:</span> Capability<span class="op">&lt;</span>CanReadSensitive<span class="op">,</span> _<span class="op">&gt;</span> <span class="op">=</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    mint_capability(engine<span class="op">,</span> verified<span class="op">.</span>subject<span class="op">.</span>as_str()<span class="op">,</span> <span class="op">&amp;</span>verified<span class="op">.</span>resource)<span class="op">?;</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> ollama <span class="op">=</span> <span class="pp">DidOllamaClient::</span>new(<span class="st">&quot;http://localhost:11434&quot;</span><span class="op">,</span> <span class="st">&quot;llama3.2&quot;</span>)<span class="op">;</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> response <span class="op">=</span> ollama<span class="op">.</span>chat_verified_prompt(verified<span class="op">,</span> <span class="op">&amp;</span>infer<span class="op">,</span> <span class="op">&amp;</span>read)<span class="op">?;</span></span></code></pre></div>
+<p>When the Ollama reply needs to travel with the same authority context
+as the prompt, Typesec can bind the assistant message back to the
+prompt:</p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> reply <span class="op">=</span> ollama<span class="op">.</span>chat_verified_prompt_bound(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    verified<span class="op">,</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    gateway_did<span class="op">,</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>resolver<span class="op">,</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>key_store<span class="op">,</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>infer<span class="op">,</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>read<span class="op">,</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>)<span class="op">?;</span></span></code></pre></div>
+<p>This returns a new signed and encrypted DID reply envelope. The reply
+envelope uses a fresh DID-shaped id, keeps the prompt’s action,
+resource, and privacy metadata, and stores a <code>reply_to</code>
+reference containing the prompt envelope id and digest. That reference
+is included in the reply signature, so the reply cannot be detached from
+the prompt or rebound to a different prompt without invalidating the
+envelope.</p>
+<p>There is also a compatibility path for a DID-aware Ollama fork:</p>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> response <span class="op">=</span> ollama<span class="op">.</span>chat_wrapped_prompt(<span class="op">&amp;</span>envelope)<span class="op">?;</span></span></code></pre></div>
+<p>That sends the whole envelope under a <code>did_envelope</code> JSON
+field. This is useful when the model gateway expects the DID-wrapped
+prompt directly. The stricter local path should remain the default for
+Typesec-controlled applications because the plaintext reveal is guarded
+by typed capabilities.</p>
+<h2 data-number="7.4" id="did-examples"><span
+class="header-section-number">7.4</span> DID Examples</h2>
+<p>The repository includes a runnable DID example:</p>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode sh"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-p</span> typesec-cli <span class="at">--example</span> did_messaging</span></code></pre></div>
+<p>It creates two local <code>did:key</code> identifiers:</p>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> alice_key <span class="op">=</span> <span class="pp">Ed25519DidKey::</span>from_seed(<span class="st">b&quot;alice&quot;</span>)<span class="op">;</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> gateway_key <span class="op">=</span> <span class="pp">Ed25519DidKey::</span>from_seed(<span class="st">b&quot;typesec-ollama-gateway&quot;</span>)<span class="op">;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> alice <span class="op">=</span> <span class="pp">Did::</span>key(alice_key<span class="op">.</span>signing_public())<span class="op">;</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> gateway_did <span class="op">=</span> <span class="pp">Did::</span>key(gateway_key<span class="op">.</span>signing_public())<span class="op">;</span></span></code></pre></div>
+<p>Then it registers DID documents in a <code>StaticDidResolver</code>,
+creates a <code>DidEnvelope</code>, verifies and decrypts that envelope
+through <code>DidMessageGateway</code>, and sends the prompt through
+<code>DidOllamaClient</code> only after policy mints
+<code>Capability&lt;AiCanInfer, _&gt;</code> and
+<code>Capability&lt;CanReadSensitive, _&gt;</code>.</p>
+<p>That example is intentionally offline. It uses
+<code>Ed25519DidKeyStore</code>, <code>StaticDidResolver</code>, and
+<code>RecordingHttpClient</code>, so it exercises the Typesec boundary
+without requiring a live Ollama server, a public DID registry, or a
+Hyperledger ledger.</p>
+<p>The same trait shape supports more realistic DID methods:</p>
+<pre class="text"><code>did:key       derive the document from key material; best for local tests
+did:web       fetch a DID document from an HTTPS domain
+did:indy      read DID state from Hyperledger Indy through Indy VDR
+public DID    call a Universal Resolver and translate the DID document</code></pre>
+<p>For Hyperledger development, a local setup has three pieces:</p>
+<pre class="text"><code>VON Network      local development Indy Node network and ledger browser
+Indy VDR proxy   Rust-side ledger reader and DID resolver endpoint
+Typesec adapter  DidResolver implementation that maps VDR JSON to DidDocument</code></pre>
+<p>The local ledger can be started outside this repo:</p>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode sh"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/bcgov/von-network.git</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> von-network</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./manage</span> build</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="va">REGISTER_NEW_DIDS</span><span class="op">=</span>True <span class="ex">./manage</span> start</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-fsS</span> http://localhost:9000/genesis <span class="at">-o</span> /tmp/von-genesis.txn</span></code></pre></div>
+<p>VON’s browser is normally available at
+<code>http://localhost:9000</code>. Its README describes it as
+development-only infrastructure and exposes a <code>/genesis</code>
+endpoint for clients. With <code>REGISTER_NEW_DIDS=True</code>, the
+browser can also enable the local “Authenticate a New DID” flow for
+writing sandbox DIDs through a known trust anchor.</p>
+<p>Indy VDR can then read the local ledger:</p>
+<div class="sourceCode" id="cb17"><pre
+class="sourceCode sh"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/hyperledger-indy/indy-vdr.git</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> indy-vdr</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> build <span class="at">--bin</span> indy-vdr-proxy</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="ex">./target/debug/indy-vdr-proxy</span> <span class="at">-p</span> 9001 <span class="at">-g</span> /tmp/von-genesis.txn</span></code></pre></div>
+<p>Smoke tests:</p>
+<div class="sourceCode" id="cb18"><pre
+class="sourceCode sh"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-fsS</span> http://localhost:9001/genesis</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-fsS</span> http://localhost:9001/nym/<span class="op">&lt;</span>UNQUALIFIED_DID<span class="op">&gt;</span></span></code></pre></div>
+<p>Indy VDR also documents a DID resolver endpoint:</p>
+<pre class="text"><code>GET /1.0/identifiers/{DID or DID_URL}</code></pre>
+<p>The future <code>IndyVdrResolver</code> should call that endpoint for
+qualified <code>did:indy</code> values, or <code>/nym/&lt;DID&gt;</code>
+for a simple local VON smoke test, then translate the ledger response
+into the local <code>DidDocument</code> model. After that, the prompt
+path is unchanged: DID resolution and cryptography happen at the edge,
+while Typesec policy still controls reveal and inference.</p>
+<h2 data-number="7.5" id="what-arcade-does"><span
+class="header-section-number">7.5</span> What Arcade Does</h2>
+<p>Arcade is closest to the agent-tool problem. It handles OAuth 2.0,
+API keys, and user tokens for tools. In an agent setting, that means a
+user can authorize Gmail once, Arcade can store and refresh the provider
+tokens, and an agent can later call a Gmail tool on that user’s behalf
+without the model seeing secrets.</p>
+<p>Arcade also separates two boundaries:</p>
+<pre class="text"><code>resource-server auth  protects access to the MCP server or gateway
+tool-level auth       authorizes the specific third-party tool call</code></pre>
+<p>That distinction maps cleanly to Typesec. Arcade can answer:</p>
+<pre class="text"><code>Has user@example.com authorized Gmail.ListEmails?</code></pre>
+<p>Typesec can then mint:</p>
+<div class="sourceCode" id="cb22"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>Capability<span class="op">&lt;</span>CanExecute<span class="op">,</span> GenericResource<span class="op">&gt;</span></span></code></pre></div>
+<p>where the resource id is <code>Gmail.ListEmails</code> or a local
+alias such as <code>gmail/list</code>.</p>
+<p>The repository’s <code>ArcadeToolAuthEngine</code> is intentionally
+small. It maps a local resource id to an Arcade tool name, asks the
+configured Arcade endpoint whether the user’s authorization is complete,
+and returns <code>PolicyResult::Allow</code> only when the provider
+response is complete. Pending authorization is a denial with the
+provider URL included when available.</p>
+<div class="sourceCode" id="cb23"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> arcade <span class="op">=</span> <span class="pp">ArcadeToolAuthEngine::</span>new(arcade_api_key)</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>with_tool_mapping(<span class="st">&quot;gmail/list&quot;</span><span class="op">,</span> <span class="st">&quot;Gmail.ListEmails&quot;</span>)<span class="op">;</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> gmail <span class="op">=</span> <span class="pp">GenericResource::</span>new(<span class="st">&quot;gmail/list&quot;</span><span class="op">,</span> <span class="st">&quot;tool&quot;</span>)<span class="op">;</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> cap<span class="op">:</span> Capability<span class="op">&lt;</span>CanExecute<span class="op">,</span> GenericResource<span class="op">&gt;</span> <span class="op">=</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>    agent<span class="op">.</span>request_capability(<span class="op">&amp;</span>gmail)<span class="op">.</span><span class="kw">await</span><span class="op">?;</span></span></code></pre></div>
+<p>The important design choice is that Arcade remains the OAuth/tool
+runtime, while Typesec remains the local proof system. Arcade knows how
+to complete OAuth. Typesec knows how to make the local tool handler
+require proof.</p>
+<h2 data-number="7.6" id="what-workos-does"><span
+class="header-section-number">7.6</span> What WorkOS Does</h2>
+<p>WorkOS is broader enterprise auth infrastructure. AuthKit and Connect
+cover login, OAuth applications, SSO, user sessions, organizations,
+token issuance, and token verification. WorkOS Fine-Grained
+Authorization extends RBAC into a hierarchical, resource-scoped model
+for application objects such as organizations, workspaces, projects, and
+apps.</p>
+<p>For Typesec, the useful WorkOS split is:</p>
+<pre class="text"><code>JWT claims     fast checks for org-wide roles and permissions
+FGA API        precise checks for a specific action on a specific resource</code></pre>
+<p>That split fits Typesec’s existing policy-composition model. The
+token can be verified once and converted into a
+<code>JwtClaimsEngine</code>. The JWT engine can allow obvious org-wide
+permissions and delegate everything else. The WorkOS engine can then
+call the Authorization API for resource-specific checks.</p>
+<div class="sourceCode" id="cb25"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> jwt_engine <span class="op">=</span> <span class="pp">Arc::</span>new(<span class="pp">JwtClaimsEngine::</span>from_permissions(</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;user@example.com&quot;</span><span class="op">,</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    [<span class="st">&quot;org:view&quot;</span><span class="op">.</span>to_string()]<span class="op">,</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>))<span class="op">;</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> workos_engine <span class="op">=</span> <span class="pp">Arc::</span>new(<span class="pp">WorkOsFgaEngine::</span>new(workos_api_key))<span class="op">;</span></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> engine <span class="op">=</span> <span class="pp">PolicyEngineBuilder::</span>new()</span>
+<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(jwt_engine)</span>
+<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(workos_engine)</span>
+<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>strategy(<span class="pp">CombineStrategy::</span>PriorityOrder)</span>
+<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>build()<span class="op">;</span></span></code></pre></div>
+<p>Typesec resource ids use a simple convention for WorkOS FGA:</p>
+<pre class="text"><code>project/proj_123
+workspace/ws_123</code></pre>
+<p><code>WorkOsFgaEngine</code> parses the prefix as the resource type
+slug and the suffix as the external resource id. A <code>write</code>
+capability request on <code>project/proj_123</code> becomes a
+WorkOS-style permission check for <code>project:write</code> on that
+resource.</p>
+<h2 data-number="7.7" id="the-integrative-architecture"><span
+class="header-section-number">7.7</span> The Integrative
+Architecture</h2>
+<p>The <code>typesec-integrations</code> crate puts these ideas behind
+the same <code>PolicyEngine</code> trait used by RBAC, ODRL, and graph
+policies.</p>
+<pre class="text"><code>OIDC/AuthKit access token
+  -&gt; JwtAuthenticator verifies signature, issuer, audience, expiry
+  -&gt; VerifiedSubject becomes the authenticated Typesec subject
+
+Capability request
+  -&gt; JwtClaimsEngine handles fast org-wide permissions
+  -&gt; WorkOsFgaEngine handles app resource permissions
+  -&gt; ArcadeToolAuthEngine handles external SaaS tool authorization
+  -&gt; PolicyResult::Allow
+  -&gt; Capability&lt;P, R&gt;
+  -&gt; ProtectedTool&lt;P, R, _&gt; can run</code></pre>
+<p>Representative setup from
+<code>examples/provider_integrations.rs</code> looks like this:</p>
+<div class="sourceCode" id="cb28"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> engine <span class="op">=</span> <span class="pp">PolicyEngineBuilder::</span>new()</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(<span class="pp">Arc::</span>new(<span class="pp">JwtClaimsEngine::</span>from_permissions(</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;user@example.com&quot;</span><span class="op">,</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>        [<span class="st">&quot;read&quot;</span><span class="op">.</span>to_string()]<span class="op">,</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    )))</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(<span class="pp">Arc::</span>new(<span class="pp">WorkOsFgaEngine::</span>new(workos_api_key)))</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(<span class="pp">Arc::</span>new(</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>        <span class="pp">ArcadeToolAuthEngine::</span>new(arcade_api_key)</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span>with_tool_mapping(<span class="st">&quot;gmail/list&quot;</span><span class="op">,</span> <span class="st">&quot;Gmail.ListEmails&quot;</span>)<span class="op">,</span></span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>    ))</span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>strategy(<span class="pp">CombineStrategy::</span>PriorityOrder)</span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>build()<span class="op">;</span></span></code></pre></div>
+<p>Then local tool code can be shaped around the capability:</p>
+<div class="sourceCode" id="cb29"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="kw">fn</span> gmail_list(_resource<span class="op">:</span> <span class="op">&amp;</span>GenericResource) <span class="op">-&gt;</span> ToolFuture<span class="op">&lt;</span><span class="ot">&#39;_</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">Box</span><span class="pp">::</span>pin(<span class="kw">async</span> <span class="op">{</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Call the actual MCP/Arcade/Gmail implementation here.</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>        <span class="cn">Ok</span>(())</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span>)</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> resource <span class="op">=</span> <span class="pp">GenericResource::</span>new(<span class="st">&quot;gmail/list&quot;</span><span class="op">,</span> <span class="st">&quot;tool&quot;</span>)<span class="op">;</span></span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> tool <span class="op">=</span> <span class="pp">ProtectedTool::</span><span class="op">&lt;</span>CanExecute<span class="op">,</span> _<span class="op">,</span> _<span class="op">&gt;</span><span class="pp">::</span>new(</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;gmail.list&quot;</span><span class="op">,</span></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;List email messages&quot;</span><span class="op">,</span></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>    resource<span class="op">,</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>    gmail_list<span class="op">,</span></span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> cap<span class="op">:</span> Capability<span class="op">&lt;</span>CanExecute<span class="op">,</span> GenericResource<span class="op">&gt;</span> <span class="op">=</span></span>
+<span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>    agent<span class="op">.</span>request_capability(<span class="op">&amp;</span><span class="pp">GenericResource::</span>new(<span class="st">&quot;gmail/list&quot;</span><span class="op">,</span> <span class="st">&quot;tool&quot;</span>))<span class="op">.</span><span class="kw">await</span><span class="op">?;</span></span>
+<span id="cb29-18"><a href="#cb29-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-19"><a href="#cb29-19" aria-hidden="true" tabindex="-1"></a>tool<span class="op">.</span>invoke(<span class="op">&amp;</span>agent<span class="op">,</span> <span class="op">&amp;</span>cap)<span class="op">.</span><span class="kw">await</span><span class="op">?;</span></span></code></pre></div>
+<p>This is the central integration claim. WorkOS can say who the user is
+and what app resource they can access. Arcade can say whether the user
+authorized the external SaaS tool. Typesec can make the local
+implementation impossible to invoke without carrying that authorization
+as a typed proof.</p>
+</body>
+</html>
