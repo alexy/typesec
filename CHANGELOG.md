@@ -7,6 +7,8 @@ by release version, then by the date the logical change landed.
 
 ### 2026-07-11
 
+- Added the required `FIRSTPAIR.md` library identity and deployment contract,
+  with root agent guidance for the centralized FirstPair pipeline.
 - Unified the book build with FirstPair's pinned Pandoc/Typst toolchain,
   machine-readable `book.build.json`, shared HTML/chapter generation, complete
   `VERSION.md`, and mandatory rendered PDF plus EPUB/HTML verification.
