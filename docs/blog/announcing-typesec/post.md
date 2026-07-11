@@ -1,53 +1,82 @@
-# Announcing Typesec: authority you can't forget at the call site
+# TypeSec 0.12 "Torcello": typed authority for agent tools
 
-*June 2026 — Typesec 0.11.0 "Burano"*
+*July 2026 — TypeSec 0.12.0 "Torcello"*
 
-Most authorization systems answer a question — *is this allowed?* — and then trust every line of code after the check to remember the answer. The check and the privileged action drift apart. A new code path forgets the guard. A refactor moves the call. The audit log says "allowed" while the wrong thing happens.
+Most agent stacks treat tool security as an agreement between documentation, prompts, and callback code. The model asks to call a tool. The framework passes along JSON. Somewhere nearby, hopefully, an application checks whether that call is allowed.
 
-**Typesec** is a type-safe security framework for Rust that closes that gap. It turns authority into a value the compiler tracks: a function that does something privileged *demands a capability as an argument*, and the only way to get one is to pass a policy check. Forgetting the guard becomes a type error, not a production incident.
+TypeSec was built to close that gap. Its first job is still the same: turn authority into a value the compiler and runtime can see. A privileged Rust function can require a `Capability<P, R>` argument; that value has no public constructor; the only production path to one is a policy decision. Forgetting the check becomes a type error, not a best-practices document.
+
+Torcello is the release where that idea grows from an in-process Rust pattern into a wire-level guard for the agent ecosystem.
 
 ## The load-bearing idea
 
-A `Capability<P, R>` is unforgeable proof that permission `P` was granted over resource `R`. It has **no public constructor**. The only way to mint one in production is `mint_capability*`, which runs a `PolicyEngine`, and — on success — emits an audit event. `Permission`, `AgentState`, and `PrivacyLevel` are sealed traits, and a suite of compile-fail tests stands guard so the boundary can't be bypassed even by accident.
-
-The payoff: provider authorization isn't merely *observed*, it *becomes* a typed capability required by the handler. You cannot call the privileged path without proof, and the proof cannot exist without a policy decision and an audit trail.
+A `Capability<P, R>` is unforgeable proof that permission `P` was granted over resource `R`. It is minted only by the policy boundary, and that boundary emits audit evidence. `Permission`, `AgentState`, and privacy labels are sealed, so application code cannot smuggle in its own authority type.
 
 ![The capability-minting flow: a request runs the policy engine; only an Allow mints an unforgeable capability, and every decision emits an audit event.](diagrams/capability-flow.png)
 
-## What's inside
+That is the local invariant. Torcello carries it across the wire: OpenAI tool calls, Anthropic tool-use blocks, LangChain tool calls, Pydantic AI tool parts, and MCP `tools/call` requests all pass through the same deny-by-default `ToolCallGuard`.
 
-- **One policy contract, many engines.** Every engine implements the same `check_with_context → Allow | Deny | Delegate` interface: an **RBAC** engine (role inheritance + glob patterns), an **ODRL** engine (permission / prohibition / duty, constraints, full audit trail), and a **graph** engine that compiles policy into a typed graph with deny-overrides semantics.
-- **Typestate agents.** `SecureAgent<S>` and `ProtectedTool` push authorization into the type state of an agent, so a tool can only fire once the agent holds the capability it requires.
-- **Integrations, not replacements.** JWT/OIDC, WorkOS FGA, Arcade tool auth, and Pydantic AI all feed the *same* `PolicyEngine` boundary. Typesec sits under your existing OAuth stack and makes the local last mile impossible to skip.
-- **DID / TypeDID messaging.** Real cryptography (Ed25519 / X25519 / ChaCha20-Poly1305): agent-to-agent envelopes whose ciphertext is AEAD-bound to their routing and timing identity, with replay protection and audit-safe attestations that expose *who did what to which resource* without revealing the payload.
-- **Typed privacy labels.** `SecureValue<L, T, R>` classifies data at the type level, so a value's privacy level travels with it.
-- **CLI + Python bindings.** `typesec validate / check / generate / run` gives CI a policy gate with honest exit codes, and PyO3 bindings put the same checks in front of non-Rust agents.
+## What landed in Torcello
 
-Nine crates, all layered on `typesec-core`, with the umbrella `typesec` crate re-exporting the rest behind feature flags:
+- **One interop plane.** `typesec_agent::interop` parses tool-call shapes for OpenAI, Anthropic, LangChain, Pydantic AI, and MCP, then returns structured allow/deny reports using one binding model.
+- **Deny by default.** A tool without a TypeSec binding is not an accident waiting for a prompt injection; it is denied.
+- **Policy-aware tool listing.** Tools that a subject cannot use can be hidden before the model sees them, while per-argument resources still get checked at call time.
+- **Argument schemas.** A binding can carry a JSON Schema, so malformed arguments are denied before policy evaluation.
+- **MCP gateway.** `typesec mcp-gate` is a stdio proxy that sits between an MCP client and server, enforcing policy and bindings without changing the server.
+- **OpenAI/Anthropic proxy.** `typesec proxy` guards OpenAI-compatible chat completions and Anthropic messages, including streaming-aware enforcement for tool-call portions.
+- **Signed decision receipts.** Allowed decisions can be carried as short-lived, offline-verifiable receipts rather than trusted process memory.
+- **Decision logs and replay.** `typesec check --audit-log` records decisions, and `typesec replay` evaluates the same log against a changed policy.
+- **OpenTelemetry audit sink.** Mint decisions can become `typesec.decision` spans with subject, action, resource, verdict, and reason.
+- **`#[typesec_tool]`.** A Rust tool function and its security binding can now live in one declaration.
+- **Python and WASM/JS.** The Python package exposes `typesec.guard(...)`, `ToolGate`, and dependency-free SDK adapters; `typesec-wasm` brings the same guard to JavaScript and TypeScript runtimes.
 
-![The Typesec workspace: nine crates layered on typesec-core, re-exported by the umbrella typesec facade.](diagrams/layering.png)
+The workspace is now ten crates, still layered on `typesec-core`, with the umbrella `typesec` facade re-exporting the pieces behind feature flags:
 
-## Typesec in querygraph
+![The TypeSec workspace: crates layered on typesec-core, re-exported by the umbrella typesec facade.](diagrams/layering.png)
 
-Typesec and the **Grust** typed-graph engine ship from the same home, [querygraph](https://github.com/querygraph). Typesec's graph policy engine builds directly on Grust's typed graph: policies lower through Zod-validated schemas into a Grust graph, deny-overrides resolution decides the verdict, and `grust-cypher` can apply Cypher DDL constraints or run an *authorized* Cypher mutation through the same graph-store boundary. The result is graph-shaped authorization — roles, resources, and relationships as a typed graph — with the same unforgeable capability at the end of it. (Typesec 0.11.0 tracks Grust 0.11.0, "Crab.")
+## Why this matters for agents
 
-## Typesec in lakecat
+Agents do not only need fewer hallucinations. They need smaller, typed blast radii.
 
-In **lakecat**, Typesec guards data-catalog resources — tables and datasets named like `lakecat:table:events`. A reader doesn't get the table by asking nicely; it gets a `Capability` minted against the catalog's policy, and the typed value it reads back carries its privacy label. When agents collaborate over that data, TypeDID envelopes carry an **audit-safe attestation** of the authorized action — subject, action, resource, privacy level, protocol — so the catalog has a verifiable record of every cross-agent access without ever exposing the payload or the signing material.
+When a model sees a tool, TypeSec can first ask whether the subject should see that tool at all. When the model tries to call it, TypeSec checks the declared action and resource. When arguments arrive, TypeSec validates their schema before policy logic runs. When the call is allowed, TypeSec can issue a receipt. When it is denied, the framework receives a dialect-native denial: an OpenAI tool message, an Anthropic tool result, a LangChain error tool message, a Pydantic AI retry prompt, or an MCP JSON-RPC error.
+
+That means the security boundary is not hidden in a framework-specific adapter. The adapter is just transport. The authority model is the same.
+
+## TypeSec in QueryGraph
+
+TypeSec tracks **Grust 0.12.0 "Lobster"**, the QueryGraph graph substrate. Graph policies lower into typed Grust graphs; roles, resources, and relationships become graph-shaped authorization data; `grust-cypher` can query and mutate the graph through the same store boundary.
+
+In **LakeCat 0.3.0 "Ocelot"**, TypeSec protects catalog actions: governed scans, credential vending, policy updates, and evidence emission. LakeCat's release-candidate proof now runs with Grust 0.12 and TypeSec 0.12, and its QGLake handoff verifies OpenLineage drain artifacts, QueryGraph import plans, and graph projection evidence from a clean tree.
+
+In **QueryGraph 0.4 "Sentinel"**, TypeSec is the governance fabric under the navigator: typed decisions, TypeDID envelopes, receipts, and replayable evidence around agent work rather than an unbounded prompt over a warehouse.
 
 ## Try it
 
-Typesec 0.11.0 is published on crates.io:
+TypeSec 0.12.0 is published on crates.io:
 
 ```toml
 [dependencies]
-typesec = { version = "0.11.0", features = ["integrations"] }
+typesec = { version = "0.12.0", features = ["integrations"] }
 ```
 
-- **The book** — the full design narrative, worked examples, and design tradeoffs: `docs/book/typesec.md` (also built as EPUB / PDF / MOBI under `docs/book/dist/`).
-- **Where Typesec fits under OAuth/FGA stacks:** `docs/typesec-and-auth-frameworks.md`.
-- **Agent-to-agent messaging:** `docs/typedid-agent-communications.md`, `docs/did-messaging.md`, and `docs/typedid-ecosystem.md`.
-- **Graph policy end to end:** `docs/company-graph-grust-sail.md`.
-- **Provider integrations:** `docs/oauth-provider-integrations.md`.
+Python:
 
-The check is the easy part. Typesec makes sure the line of code *after* the check can't forget what it said.
+```python
+from typesec import ToolGate, guard
+```
+
+MCP:
+
+```sh
+typesec mcp-gate --policy policy.yaml --subject agent:analyst --bindings tools.yaml -- server-command
+```
+
+Read next:
+
+- `RELEASES.md` for the Torcello release line.
+- `CHANGELOG.md` for the detailed interop surface.
+- `crates/typesec-python/README.md` for Python package usage.
+- `crates/typesec-wasm/README.md` for JS/TS bindings.
+- `docs/company-graph-grust-sail.md` for graph policy over Grust.
+
+The check is the easy part. Torcello makes sure the tool call after the check cannot pretend the check never happened.
