@@ -5,6 +5,12 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+### 2026-07-14
+
+- Replaced the text-only book title page with a First Pair Press image cover
+  adapted from the TypeSec blog headboard. The cover names Alexy Khrabrov as
+  the sole author and is shared by PDF, EPUB, MOBI, and hosted HTML output.
+
 ### 2026-07-11
 
 - Added the required `FIRSTPAIR.md` library identity and deployment contract,

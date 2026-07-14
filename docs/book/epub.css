@@ -3,6 +3,21 @@ body {
   line-height: 1.45;
 }
 
+.cover-page {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  page-break-after: always;
+}
+
+.image-cover img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 100vh;
+  margin: 0 auto;
+}
+
 code {
   font-family: monospace;
   font-size: 0.9em;

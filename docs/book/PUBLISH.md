@@ -6,7 +6,9 @@ the TypeSec book in its current shape.
 ## Source Layout
 
 - Manuscript: `docs/book/typesec.md`
-- Cover source: `docs/book/cover.md`
+- Final cover: `cover/typesec-cover.png`
+- Cover recipe and source assets: `cover/README.md`
+- Browser-reader cover wrapper: `docs/book/cover.md`
 - EPUB metadata: `docs/book/metadata.yaml`
 - Build script: `docs/book/build.sh`
 - Shared configuration: `book.build.json`
@@ -69,46 +71,39 @@ typesec (<workspace-version>)
 Keep those surfaces separate:
 
 - Cover, NCX, navigation title, and visible table of contents: `Typesec`
+- Cover subtitle: `Type-Level Security for Agentic AI`
+- Cover and package author: `Alexy Khrabrov` only
 - OPF `dc:title` and title-sort metadata: `typesec (<workspace-version>)`
 - Upload/delivery filename: `typesec (<workspace-version>).epub`
 - Dist marker: `VERSION.md`
 
-Do not hard-code the version in the manuscript or cover. The cover uses
-`{{KINDLE_NAME}}`, and `docs/book/build.sh` renders a temporary cover with the
-current generated Kindle name. Keep stable metadata in `docs/book/metadata.yaml`:
-visible title, subtitle, author, language, publisher, rights, and `title_stem`.
-The build date may be dynamic, but those descriptive fields should stay in
-source control.
+Do not put the package version on the visible cover. The deterministic composer
+owns its exact title, subtitle, author, and First Pair Press seal; the shared
+builder owns the versioned Kindle/catalog metadata. Keep stable metadata in
+`docs/book/metadata.yaml`: visible title, subtitle, author, language, publisher,
+rights, and `title_stem`. The build date may be dynamic, but those descriptive
+fields should stay in source control.
 
 ## Cover Rules
 
-The cover is a separate Markdown file with two raw blocks:
+The canonical cover is the 1024x1536 raster image
+`cover/typesec-cover.png`. It is composed from the source headboard, generated
+portrait artwork, and the reusable First Pair Press publisher mask documented
+in `cover/README.md`. Rebuild it deterministically with:
 
-- Typst raw block for PDF.
-- HTML raw block for EPUB and MOBI.
-
-The Typst cover block must include:
-
-```typst
-#set page(margin: 1in, numbering: none)
+```sh
+uv run --no-project --with pillow python cover/make-cover.py
 ```
 
-This prevents a printed page number on the standalone cover. After merging, the
-PDF should have:
+`book.build.json` installs the image as page 1 of the PDF and as the EPUB
+`cover-image`. `docs/book/cover.md` is the browser-HTML title-page wrapper and
+must reference the same image. Keep the lettering out of generated portrait
+art; `cover/make-cover.py` owns the exact white-on-dark title, subtitle,
+`ALEXY KHRABROV` author line, and First Pair Press seal.
 
-- Page 1: cover text only, no printed page number.
-- Page 2: Contents/body PDF, printed page number `1`.
-
-For the EPUB cover, keep the HTML simple. Do not use flexbox. Kindle renderers
-are more reliable with centered text and margins.
-
-Keep the Typst and HTML cover text synchronized. Use the `{{KINDLE_NAME}}`
-placeholder for any small build subtitle, for example `covers {{KINDLE_NAME}}`,
-and let the build script render a temporary cover. When tuning the PDF cover,
-prefer explicit Typst spacing such as `bottom-edge: "bounds"` and small
-`#v(...)` adjustments; verify the rendered page visually if spacing matters.
-For EPUB and MOBI, mirror that layout with simple inline margins, not viewport
-or flexbox layout.
+After merging, the PDF should have an image-only, unnumbered cover on page 1
+and the numbered Contents page on page 2. The EPUB validator requires the
+packaged cover bytes to match `cover/typesec-cover.png` exactly.
 
 Keep code blocks compact in EPUB and MOBI through `docs/book/epub.css`. Pandoc's
 syntax highlighting emits one `<span>` per source line and represents
@@ -138,16 +133,18 @@ The shared build:
 2. Reads `title_stem` from `docs/book/metadata.yaml`.
 3. Computes `kindle_name`, for example `typesec (0.9.0)`.
 4. Writes `docs/book/dist/VERSION.md`.
-5. Renders a temporary cover with `{{KINDLE_NAME}}` replaced.
-6. Builds a standalone cover PDF.
-7. Builds the body PDF with table of contents and numbered sections.
-8. Merges cover PDF before body PDF into `docs/book/dist/typesec.pdf`.
-9. Builds `docs/book/dist/typesec.epub` with `--css docs/book/epub.css` and
+5. Builds a standalone PDF page from `cover/typesec-cover.png`.
+6. Builds the body PDF with table of contents and numbered sections.
+7. Merges the raster cover page before the body in `docs/book/dist/typesec.pdf`.
+8. Builds `docs/book/dist/typesec.epub` with the same PNG as its cover image,
+   `--css docs/book/epub.css`, and
    `--epub-title-page=false`.
-10. Runs `fix_epub_layout.sh` to repair Pandoc EPUB defaults.
-11. Creates the versioned EPUB symlink.
-12. Runs `check_epub_metadata.sh`.
-13. Converts the EPUB to `docs/book/dist/typesec.mobi`.
+9. Runs `fix_epub_layout.sh` to repair Pandoc EPUB defaults.
+10. Creates the versioned artifact symlinks and full `VERSION.md` manifest.
+11. Runs `check_epub_metadata.sh`.
+12. Builds single-file and chapter HTML, packaging the cover with the chapters.
+13. Converts the EPUB to `docs/book/dist/typesec.mobi` and runs the shared
+    PDF/EPUB/HTML artifact contract.
 
 Calibre is expected at:
 
@@ -161,10 +158,9 @@ Use that app-bundle path unless the application bundle changes.
 
 `docs/book/fix_epub_layout.sh` rewrites the generated EPUB so that:
 
-- The custom cover XHTML is first in the spine.
+- Pandoc's image-cover XHTML is first in the spine.
 - The navigation document follows it and is marked `linear="no"`.
-- Pandoc's generated wrapper heading around the cover is removed.
-- The cover XHTML body is marked as frontmatter.
+- The first manuscript chapter follows the navigation document.
 - OPF `dc:title` and title-sort metadata are set to the Kindle/catalog title.
 
 Keep `--epub-title-page=false` in the Pandoc EPUB command. Without it, Pandoc can
@@ -172,7 +168,7 @@ generate an extra empty `EPUB/text/title_page.xhtml` before the custom cover.
 Calibre may still inspect or convert an EPUB with weak metadata, but Kindle
 delivery is less forgiving. Treat missing title/creator/language/date fields,
 `UNTITLED`, `Unknown`, an empty generated title page, a nav-first spine, or a
-wrapper `<h1>` before the custom cover as release blockers.
+missing/mismatched image cover as release blockers.
 
 ## Required Validation
 
@@ -189,10 +185,12 @@ The validator rejects:
 - Missing title-sort metadata.
 - Fallback `UNTITLED` or `Unknown` metadata.
 - Navigation or NCX titles that do not say `Typesec`.
-- A spine that does not put the cover before the nav item.
+- A spine that does not put the image cover before the nav item.
 - A generated empty `title_page.xhtml`.
-- A generated wrapper heading before the cover.
-- Flexbox in the EPUB cover.
+- Missing cover metadata, the wrong 1024x1536 SVG wrapper, or packaged cover
+  bytes that differ from `cover/typesec-cover.png`.
+- Creator metadata other than `Alexy Khrabrov`, or publisher metadata other
+  than `First Pair Press`.
 - Missing compact code-block rules in the EPUB stylesheet.
 - Missing stable EPUB.
 - A stable EPUB that differs from the canonical EPUB.
@@ -200,17 +198,16 @@ The validator rejects:
 - A versioned symlink that does not point to `typesec.epub`.
 - A missing or incomplete `VERSION.md`.
 
-Also verify the PDF cover numbering:
+Also verify the PDF cover and numbering:
 
 ```sh
 pdftotext -f 1 -l 1 docs/book/dist/typesec.pdf -
 pdftotext -f 2 -l 2 docs/book/dist/typesec.pdf -
 ```
 
-Expected result:
-
-- Page 1 extracts cover text and no standalone page number.
-- Page 2 contains Contents and the body numbering starts at `1`.
+Expected result: page 1 has a raster image and no extractable page number;
+page 2 contains Contents and body numbering starts at `1`. For visual QA,
+rasterize page 1 with `pdftoppm` and inspect the resulting PNG.
 
 Check the versioned EPUB link:
 

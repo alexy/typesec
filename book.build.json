@@ -27,6 +27,16 @@
     "resourcePaths": ["${repoRoot}", "${tmpDir}", "${tmpDir}/diagrams"],
     "commonArgs": ["--lua-filter", "${repoRoot}/docs/book/mermaid.lua"]
   },
+  "pdf": {
+    "coverImage": "cover/typesec-cover.png",
+    "coverWidth": "8.5in",
+    "coverHeight": "11in",
+    "coverFit": "stretch"
+  },
+  "epub": {
+    "coverImage": "cover/typesec-cover.png",
+    "includeRenderedCover": false
+  },
   "html": {
     "luaFilter": "docs/book/mermaid.lua",
     "splitLevel": 1

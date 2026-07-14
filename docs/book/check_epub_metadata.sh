@@ -24,13 +24,14 @@ opf_flat="$tmpdir/content.flat"
 toc="$tmpdir/toc.ncx"
 toc_flat="$tmpdir/toc.flat"
 nav="$tmpdir/nav.xhtml"
-cover="$tmpdir/ch001.xhtml"
+cover="$tmpdir/cover.xhtml"
+cover_image="$tmpdir/cover.png"
 stylesheet="$tmpdir/stylesheet1.css"
 
 unzip -p "$epub" EPUB/content.opf > "$opf"
 unzip -p "$epub" EPUB/toc.ncx > "$toc"
 unzip -p "$epub" EPUB/nav.xhtml > "$nav"
-unzip -p "$epub" EPUB/text/ch001.xhtml > "$cover"
+unzip -p "$epub" EPUB/text/cover.xhtml > "$cover"
 unzip -p "$epub" EPUB/styles/stylesheet1.css > "$stylesheet"
 tr '\n\r\t' '   ' < "$opf" > "$opf_flat"
 tr '\n\r\t' '   ' < "$toc" > "$toc_flat"
@@ -79,16 +80,20 @@ kindle_epub="$dist_dir/$(
 require_pattern "<dc:title[^>]*>$expected_title_pattern</dc:title>" "$opf" "missing dc:title"
 require_pattern "<meta[^>]*refines=\"#epub-title-1\"[^>]*property=\"file-as\"[^>]*>$expected_title_pattern</meta>" "$opf" "missing title sort metadata"
 require_pattern '<dc:creator[^>]*>Alexy Khrabrov</dc:creator>' "$opf" "missing dc:creator"
+require_pattern '<dc:publisher>First Pair Press</dc:publisher>' "$opf" "missing First Pair Press publisher metadata"
 require_pattern '<dc:language>en-US</dc:language>' "$opf" "missing dc:language"
 require_pattern '<dc:date[^>]*>[0-9]{4}-[0-9]{2}-[0-9]{2}</dc:date>' "$opf" "missing dc:date"
 require_pattern '<meta[^>]+property="dcterms:modified"' "$opf" "missing dcterms:modified"
-require_pattern '<spine toc="ncx">[[:space:]]*<itemref idref="ch001_xhtml" />[[:space:]]*<itemref idref="nav" linear="no" />' "$opf_flat" "cover is not first in the reading spine"
+require_pattern '<meta name="cover" content="[^"]+" />' "$opf" "missing cover metadata"
+require_pattern '<item properties="cover-image"[^>]*href="media/[^"]+"' "$opf" "missing cover-image manifest item"
+require_pattern '<spine toc="ncx">[[:space:]]*<itemref idref="cover_xhtml" />[[:space:]]*<itemref idref="nav" linear="no" />[[:space:]]*<itemref idref="ch001_xhtml" />' "$opf_flat" "image cover is not first in the reading spine"
 require_pattern '<docTitle>[[:space:]]*<text>Typesec</text>[[:space:]]*</docTitle>' "$toc_flat" "NCX title is not Typesec"
 require_pattern '<title>Typesec</title>' "$nav" "nav document title is not Typesec"
 require_pattern '<h1[^>]*>Typesec</h1>' "$nav" "nav table-of-contents heading is not Typesec"
-require_pattern '<body epub:type="frontmatter">' "$cover" "cover XHTML is not frontmatter"
-require_pattern '<section id="typesec" epub:type="titlepage"' "$cover" "custom cover is not the first cover section"
-require_pattern '<h1[^>]*text-align:[[:space:]]*center[^>]*>Typesec</h1>' "$cover" "cover title is not explicitly centered"
+require_pattern '<body id="cover">' "$cover" "cover XHTML is not the Pandoc image cover"
+require_pattern '<div id="cover-image">' "$cover" "cover XHTML is missing its image wrapper"
+require_pattern '<svg[^>]*viewBox="0 0 1024 1536"' "$cover" "cover XHTML has the wrong image geometry"
+require_pattern '<image[^>]*xlink:href="\.\./media/[^"]+"' "$cover" "cover XHTML does not reference the cover image"
 require_pattern 'div\.sourceCode' "$stylesheet" "EPUB stylesheet is missing sourceCode wrapper rules"
 require_pattern '^pre[[:space:]]*\{' "$stylesheet" "EPUB stylesheet is missing pre rules"
 require_pattern 'line-height:[[:space:]]*1\.12' "$stylesheet" "EPUB stylesheet is missing compact code line-height"
@@ -99,8 +104,15 @@ require_pattern 'display:[[:space:]]*none' "$stylesheet" "EPUB stylesheet is mis
 reject_pattern 'UNTITLED|Unknown' "$opf" "fallback OPF metadata found"
 reject_pattern 'UNTITLED|Unknown' "$toc" "fallback NCX metadata found"
 reject_pattern 'UNTITLED|Unknown' "$nav" "fallback nav metadata found"
-reject_pattern '<h1 class="unnumbered">Typesec</h1>' "$cover" "generated top-level cover heading found"
 reject_pattern 'display:[[:space:]]*flex' "$cover" "cover uses flexbox, which is fragile on Kindle"
+
+cover_href="$(sed -n 's/.*properties="cover-image"[^>]*href="\([^"]*\)".*/\1/p' "$opf" | head -n 1)"
+[[ -n "$cover_href" ]] || { echo "EPUB metadata check failed: cover image href is missing" >&2; exit 1; }
+unzip -p "$epub" "EPUB/$cover_href" > "$cover_image"
+if ! cmp -s "$cover_image" "$(cd "$(dirname "$0")/../.." && pwd)/cover/typesec-cover.png"; then
+  echo "EPUB metadata check failed: packaged cover differs from cover/typesec-cover.png" >&2
+  exit 1
+fi
 
 if unzip -l "$epub" | awk '{print $4}' | grep -qx 'EPUB/text/title_page.xhtml'; then
   echo "EPUB metadata check failed: generated empty title_page.xhtml is present" >&2

@@ -1,128 +1,54 @@
-# Book Build Notes
+# TypeSec Book Build Notes
 
-## Prerequisites
-
-`docs/book/build.sh` needs Pandoc (with the `typst` PDF engine), `pdfunite`,
-Calibre's `ebook-convert`, and — for the architecture diagrams — the Mermaid CLI
-`mmdc` (`npm i -g @mermaid-js/mermaid-cli`).
-
-## Mermaid diagrams
-
-The manuscript carries diagrams as inline ```` ```mermaid ```` code blocks (so
-GitHub renders them too). Pandoc can't render Mermaid, so the build passes
-`--lua-filter docs/book/mermaid.lua`, which shells out to `mmdc` to render each
-block to a PNG (white background, 2×) into a temp dir and substitutes an image.
-The filter reads `$MERMAID_OUT` (set by `build.sh`) and an optional
-`$MERMAID_PUPPETEER` config (`docs/book/puppeteer-config.json`, which passes
-`--no-sandbox` for headless/CI Chrome). Edit a diagram by editing its mermaid
-block in `docs/book/typesec.md`; there are no checked-in diagram images.
-
-## Separate Cover Page
-
-Use `docs/book/cover.md` as a standalone cover source and keep it separate from the
-main manuscript. The file contains two raw blocks:
-
-- A Typst block for the PDF cover.
-- An HTML block for the EPUB and MOBI cover.
-
-Keep the visible text synchronized between both blocks. The visible cover stays
-stable and does not include the package version; versioning is reserved for
-Kindle-facing EPUB metadata. The Typst cover block disables page numbering so
-the standalone cover page has no printed page number.
-
-## Metadata
-
-Keep stable EPUB metadata in `docs/book/metadata.yaml`. The build script passes
-that file to Pandoc and overrides the publication date with the current UTC
-date. After Pandoc writes the EPUB, the layout fixer updates only the OPF
-package title used by Kindle libraries to the generated `kindle_name`, for
-example `typesec (<workspace-version>)`. The name comes from `title_stem` in
-`docs/book/metadata.yaml` plus `[workspace.package].version` in the root
-`Cargo.toml`.
-
-After building the EPUB, `docs/book/check_epub_metadata.sh` verifies the package
-metadata, NCX title, nav title, cover-first spine order, and the absence of
-Pandoc's generated empty title page. The build stops before MOBI conversion if
-the EPUB falls back to `UNTITLED`, `Unknown`, missing title, author, language,
-or date fields, or if the readable spine starts with the navigation document
-instead of the cover.
-
-## PDF Build
-
-Render the cover by itself:
+The canonical command is:
 
 ```sh
-pandoc "$tmpdir/cover.md" \
-  -o "$tmpdir/cover.pdf" \
-  --pdf-engine=typst
+docs/book/build.sh
 ```
 
-Render the book body separately, with the table of contents:
+See `docs/book/PUBLISH.md` for the complete artifact, validation, and delivery
+contract.
+
+## Cover
+
+The canonical 1024x1536 cover is `cover/typesec-cover.png`. Its source
+headboard, generated portrait art, First Pair Press publisher mask, prompt, and
+deterministic composition command are documented in `cover/README.md`.
+
+Recompose the exact typography and publisher seal with:
 
 ```sh
-pandoc docs/book/typesec.md \
-  -o "$tmpdir/body.pdf" \
-  --pdf-engine=typst \
-  --lua-filter docs/book/mermaid.lua \
-  --toc \
-  --number-sections
+uv run --no-project --with pillow python cover/make-cover.py
 ```
 
-Merge the cover before the body:
+The composer owns the visible title `Typesec`, subtitle
+`Type-Level Security for Agentic AI`, and the sole author line
+`Alexy Khrabrov`. `book.build.json` installs the same PNG as the first,
+unnumbered PDF page and as the EPUB cover image. `docs/book/cover.md` references
+it for browser HTML.
 
-```sh
-pdfunite "$tmpdir/cover.pdf" "$tmpdir/body.pdf" docs/book/dist/typesec.pdf
-```
+## Mermaid Diagrams
 
-This ensures the PDF starts with a full unnumbered cover page, followed by the
-table of contents and the numbered body. Printed page numbers start after the
-cover.
+The manuscript carries inline `mermaid` blocks. The shared builder passes
+`docs/book/mermaid.lua` to Pandoc; the filter calls `mmdc` and uses
+`docs/book/puppeteer-config.json` for headless Chromium. Edit diagrams in
+`docs/book/typesec.md`; generated diagram images are build intermediates.
 
-## EPUB and MOBI Build
+## Metadata and EPUB Layout
 
-Pass the cover file before the manuscript:
+Stable metadata lives in `docs/book/metadata.yaml`. The visible title remains
+`Typesec`, while the OPF catalog title and delivery name are versioned. The
+creator must be exactly `Alexy Khrabrov` and the publisher must be
+`First Pair Press`.
 
-```sh
-pandoc "$tmpdir/cover.md" docs/book/typesec.md \
-  -o docs/book/dist/typesec.epub \
-  --lua-filter docs/book/mermaid.lua \
-  --toc \
-  --number-sections \
-  --metadata-file docs/book/metadata.yaml \
-  --metadata date="$pubdate" \
-  --epub-title-page=false
-```
+`docs/book/fix_epub_layout.sh` orders the EPUB spine as image cover, visible
+navigation/TOC, then manuscript. `docs/book/check_epub_metadata.sh` validates
+that order, the metadata, the 1024x1536 cover wrapper, and byte identity between
+the packaged cover and `cover/typesec-cover.png` before MOBI generation.
 
-The metadata file keeps the EPUB package from falling back to `UNTITLED` and
-`Unknown` author, and `--epub-title-page=false` prevents Pandoc from emitting an
-empty generated title page before the custom cover.
+## Output
 
-The visible cover, NCX title, and navigation title still say `Typesec`, while
-the OPF metadata title used by Kindle libraries comes from a short distribution
-title plus the workspace version, for example `typesec (<workspace-version>)`.
-The build keeps the stable title-stem files at `docs/book/dist/typesec.epub` and
-`docs/book/dist/typesec.pdf`, and creates a versioned delivery symlink for *both*
-formats, stamped `typesec (<workspace-version>-<short-commit>).{epub,pdf}`, that
-points back to the stable file. The commit hash makes each built artifact
-traceable to a source state while the visible title/cover stays clean; the
-stamped links are git-ignored (build-time, local). `docs/book/dist/VERSION.md`
-records the Kindle name, version stamp, build date, the stable EPUB/PDF
-filenames, and the versioned `epub_link`/`pdf_link`.
-
-`docs/book/fix_epub_layout.sh` then repairs Kindle-facing reading order by
-placing the custom cover first in the EPUB spine, marking the navigation
-document as `linear="no"`, and removing Pandoc's generated top-level cover
-heading. The HTML cover uses simple centered text and margins rather than
-flexbox so Kindle renderers do not place the title incorrectly.
-
-Convert the EPUB to MOBI:
-
-```sh
-ebook-convert docs/book/dist/typesec.epub docs/book/dist/typesec.mobi
-```
-
-On this machine, Calibre's converter is available at:
-
-```sh
-/Applications/calibre.app/Contents/MacOS/ebook-convert
-```
+Stable PDF, EPUB, MOBI, single-file HTML, chapter HTML, and `VERSION.md` outputs
+live in `docs/book/dist/`. Versioned delivery paths are generated symlinks to
+those stable artifacts. A successful canonical build finishes with the shared
+PDF/EPUB/HTML and version-marker contracts passing.
