@@ -7,6 +7,12 @@ by release version, then by the date the logical change landed.
 
 ### 2026-07-14
 
+- Added the **Announcing TypeSec Memory** post, its original document-lineage
+  headboard, and an import-ready TextPack. The announcement presents Marciana
+  as TypeSec's privacy-first, capability-gated memory layer across QueryGraph,
+  grounds the claim in the working Pydantic AI v2 proof, and keeps native ANN,
+  fuller memory-specific GQL, distributed Sail cognition, durable anti-replay,
+  and hosted multi-tenant operations explicit as post-v1 work.
 - Restored strict Clippy for the transactional memory batch API by boxing
   record insertions, and reconciled Marciana's status docs with the shipped
   TypeSec core, persistent Turso QueryGraph adapter, identity-bound `qg-rust`
