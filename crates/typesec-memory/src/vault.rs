@@ -466,7 +466,7 @@ impl<S: MemoryStore> MemoryVault<S> {
                         record.label,
                         record.content().text.clone(),
                     );
-                    batch.push(crate::store::StoreBatchOp::Put(record));
+                    batch.push(crate::store::StoreBatchOp::Put(Box::new(record)));
                     to_index.push((id.clone(), label, text));
                     report.created.push(id);
                 }

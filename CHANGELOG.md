@@ -7,6 +7,11 @@ by release version, then by the date the logical change landed.
 
 ### 2026-07-14
 
+- Restored strict Clippy for the transactional memory batch API by boxing
+  record insertions, and reconciled Marciana's status docs with the shipped
+  TypeSec core, persistent Turso QueryGraph adapter, identity-bound `qg-rust`
+  memory API, Pydantic AI v2 credential-and-memory demo, and genuinely
+  post-v1 scale/hosted work.
 - Replaced the text-only book title page with a First Pair Press image cover
   adapted from the TypeSec blog headboard. The cover names Alexy Khrabrov as
   the sole author and is shared by PDF, EPUB, MOBI, and hosted HTML output.
@@ -56,7 +61,8 @@ by release version, then by the date the logical change landed.
   and agent access via the existing interop tool-call plane. Placement:
   security core as `typesec-memory` (member #11); scale/cognition tier
   (`SemanticIndex` at scale, entity resolution, community summaries) as
-  `querygraph-memory` in the QueryGraph stack. Implementation M1–M5 next.
+  `querygraph-memory` in the QueryGraph stack. The implemented outcome and
+  audited v1/post-v1 QueryGraph boundary are tracked in §§5–6.
 
 ## 0.12.0 — Torcello
 

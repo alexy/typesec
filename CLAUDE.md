@@ -342,11 +342,16 @@ non-compiling WIP; the WIP landed and the path deps are restored
 
 ## Memory design (2026-07-04)
 
-`FABLE-MEMORY-1.md` (repo root) designs **Marciana** — capability-secured AI
+`FABLE-MEMORY-1.md` (repo root) specifies **Marciana** — capability-secured AI
 memory (labeled `SecureValue` contents, clearance-typed recall, quarantine vs.
 memory poisoning, ODRL retention, Grust bi-temporal knowledge graph, interop
-tool bindings). Planned crate: `typesec-memory`; scale tier lands in
-QueryGraph as `querygraph-memory`. Implementation milestones M1–M5 are in §6.
+tool bindings). V1 is implemented in `typesec-memory`, and Grust contains the
+tested `querygraph-memory` reference adapter. The completed delivery adds
+persistent Turso, identity-bound `qg-rust` memory routes, and a qg-python
+Pydantic AI v2 demo whose capabilities carry both TypeDID credentials and
+Marciana memory. §5.2 keeps that delivery distinct from post-v1 native GQL,
+LanceDB, Sail, and hosted-service work; §6 records the completed TypeSec
+milestones.
 
 ## Releases
 

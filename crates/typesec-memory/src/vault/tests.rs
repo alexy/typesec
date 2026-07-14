@@ -603,7 +603,7 @@ fn consolidation_batches_all_writes_atomically() {
             self.batches.fetch_add(1, Ordering::Relaxed);
             for op in ops {
                 match op {
-                    StoreBatchOp::Put(r) => self.inner.put(r)?,
+                    StoreBatchOp::Put(r) => self.inner.put(*r)?,
                     StoreBatchOp::Invalidate { id, at } => self.inner.invalidate(&id, at)?,
                 }
             }

@@ -130,7 +130,7 @@ impl StoreQuery {
 #[derive(Debug, Clone)]
 pub enum StoreBatchOp {
     /// Insert or replace a record.
-    Put(StoredRecord),
+    Put(Box<StoredRecord>),
     /// Invalidate a record at `at` (bi-temporal supersede).
     Invalidate {
         /// Record to invalidate.
@@ -168,7 +168,7 @@ pub trait MemoryStore: Send + Sync {
     fn apply_batch(&self, ops: Vec<StoreBatchOp>) -> Result<(), StoreError> {
         for op in ops {
             match op {
-                StoreBatchOp::Put(record) => self.put(record)?,
+                StoreBatchOp::Put(record) => self.put(*record)?,
                 StoreBatchOp::Invalidate { id, at } => self.invalidate(&id, at)?,
             }
         }

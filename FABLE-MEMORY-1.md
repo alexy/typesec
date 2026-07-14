@@ -1,9 +1,12 @@
 # FABLE-MEMORY-1 — Marciana: capability-secured memory for AI agents
 
-*Design date: 2026-07-04 · Author: Claude (Fable) with Alexy · Status: proposed,
-implementation next · Codename: **Marciana** (the Biblioteca Marciana — Venice's
-great library; the memory subsystem gets a Venetian name of its own, distinct
-from the release codename line).*
+*Design date: 2026-07-04 · Author: Claude (Fable) with Alexy · Implementation
+audit: 2026-07-14 · Status: end-to-end v1 implemented across TypeSec, Grust,
+and `qg-rust`, with a Pydantic AI v2 credential-and-memory demo; genuinely
+post-v1 scale and hosted-product work is tracked in §5.2
+· Codename: **Marciana** (the Biblioteca Marciana — Venice's great library; the
+memory subsystem gets a Venetian name of its own, distinct from the release
+codename line).*
 
 Typesec learns to remember. This document designs an AI memory subsystem in
 the mold of the best OSS memory systems — mem0's extraction/consolidation
@@ -405,8 +408,9 @@ graph selection, session control, path values) that §5.2's items pressure-test.
    It is id-in/id-out — search can *rank*, only the vault *reveals* — and it
    receives each record's `Label` so implementations can enforce the
    embedding-privacy rule: content labeled above `Internal` must never be
-   sent to a remote embedder (open question #4, now a documented contract on
-   the trait). A deterministic `KeywordIndex` reference impl ships with it,
+   sent to a remote embedder. This is a documented trait contract and is
+   enforced by QueryGraph's v1 vector index. A deterministic `KeywordIndex`
+   reference impl ships with it,
    and `MemoryVault::with_index` + `recall_semantic` wire ranking into the
    vault behind the same label gate as every other recall path.
 2. The **conformance suite** now ships: `typesec_memory::conformance`
@@ -420,9 +424,11 @@ graph selection, session control, path values) that §5.2's items pressure-test.
 3. The **seam decision** above (sync `MemoryStore`, bridge lives in
    `querygraph-memory`).
 
-**Tier 2 — the `querygraph-memory` crate — DONE** (grust branch
-`fable/querygraph-memory`, 13 lib tests + a multi-tenant integration test,
-clippy clean):
+**Tier 2 — `querygraph-memory` v1 — DONE** (landed on Grust main, with library,
+tenant-isolation, persistent-Turso, and strict Clippy coverage).
+V1 is the reusable contract and reference layer needed to connect Marciana to
+the QueryGraph stack. It deliberately does not claim the native LanceDB, Sail,
+or hosted-product work listed as post-v1 below.
 
 1. *Persistent, incremental `MemoryStore`* over any Grust `GraphMutationStore`
    — **done.** `GraphStoreMemoryStore<G>`: records/entities as nodes,
@@ -436,40 +442,65 @@ clippy clean):
    on any backend that overrides it transactionally. The vault's
    `consolidate` emits one batch; an end-to-end test supersedes over the
    Grust backend with the SecLib join preserved.
-3. *Space-filter pushdown* — **done.** `query` starts from
+3. *Space-filter pushdown* — **v1 done.** `query` starts from
    `Start::NodesByProperty` on the record's `space` prop, so a scoped query is
-   pushed to the backend and never scans other tenants. (Fuller GQL
-   point-in-time/lineage pushdown remains a future optimization — correctness
-   is pinned by conformance today.)
-4. *Vector `SemanticIndex`* — **done.** `VectorIndex<E: Embedder>` with the
+   pushed to the backend and never scans other tenants. Shared
+   `StoreQuery::matches` semantics preserve correctness for the remaining
+   dimensions. Native GQL point-in-time and lineage predicate pushdown is a
+   post-v1 optimization.
+4. *Vector `SemanticIndex`* — **v1 done.** `VectorIndex<E: Embedder>` with the
    embedding-privacy rule **enforced by construction**: `Embedder::is_local`,
    and above-`Internal` content is only ever embedded locally (a remote
    embedder declines to index it — content never egresses). Cosine ranking +
-   an optional bounded hybrid graph re-rank (co-mentioned entities). LanceDB
-   ANN is now "supply an `Embedder` over `grust-lancedb`".
-5. *Cognition batch analytics* — **done.** `analytics`: dedup, contradiction
+   an optional bounded hybrid graph re-rank (co-mentioned entities) provide the
+   reference implementation. A persistent native LanceDB ANN adapter is
+   post-v1; supplying an `Embedder` alone is not that adapter.
+5. *Cognition batch analytics* — **v1 done.** `analytics`: dedup, contradiction
    detection, decay/importance scoring — whose **only output is a
    `ConsolidationPlan` applied through the vault front door**, never a direct
-   store write. End-to-end test runs a contradiction plan through the vault.
-   (Production swaps the bodies for grust-sail jobs; the contract is the
-   durable part.)
-6. *Multi-tenant isolation* — **done.** Integration test: one shared Grust
+   store write. An end-to-end test runs a contradiction plan through the vault.
+   Distributed production implementations over `grust-sail` are post-v1; the
+   plan-producing contract is the durable v1 boundary.
+6. *Multi-tenant isolation* — **v1 done.** Integration test: one shared Grust
    store behind two vaults, typesec policies as the tenancy boundary — a
    tenant can neither mint a capability for nor point its own capability at
-   another tenant's spaces, despite records sharing one graph. The hosted
-   service (per-tenant `memory-serve` frontends, deletion-receipt GDPR flow,
-   conformance in CI) is now assembly of shipped parts.
+   another tenant's spaces, despite records sharing one graph. A hosted
+   multi-tenant service and additional product clients beyond the delivered
+   Pydantic AI v2 demonstrator are post-v1 application work; the `qg-rust`
+   consumption path is the v1 completion proof described below.
 
-**Tier 3 — grust-core enablers (discover as tier 2 proceeds):**
-edge-property indexes tuned for bi-temporal window predicates, and exposing
-LanceDB's ANN query surface beyond the plain `GraphStore` interface if it is
-not already reachable. Both will surface naturally from the GQL recall
-library.
+**Post-v1 scale and product work (not required to call v1 complete):**
 
-**Order:** tier 1 (done) → persistent store → transactions → GQL recall →
-lancedb ANN → sail analytics → service.
+- native GQL temporal/lineage predicate pushdown and edge-property indexes for
+  bi-temporal windows;
+- a persistent `SemanticIndex` backed by `grust-lancedb`'s native ANN surface,
+  including a real embedding/indexing pipeline;
+- distributed consolidation analytics implemented as `grust-sail` jobs;
+- persistent-backend integration matrices beyond the current v1 Turso proof;
+  and
+- hosted multi-tenant service assembly plus product packaging and clients
+  beyond the delivered qg-python Pydantic AI v2 demonstration.
 
-## 6. Implementation plan (next; each milestone green + changelogged)
+**V1 completion delivery (done on 2026-07-14):** `querygraph-memory` passes the
+TypeSec conformance corpus against persistent Turso, including reopen,
+transactional consolidation, and nested-Tokio tests. `qg-rust` exposes
+signed-only remember/recall/forget routes whose TypeSec subject is the
+credential's verified `did:key`; qg-python demonstrates two Pydantic AI v2
+capabilities—access credentials and Marciana memory—across a server restart,
+plus outsider denial. This does not pull the deferred native GQL, LanceDB,
+Sail, or hosted-service implementations into v1.
+
+**Tier 3 — post-v1 Grust enablers:** edge-property indexes tuned for
+bi-temporal predicates and an ANN interface beyond the plain `GraphStore`
+surface. These should be driven by the GQL and LanceDB implementations rather
+than added speculatively.
+
+**Order:** TypeSec prerequisites (done) → QueryGraph reference adapter (done) →
+persistent Turso + `qg-rust` + Pydantic AI v2 consumption proof (done) →
+GQL temporal/lineage pushdown → LanceDB ANN → Sail analytics → hosted service
+and additional clients.
+
+## 6. V1 implementation plan (complete; each milestone green + changelogged)
 
 - **M1 — vault core** (`typesec-memory`): `MemorySpace`, records, runtime
   labels + single rehydration site, `MemoryVault` ops gated by capabilities,
@@ -480,24 +511,26 @@ lancedb ANN → sail analytics → service.
 - **M2 — policy depth**: ODRL purpose-bound recall + retention reaper +
   deletion receipts; `recall<L>` ceiling semantics + redacted hits + `reveal`
   escalation; attenuated delegation example (planner → sub-agent).
-- **M3 — agent surface**: interop tool bindings + `#[typesec_tool]` handlers;
-  `typesec memory-serve` (MCP); Python `MemoryGate` + pydantic-ai example;
-  WASM vault.
-- **M4 — Grust backend**: `GrustMemoryStore` (entity graph, bi-temporal
-  edges, GQL recall, transactional consolidation) behind `graph-memory`;
-  point-in-time recall test; org-graph × memory-graph shared-instance demo.
+- **M3 — agent surface**: interop tool bindings and handlers; `typesec
+  memory-serve` (MCP); Python `MemoryGate`; WASM vault.
+- **M4 — Grust reference backend**: `GrustMemoryStore` entity-graph CRUD,
+  bi-temporal query semantics, and neighborhood recall behind `graph-memory`;
+  the transactional `apply_batch` seam implemented transactionally by the
+  QueryGraph adapter.
 - **M5 — cognition hooks**: `Extractor` trait + `RuleExtractor` +
   `OllamaExtractor` (local-model extraction); consolidation loop demo
   (ADD/UPDATE/NOOP); consent-gated remembering via `Conversation<Consented>`;
   QueryGraph handoff spec for `querygraph-memory` (trait versions, fixtures,
   conformance tests).
 
-Non-goals for this cycle: hosted service, embedding model training, UI.
+V1 non-goals: hosted service, native/distributed production ANN and analytics,
+embedding-model training, and UI. They are post-v1 work, not unfinished v1
+milestones.
 
-### Implementation status (2026-07-04, branch `fable/memory`)
+### Implementation status (audited 2026-07-14)
 
-All five milestones landed as green, tested commits (`typesec-memory`,
-workspace member #11):
+All five milestones and their v1 follow-ons landed as tested commits on main
+(`typesec-memory`, workspace member #11):
 
 - **M1 done** — `MemorySpace`/records/runtime `Label` + single rehydration
   site (compile-fail-guarded), `MemoryVault` (remember/recall::<L>/reveal/
@@ -506,48 +539,36 @@ workspace member #11):
 - **M2 done** — `with_policy` per-op ODRL re-check at use time, `reap_expired`
   retention reaper, signed deletion receipts (`receipts` feature),
   attenuated-delegation.
-- **M3 done (Rust surface)** — `memory_bindings()` + `MemoryToolRouter`
-  (`agent` feature): memory as guarded tool calls across all five dialects;
-  `recall_at` runtime-clearance path; `examples/memory_agent.rs`. *Follow-ons
-  still open:* Python `MemoryGate`, `typesec memory-serve` (MCP), WASM vault.
-- **M4 done** — `GrustMemoryStore` (`graph-memory` feature): record CRUD +
-  Grust entity graph, `neighborhood` BFS recall, `recall_neighborhood`
-  through the label gate. *Follow-ons:* full GQL query surface, transactional
-  consolidation on grust.
+- **M3 done** — `memory_bindings()` + `MemoryToolRouter` (`agent` feature),
+  runtime-clearance `recall_at`, Python `MemoryGate`, `typesec memory-serve`
+  over MCP, `WasmMemoryVault`, and `examples/memory_agent.rs`.
+- **M4 done at the v1 reference boundary** — `GrustMemoryStore`
+  (`graph-memory` feature): record CRUD, entity graph, neighborhood BFS recall,
+  and `recall_neighborhood` through the label gate. `MemoryStore::apply_batch`
+  carries transactional consolidation to the QueryGraph adapter; native GQL
+  predicate pushdown remains post-v1.
 - **M5 done** — `Extractor` trait + deterministic `RuleExtractor`,
   `examples/memory_consolidation.rs` (learn → supersede, history preserved),
-  and §5.1 the QueryGraph handoff spec. *Follow-on:* `OllamaExtractor`
-  (local-model extraction) via `typesec-integrations`' `DidOllamaClient`.
-
-**Follow-on wave (same branch): all agent surfaces + the Ollama extractor
-are now done too.**
-
-- **Python `MemoryGate`** — remember/recall/forget from Python, every op
-  minting its capability; clearance strings fail closed; denials raise
-  `PermissionError`. (typesec-python + unittest coverage.)
-- **`typesec memory-serve`** — Marciana as an MCP stdio server: initialize /
-  tools/list / tools/call, each call through guard-then-mint; denials are
-  `isError` results. Verified e2e over stdio. (Also fixed a real bug it
-  surfaced: CLI logs went to stdout, corrupting JSON-RPC streams — now
-  stderr.)
-- **`WasmMemoryVault`** — session-scoped secure memory for JS/edge agents;
-  verified from Node. (Enabler: `typesec_core::time` shims `web-time` on
-  wasm32, since `SystemTime::now()` panics on bare wasm.)
-- **`OllamaExtractor`** (`ollama` feature) — local-model extraction with a
-  strict JSON output contract (malformed output fails closed) and
-  episode-provenance drafts (the model cannot upgrade its own trust); raw
-  episodes never leave the box. Mock-HTTP tests, no network.
+  §5.1's QueryGraph handoff spec, and `OllamaExtractor` local-model extraction
+  with a strict, fail-closed JSON contract and episode provenance.
 
 **Tier-1 prerequisites (§5.2) also done:** the `SemanticIndex` trait +
 `KeywordIndex` reference impl, vault wiring (`with_index`, index-on-remember,
 prune-on-forget/reap, `recall_semantic` behind the label gate), and the
 `conformance` feature (versioned corpus + `run_store_conformance`, passed by
-both `InMemoryStore` and `GrustMemoryStore` in-tree). 48 crate tests (all
-features) + 2 runnable examples. Remaining work is QueryGraph-side per the
-§5.2 tiers: the `querygraph-memory` crate (persistent store, transactions,
-GQL recall, lancedb ANN, sail analytics, multi-tenant service).
+both `InMemoryStore` and `GrustMemoryStore` in-tree). The audited all-features
+suite has 49 unit tests plus compile-fail, graph-integration, and doctest
+coverage.
 
-## 7. Open questions
+**QueryGraph's v1 reference adapter is also present and tested:** generic Grust
+persistence, batched mutations, space pushdown, privacy-aware in-process
+ranking, reference analytics, and a tenant-isolation proof. The cross-repo
+completion delivery adds persistent Turso, identity-bound `qg-rust` memory
+routes, and the qg-python Pydantic AI v2 credential-and-memory demonstration.
+§5.2 keeps that delivery distinct from native GQL, LanceDB, Sail, broader
+backend matrices, and hosted-service work reserved for post-v1.
+
+## 7. Open questions and resolved decisions
 
 1. **Label set extensibility** — are four levels enough for memory (e.g. a
    distinct `Quarantined` *label* vs. the boolean flag chosen here)? Current
@@ -560,12 +581,16 @@ GQL recall, lancedb ANN, sail analytics, multi-tenant service).
    capability *set* or a parent-space capability (`memory/user:alice/**` as a
    mintable resource). Leaning: allow glob-resource capabilities, since RBAC
    already grants them; needs a compile-fail-safe design pass.
-4. **Embedding privacy** — vectors leak content; do embeddings of Sensitive
-   records inherit the label (and thus never leave for a remote embedder)?
-   Proposed: yes — `SemanticIndex` receives `SecureValue`s and local-only
-   indexes are the default for `label ≥ Sensitive`.
-5. **Naming** — `typesec-memory` (crate) / `MemoryVault` (type) / *Marciana*
-   (subsystem codename) — confirm before M1 lands the crate name on crates.io.
+
+Resolved for v1:
+
+4. **Embedding privacy** — `SemanticIndex` receives the runtime `Label` with
+   content, and QueryGraph's `VectorIndex` refuses to send content above
+   `Internal` to a non-local `Embedder`.
+5. **Naming** — `typesec-memory` (crate), `MemoryVault` (type), *Marciana*
+   (subsystem), and `querygraph-memory` (QueryGraph adapter) have landed. The
+   TypeSec crate remains unreleased until the next TypeSec release rather than
+   being retroactively added to the existing `v0.12.0` tag.
 
 ---
 
