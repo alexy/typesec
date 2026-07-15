@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/alexy/typesec"
+Repository = "https://github.com/querygraph/typesec"
 
 [tool.maturin]
 module-name = "typesec._native"

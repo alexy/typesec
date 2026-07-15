@@ -7,6 +7,14 @@ by release version, then by the date the logical change landed.
 
 ## 0.13.0 — Lido
 
+### 2026-07-15
+
+- Wired the Marciana document-lineage artwork into the unified book package as
+  Lido's FirstPair library headboard.
+- Removed an accidentally tracked, platform-specific Python extension binary
+  from release sources and corrected the Python and WASM package links to the
+  canonical `querygraph/typesec` repository.
+
 ### 2026-07-14
 
 - Prepared the **Lido** release line at `0.13.0`, keeping the workspace crates,

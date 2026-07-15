@@ -7,6 +7,8 @@ src/policy_gen.rs
 __pycache__/
 *.py[cod]
 .venv/
+crates/typesec-python/python/typesec/_native*.so
+crates/typesec-python/python/typesec/_native*.pyd
 docs/book/dist/* (*).epub
 docs/book/dist/* (*).pdf
 docs/book/dist/* (*).html

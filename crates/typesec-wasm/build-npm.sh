@@ -35,7 +35,7 @@ cat > "$OUT/package.json" <<JSON
   "version": "$VERSION",
   "description": "Type-level security for AI agents: policy-gated tool calls for JS/TS (OpenAI, Anthropic, LangChain, Pydantic AI, MCP)",
   "license": "MIT OR Apache-2.0",
-  "repository": { "type": "git", "url": "https://github.com/alexy/typesec" },
+  "repository": { "type": "git", "url": "https://github.com/querygraph/typesec" },
   "keywords": ["security", "agents", "llm", "tool-calls", "rbac", "wasm"],
   "type": "$([ "$TARGET" = nodejs ] && echo commonjs || echo module)",
   "main": "$MAIN",

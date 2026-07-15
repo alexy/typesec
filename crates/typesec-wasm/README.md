@@ -2,7 +2,7 @@
 
 Type-level security for AI agents, for JavaScript/TypeScript: the same Rust
 policy core (RBAC / ODRL) and deny-by-default tool-call guard that back the
-[typesec](https://github.com/alexy/typesec) Rust and Python surfaces, compiled
+[typesec](https://github.com/querygraph/typesec) Rust and Python surfaces, compiled
 to WebAssembly. One policy file, the same verdicts, across four languages.
 
 Guards the JSON tool-call shapes of **OpenAI**, **Anthropic**, **LangChain**,

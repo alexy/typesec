@@ -7,6 +7,7 @@
   "cover": "docs/book/cover.md",
   "css": "docs/book/epub.css",
   "stem": "typesec",
+  "headboardImage": "docs/blog/announcing-typesec-memory/assets/typesec-memory-headboard.png",
   "version": {
     "source": "cargo",
     "file": "Cargo.toml"

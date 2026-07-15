@@ -24,5 +24,5 @@ bindings can scope the resource per call (`resource_arg`), require arguments,
 and constrain argument values with globs.
 
 Build from source: `maturin develop` in `crates/typesec-python` of the
-[typesec repository](https://github.com/alexy/typesec); the full guide is
+[typesec repository](https://github.com/querygraph/typesec); the full guide is
 `docs/agent-interop.md` there.
