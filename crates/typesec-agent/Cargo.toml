@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Agent executor with typestate and capability-based access control"
 
 [dependencies]
-typesec-core = { version = "0.12.0", path = "../typesec-core" }
+typesec-core = { version = "0.13.0", path = "../typesec-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 jsonschema = { workspace = true }
@@ -18,10 +18,10 @@ tracing = { workspace = true }
 [dev-dependencies]
 # rbac/odrl/tokio/futures are exercised only by tests; the library itself is
 # engine-agnostic and async-runtime-free (which keeps it wasm-compatible).
-typesec-rbac = { version = "0.12.0", path = "../typesec-rbac" }
-typesec-odrl = { version = "0.12.0", path = "../typesec-odrl" }
+typesec-rbac = { version = "0.13.0", path = "../typesec-rbac" }
+typesec-odrl = { version = "0.13.0", path = "../typesec-odrl" }
 tokio = { workspace = true }
 futures = { workspace = true }
-typesec-macro = { version = "0.12.0", path = "../typesec-macro" }
+typesec-macro = { version = "0.13.0", path = "../typesec-macro" }
 tracing-subscriber = { workspace = true }
 chrono = { workspace = true }

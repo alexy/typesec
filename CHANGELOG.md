@@ -5,8 +5,19 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+## 0.13.0 — Lido
+
 ### 2026-07-14
 
+- Prepared the **Lido** release line at `0.13.0`, keeping the workspace crates,
+  internal TypeSec dependency constraints, Python package, and release ledger
+  on one version while retaining Grust `0.12.0` as the graph substrate.
+- Reworked the book around the completed Marciana v1 contract: the architecture
+  and workspace tour now include all eleven crates, a dedicated
+  `typesec-memory` chapter follows authority from a typed capability through
+  the vault to the durable QueryGraph proof, and the evidence, release history,
+  roadmap, and conclusion separate shipped guarantees from post-v1 scale and
+  hosted-service work.
 - Added the **Announcing TypeSec Memory** post, its original document-lineage
   headboard, and an import-ready TextPack. The announcement presents Marciana
   as TypeSec's privacy-first, capability-gated memory layer across QueryGraph,

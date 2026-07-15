@@ -190,8 +190,11 @@ flowchart LR
     class D,U bad;
 ```
 
-The workspace is nine crates layered on `typesec-core`; the umbrella `typesec`
-crate re-exports the rest behind feature flags.
+The workspace is eleven crates layered on `typesec-core`. The umbrella
+`typesec` crate re-exports the core, policy, agent, macro, and integration
+surfaces behind feature flags; `typesec-memory` and `typesec-wasm` remain
+purpose-built distribution surfaces rather than being hidden inside the
+facade.
 
 ```mermaid
 flowchart TD
@@ -203,9 +206,17 @@ flowchart TD
     agent["typesec-agent<br/>SecureAgent · ProtectedTool"] --> core
     agent --> rbac
     agent --> odrl
+    memory["typesec-memory<br/>Marciana vault · labels · stores · cognition"] --> core
+    memory --> agent
+    memory --> integ
     py["typesec-python"] --> core
+    py --> memory
+    wasm["typesec-wasm<br/>JS/TS guards · WasmMemoryVault"] --> core
+    wasm --> agent
+    wasm --> memory
     cli["typesec-cli"] --> agent
     cli --> integ
+    cli --> memory
     facade["typesec (facade)"] --> agent
     facade --> integ
     facade --> macro
@@ -264,7 +275,7 @@ sequenceDiagram
 
 # Workspace Tour
 
-The repository is a Rust workspace with nine crates:
+The repository is a Rust workspace with eleven crates:
 
 ```text
 typesec           facade crate re-exporting the common API
@@ -275,7 +286,9 @@ typesec-agent     SecureAgent wrapper for async capability requests and execute
 typesec-integrations JWT/OIDC, WorkOS FGA, and Arcade-style tool auth engines
 typesec-macro     derive and policy macros for typed role declarations
 typesec-cli       validate, check, generate, and run commands
+typesec-memory    Marciana vault, labels, stores, guarded memory tools, and cognition traits
 typesec-python    PyO3 bindings for Rust-backed Python policy gates
+typesec-wasm      JavaScript/TypeScript tool guards and the in-memory WASM vault
 ```
 
 The integration layer also includes an initial DID messaging boundary. DIDs are
@@ -298,6 +311,8 @@ examples/odrl_agent.rs
 examples/provider_integrations.rs
 examples/did_messaging.rs
 examples/typedid_agent_communications.rs
+examples/memory_agent.rs
+examples/memory_consolidation.rs
 examples/pydantic_ai_capabilities.py
 examples/typedid_framework_adapters.py
 examples/company_graph/company_graph_grust_sail.rs
@@ -327,7 +342,7 @@ The root workspace uses Rust 2024. Common dependencies are declared in
 `x25519-dalek`, `chacha20poly1305`, `sha2`, `getrandom`).
 
 Grust is published on crates.io (`grust-graph`, `grust-cypher`, and `grust-sail`
-are at `0.11.0`, codename Crab). The workspace pins each dependency with both a
+are at `0.12.0`, codename Lobster). The workspace pins each dependency with both a
 `version` and a local `path`, so a checkout that has a sibling `../grust` builds
 against that working copy (the `path` wins locally), while the `version`
 resolves against crates.io when Typesec is published or built without the
@@ -335,9 +350,9 @@ sibling checkout:
 
 ```toml
 # workspace Cargo.toml
-grust-graph  = { version = "0.11.0", path = "../grust/crates/grust", features = ["typed-zod-rs"] }
-grust-cypher = { version = "0.11.0", path = "../grust/crates/grust-cypher" }
-grust-sail   = { version = "0.11.0", path = "../grust/crates/grust-sail" }
+grust-graph  = { version = "0.12.0", path = "../grust/crates/grust", features = ["typed-zod-rs"] }
+grust-cypher = { version = "0.12.0", path = "../grust/crates/grust-cypher" }
+grust-sail   = { version = "0.12.0", path = "../grust/crates/grust-sail" }
 ```
 
 To build the Cypher company-graph example purely from crates.io, drop the `path`
@@ -1153,6 +1168,250 @@ registry.invoke("gmail.list", &agent, &execute_cap).await?;
 The underlying `execute` method runs an async closure. The closure cannot be
 reached through this method without a capability.
 
+# `typesec-memory` — Marciana
+
+An agent's durable memory is not merely a retrieval feature. It accumulates the
+most sensitive material the agent has encountered, carries assertions across
+sessions, and can turn one successful prompt injection into a standing source
+of future instructions. A `user_id` predicate on a vector query is useful
+scoping, but it does not answer the governing questions: which verified agent
+may remember, recall, transform, share, or forget this record; for which
+purpose; at which clearance; and with what evidence afterward?
+
+Lido applies the existing Typesec model to that problem. The subsystem is named
+**Marciana**, after Venice's Biblioteca Marciana: a library understood not as a
+pile of text, but as an institution for provenance, custody, classification,
+access, and stewardship. Its security core lives in the `typesec-memory` crate.
+The durable QueryGraph adapter lives on Grust, the authenticated service lives
+in `qg-rust`, and the agent ergonomics live in qg-python. That division keeps
+authority, persistence, transport, and framework integration in their proper
+homes.
+
+## Memory is a resource
+
+Every memory space implements the ordinary Typesec `Resource` contract:
+
+```text
+memory/user:alice/profile
+memory/agent:planner/procedural
+memory/team:research/shared
+```
+
+The existing RBAC, graph, and ODRL engines can therefore govern memory without
+a parallel policy language. Each operation requires a different typed proof:
+
+```rust
+Capability<CanRead, MemorySpace>
+Capability<CanWrite, MemorySpace>
+Capability<CanDelete, MemorySpace>
+```
+
+The proofs are not interchangeable. Write authority does not imply delete
+authority, and a capability for one space fails against another. They retain
+the same lease, revocation, attenuation, and audit behavior as every other
+Typesec capability. A planner can delegate a short-lived read capability to a
+sub-agent without handing it write or forget authority.
+
+The vault makes that distinction part of its API rather than an instruction in
+a system prompt:
+
+```rust
+let write: Capability<CanWrite, MemorySpace> =
+    mint_capability_for_id(&engine, subject, space.resource_id(), &options)?;
+
+let id = vault.remember(
+    &space,
+    &write,
+    MemoryDraft::new(
+        MemoryKind::Profile,
+        MemoryContent::text("prefers dark mode"),
+        Provenance::Operator,
+    ),
+)?;
+```
+
+`MemoryVault` checks that the capability is active and bound to the target
+space. When constructed with `with_policy`, it also rechecks policy at use time,
+so a still-live proof does not silently ignore a purpose or governance change.
+The model never receives a constructor for capabilities or an unguarded handle
+to stored content.
+
+## Labels travel with content
+
+Scope answers whose memory this is. A label answers how sensitive its contents
+are. Every stored record carries a runtime `Public`, `Internal`, `Sensitive`, or
+`Secret` tag. Only the vault may rehydrate the private content field, and the
+typed Rust recall path declares the maximum sensitivity of the destination
+context:
+
+```rust
+let recalled: Recall<Internal> = vault.recall::<Internal>(
+    &space,
+    &read,
+    RecallQuery::text("display preference"),
+    &RequestContext::default().with_purpose("support"),
+)?;
+```
+
+Records at or below `Internal` arrive as typed hits. Hotter records arrive only
+as `RedactedHit` metadata. `CanReadSensitive` can reveal through the guarded
+escalation path up to `Sensitive`; **`Secret` remains sealed** because v1 does
+not model a stronger reveal authority. At JSON and tool-call boundaries, where
+a runtime string cannot become a Rust type parameter, `recall_at` applies the
+same ceiling check dynamically.
+
+Purpose is a separate gate. A record limited to `support` is absent from an
+`analytics` recall even when the caller otherwise holds read authority. An
+expiry becomes enforceable retention state: `reap_expired` requires delete
+authority, tombstones the records, and emits the same audit trail as an explicit
+forget. With the receipts feature, deletion can also produce signed evidence
+for workflows that require offline verification.
+
+Consolidation preserves information-flow labels. Replacing several facts with a
+summary joins their labels, so a summary of `Sensitive` material is itself at
+least `Sensitive`; transformation cannot launder it into a cooler context. The
+entire supersede-and-replace plan is submitted through `MemoryStore::apply_batch`
+as one unit, which transactional adapters can commit atomically.
+
+## Provenance is part of the security model
+
+Marciana records where a fact came from. A verified TypeDID envelope, a human
+operator, a guarded tool result, a conversation, and raw model text do not begin
+with the same trust. Raw model text is born quarantined, and ordinary recall,
+neighborhood recall, semantic recall, and consolidation exclude quarantined
+records by default. This is the defense against memory poisoning: an injected
+sentence may be retained for inspection without silently becoming durable
+truth that guides a later session.
+
+That guarantee has an important v1 edge. The Rust query model can explicitly
+request quarantined records, but Marciana does not yet expose a mandatory
+promotion operation that requires `CanDeclassify`, nor does every consolidation
+path require proof of promotion before quarantine can be cleared. Hosted use
+must add that audited promotion boundary and prove quarantine propagation across
+all derived records. The book treats this as unfinished security work, not as a
+property inferred from the default query behavior.
+
+## Time, graph, and retrieval
+
+A memory record distinguishes when it was observed from when it was valid.
+Supersession invalidates an old assertion instead of overwriting history, so
+"Alice lives in Venice" can remain inspectable as a past belief beside its
+successor without being returned as current truth. Explicit forgetting is the
+separate destructive path.
+
+The in-tree `InMemoryStore` makes the contract easy to test and embed. The
+feature-gated `GrustMemoryStore` adds entity relationships and neighborhood
+recall. QueryGraph's `querygraph-memory` adapter carries the same `MemoryStore`
+contract to persistent Turso/libSQL-backed Grust universal tables. In every
+case, the graph or semantic index returns candidate record identifiers; the
+vault decides whether content can be revealed. Retrieval can narrow and rank a
+candidate set, but it cannot widen authority.
+
+The `SemanticIndex` seam follows the same rule. Typesec ships a deterministic
+`KeywordIndex`, while QueryGraph v1 proves an in-process `VectorIndex` with a
+privacy-aware embedder. The index is not the source of truth and does not return
+content. Remembering feeds it on a best-effort basis, forgetting prunes it, and
+recall always returns through the vault's space, validity, quarantine, and label
+checks.
+
+Reference cognition is similarly constrained. Extractors and analytics produce
+`MemoryDraft`s and `ConsolidationPlan`s; they do not mutate the store directly.
+The deterministic `RuleExtractor` and local-model `OllamaExtractor` demonstrate
+that raw model output remains an untrusted proposal until authorized code sends
+it through `remember` or `consolidate`. QueryGraph's reference analytics are
+also **plan producers only**. Distributed Sail cognition is post-v1 work and
+must preserve that inert-plan boundary.
+
+## The guarded agent surface
+
+Marciana memory operations are normal protected tools:
+
+```text
+memory.remember   -> write  -> resource from the space argument
+memory.recall     -> read   -> resource from the space argument
+memory.forget     -> delete -> resource from the space argument
+```
+
+`memory_bindings()` registers those mappings with the same deny-by-default
+`ToolCallGuard` used for OpenAI, Anthropic, LangChain, Pydantic AI, and MCP.
+`MemoryToolRouter` validates the normalized request again, mints the
+operation-specific capability through the configured policy engine, and only
+then calls the vault. The CLI exposes the path through `typesec memory-serve`;
+Python has `MemoryGate`; and `typesec-wasm` provides `WasmMemoryVault` for the
+in-memory web boundary.
+
+The realized QueryGraph service preserves the same sequence across a network:
+
+```mermaid
+flowchart LR
+    agent["Pydantic AI v2 agent"] --> envelope["TypeDID signed envelope"]
+    envelope --> auth["qg-rust authentication"]
+    auth --> guard["TypeSec ToolCallGuard"]
+    guard --> router["MemoryToolRouter"]
+    router --> vault["MemoryVault"]
+    vault --> adapter["querygraph-memory"]
+    adapter --> grust["Grust on Turso/libSQL"]
+    grust --> adapter
+    adapter --> vault
+    vault --> agent
+```
+
+qg-python keeps the Ed25519 signing seed in typed runtime dependencies. qg-rust
+accepts the verified signing DID—not a caller-supplied JSON subject—as the
+policy principal. The signature binds sender, recipient, action, exact route,
+and body digest. Authentication failures return `401`; an authenticated subject
+denied by TypeSec receives a `403` receipt.
+
+The executable proof remembers a governed result as one authorized specialist,
+terminates and restarts qg-rust, recalls the durable record as a differently
+credentialed supervisor, and denies a validly signed outsider. This is a real
+restart-persistence and identity-bound authorization proof, not a claim that
+the service is already a hosted multi-tenant product.
+
+## The exact v1 boundary
+
+Marciana v1 is complete at the durable local-service boundary. It includes the
+vault, runtime labels, clearance-typed recall, redaction and guarded reveal,
+purpose filtering, retention, tombstones and receipts, provenance quarantine,
+bi-temporal supersession, guarded agent tools, Python and WASM surfaces, Grust
+reference storage, a versioned backend conformance corpus, transactional
+consolidation, reference extraction, semantic-index hooks, persistent Turso,
+identity-bound qg-rust routes, and the Pydantic AI demonstration.
+
+The following limits are equally part of the contract:
+
+- `MemoryId::next()` is monotonic only within one process. A restarted process
+  that writes into an existing durable store can collide with an older id until
+  the durable-id contract is upgraded.
+- TypeDID signatures bind identity, route, action, recipient, and body, but v1
+  does not durably claim a replay nonce across replicas. Durable cross-replica
+  replay protection remains post-v1.
+- The Turso/Grust adapter pushes only memory-space equality into the backend.
+  The shared conformance-pinned matcher applies the remaining query dimensions
+  after retrieval.
+- QueryGraph's `VectorIndex` is in-process and nonpersistent. Persistent,
+  tenant-scoped LanceDB ANN is future work; ANN remains a ranking aid rather
+  than an authorization mechanism.
+- Reference extraction and analytics produce inert plans only. There are no
+  distributed Sail cognition jobs in v1.
+- Tenant isolation is enforced by TypeSec at the vault boundary. V1 has no
+  hosted multi-tenant control plane, physical isolation tiers, quotas,
+  migrations, backup/restore program, or SLO-backed service.
+- The v1 `querygraph-memory` `RELATES` representation identifies an edge by its
+  structural `(from, label, to)` shape. It cannot preserve two assertions that
+  differ only by `fact_id`; explicit assertion identity and fuller lineage are
+  post-v1 schema work.
+- Quarantine exclusion is the safe default, but mandatory audited
+  `CanDeclassify` promotion and quarantine propagation through every derived
+  record are not complete.
+- `CanReadSensitive` reveals through `Sensitive`; `Secret` remains sealed.
+
+These limits are not reasons to weaken the v1 claim. They make the claim
+reviewable: Lido delivers governed, persistent agent memory with a tested
+end-to-end proof, while durable identifiers, replica-safe replay, persistent
+ANN, assertion-level lineage, distributed cognition, and hosted operations
+remain named work with explicit acceptance gates.
+
 # `typesec-integrations`
 
 The integrations crate is intentionally outside `typesec-core`. Provider
@@ -1627,6 +1886,25 @@ agent layer across more realistic scenarios. Provider integration tests in
 WorkOS, Arcade, JWT, and capability-composition path. Python smoke tests in
 `tests/python/test_cli_policy.py` exercise the CLI as a policy oracle.
 
+Marciana adds a security-focused matrix of its own. The audited
+`typesec-memory` all-features suite contains 49 unit tests plus compile-fail,
+graph-integration, and doctest coverage. Compile-fail cases prove that external
+code cannot rehydrate a stored record or recall without the required
+capability. Runtime cases cover space binding, clearance and redaction,
+`Secret` sealing, purpose filtering, quarantine defaults, label joins,
+transactional consolidation, retention, forgetting, graph neighborhoods,
+semantic ranking, and guarded tool routing. The versioned conformance corpus is
+run against both `InMemoryStore` and `GrustMemoryStore` in tree.
+
+The cross-repository v1 proof tests a second boundary: `querygraph-memory`
+passes the same corpus on persistent Turso/Grust storage; qg-rust tests exact
+TypeDID route/body/identity binding, authorization denial, and close/reopen
+persistence; and the qg-python Pydantic AI demonstration proves specialist
+write, process restart, supervisor recall, signed-outsider `403`, and unsigned
+caller `401` without requiring a provider API key. These tests establish the
+durable local-service claim. They do not stand in for the post-v1 replica,
+persistent-ANN, assertion-lineage, or hosted-operations gates.
+
 Benchmark and fuzz tooling cover the hot paths and parser boundaries:
 
 ```sh
@@ -1637,7 +1915,7 @@ cargo fuzz run rbac_yaml -- -max_total_time=300
 cargo fuzz run odrl_yaml -- -max_total_time=300
 ```
 
-During today's final publishing pass, the merged repository was checked with:
+The workspace-level verification surface remains:
 
 ```sh
 cargo check --workspace
@@ -1646,14 +1924,14 @@ cargo check -p typesec-cli --example provider_integrations
 cargo run -q -p typesec-cli --example provider_integrations
 ```
 
-When the Grust dependency was switched from a path dependency to published
-crates, the Grust/Sail example was checked separately:
+The Grust/Sail example has its own focused check:
 
 ```sh
 cargo check -p typesec-cli --example company_graph_grust_sail
 ```
 
-All passed.
+The release process runs these checks together with all-feature, Python, WASM,
+memory-conformance, and book validators before a tag or package publication.
 
 # What We Improved
 
@@ -1690,7 +1968,7 @@ WorkOS handles enterprise identity and resource authorization, Arcade handles
 agent-oriented SaaS tool authorization, and Typesec makes the resulting local
 authority impossible to forget at the call site.
 
-The Grust dependency was bumped to the 0.11 line (codename Crab). Grust is
+The Grust dependency was bumped to the 0.12 line (codename Lobster). Grust is
 published on crates.io, and the workspace pins each Grust crate with both a
 `version` and a local `path` (`../grust`): a checkout with a sibling Grust
 working copy builds against it, while the published `version` resolves for
@@ -1717,6 +1995,16 @@ adapter, and I/O-bound engines can override it to avoid blocking the executor.
 The unmaintained `serde_yaml` dependency was replaced by the API-compatible
 `serde_norway` fork via a package rename, and
 `thiserror` moved to major version 2.
+
+Marciana then carried the same impossible-to-forget authorization pattern into
+durable agent memory. The work added a separately versioned crate and
+conformance contract rather than embedding one preferred database in
+`typesec-core`: the vault owns capability, label, purpose, quarantine, and
+forgetting semantics; Grust and QueryGraph own durable graph storage and
+retrieval; qg-rust owns the authenticated service edge; and qg-python owns the
+agent-facing capability objects. The end-to-end proof now survives a service
+restart and denies a differently authorized subject without exposing signing
+material to model context.
 
 ## Rialto (0.9.0)
 
@@ -1765,6 +2053,34 @@ so the schema and the graph can no longer silently drift. JWT verification was
 hardened to never seed its validator from the token's own `alg` header, and the
 public error types (`CapabilityError`, `AgentError`, `TaskError`) are now
 nameable by callers.
+
+## Torcello (0.12.0)
+
+Torcello made Typesec an interoperability layer for agent tools. The
+deny-by-default guard normalizes OpenAI, Anthropic, LangChain, Pydantic AI, and
+MCP calls; the CLI adds MCP and streaming-proxy gateways; signed decision
+receipts, JSON-Schema arguments, OpenTelemetry audit spans, policy-aware tool
+listing, replayable decision logs, `#[typesec_tool]`, lease attenuation, and
+conversation typestate carry the same authority contract across Rust, Python,
+and WASM. Torcello also moves the graph substrate to Grust **0.12.0, Lobster**.
+
+## Lido (0.13.0)
+
+Lido is the Marciana release. It adds `typesec-memory` as workspace member
+eleven and treats memory as an ordinary governed resource with separate read,
+write, and delete capabilities. The shipped v1 includes clearance-typed recall,
+redacted hits, guarded reveal through `Sensitive`, sealed `Secret` content,
+purpose and retention policy, provenance quarantine, bi-temporal supersession,
+audited forgetting, transactional consolidation, guarded memory tools,
+Python/WASM/MCP surfaces, Grust reference storage, semantic-index and cognition
+traits, and a shared conformance suite.
+
+The coordinated QueryGraph proof adds persistent Turso/Grust storage,
+identity-bound qg-rust routes, and Pydantic AI credentials plus memory across a
+real restart. Lido does not relabel that proof as a hosted product: durable ids,
+cross-replica replay, persistent ANN, assertion-level lineage, mandatory
+declassification promotion, distributed cognition, and hosted multi-tenant
+operations remain post-v1 work.
 
 # Design Tradeoffs
 
@@ -1829,78 +2145,60 @@ opaque value that can be transformed before explicit reveal or declassification.
 
 # Roadmap
 
-The next phase should focus on proving the central promises more directly.
+Lido closes the Marciana v1 milestone rather than moving it forward as an
+ever-receding roadmap item. The next memory work is a staged scale program with
+non-regression rules: every backend still goes through the vault, every
+optimization returns candidate ids rather than content, every cognitive worker
+returns an inert plan, and no hosted layer weakens capability, purpose,
+clearance, quarantine, or deletion semantics.
 
-First, add compile-fail tests with `trybuild`. The most important tests are:
+## Marciana after v1
 
-```text
-unauthenticated agents cannot request capabilities
-actions cannot execute without capabilities
-read capabilities cannot be passed where write capabilities are required
-ordinary write cannot satisfy ai:exfiltrate
-sensitive values cannot be unwrapped without reveal or declassify authority
-```
+The first phase is contract hardening. Replace process-local `MemoryId::next()`
+with durable, collision-safe identifiers; define a signed-envelope v2 with a
+persistent replay store and mutation idempotency; introduce explicit assertion
+identity so repeated same-endpoint relationships retain distinct lineage; add
+an audited `CanDeclassify` promotion operation with mandatory quarantine
+propagation; and version the component and migration contracts. A decision about
+authority stronger than `CanReadSensitive` is required before any path may
+reveal `Secret`; until then, `Secret` stays sealed.
 
-Second, make generated policy code part of the examples. If `typesec generate`
-emits typed modules from an RBAC policy, downstream example code should compile
-against those generated types. Then a policy rename breaks code at compile time.
+The second phase moves more query work into the durable backend without changing
+semantics. Turso/Grust can push temporal, label, provenance, entity, and
+assertion-lineage predicates only after an equivalence corpus proves the same
+answers and failure posture as the shared matcher. Durable replay claims must be
+tested across restart and concurrent replicas, not only within one server.
 
-Third, refine deny and delegate semantics. As of Rialto a failed permission
-constraint emits a `ConstraintFailed` audit event rather than vanishing, but the
-engine still *delegates* on both no-matching-rule and constraint-failure; some
-applications may want those two outcomes to diverge in their decision, not only
-in the audit trail.
+The third phase adds persistent semantic retrieval. A tenant-scoped LanceDB ANN
+index can replace the in-process `VectorIndex` as a rebuildable ranking sidecar,
+but the memory store remains authoritative and the vault still applies space,
+purpose, validity, quarantine, and clearance. Deletion and retention must prune
+or reconcile both stores, and content above the configured embedding ceiling
+must never leave the trusted embedder boundary.
 
-Fourth, extend revocation from in-process epochs to distributed ones.
-`RevocationEpoch` now invalidates live capabilities within a process; the next
-step is binding capabilities to a policy version or shared epoch service so a
-fleet of long-running agents sees a governance change at the same instant.
+The fourth phase distributes cognition through Sail. Extraction, deduplication,
+contradiction detection, entity resolution, community summaries, and
+consolidation may run as data-parallel jobs, but workers receive bounded inputs
+and return signed or hash-bound proposals. Only an authorized vault applies a
+fresh plan. Stale policy, worker retry, partial failure, and idempotent reapply
+are part of the acceptance suite.
 
-Fifth, build on the shipped `typesec check --json`. The flag already gives
-external agents a stable machine-readable answer:
+The fifth phase is the hosted product, not merely v1 behind a load balancer. It
+requires a tenant control plane, physical isolation profiles, quotas, durable
+anti-replay and idempotency, online migrations, backup and point-in-time restore,
+deletion propagation, observability, rolling upgrades, incident drills, and
+explicit SLOs. The full TypeSec and backend conformance corpus must run against
+that path before it is called complete.
 
-```json
-{
-  "decision": "allow",
-  "allowed": true,
-  "subject": "agent:data-pipeline",
-  "action": "read",
-  "resource": "reports/q1"
-}
-```
+## Broader TypeSec work
 
-The remaining work is schema versioning and richer delegation detail, not the
-flag itself.
-
-Sixth, deepen the now-shipped Python story. There are already two boundaries: the
-subprocess gate (`typesec check --json`) and the in-process `typesec-python`
-PyO3 extension. A higher-level, idiomatic Python package layered on top of
-`typesec_native` is the natural next step.
-
-Seventh, expand the Grust example into an end-to-end backend demo that can run
-against a known local service profile. The current example gracefully skips Sail
-when it is not listening; a fuller demo could include setup instructions or a
-containerized path.
-
-Eighth, add live provider smoke tests behind environment variables. The current
-WorkOS and Arcade tests use deterministic mocked HTTP clients, which is right
-for CI. A separate ignored test profile could verify a real WorkOS sandbox and
-a real Arcade project when credentials are present.
-
-Ninth, extend `SecureValue` beyond the built-in four-label lattice. The current
-labels are `Public`, `Internal`, `Sensitive`, and `Secret`. Domain-specific
-deployments may want generated labels from policy files, capability-bound
-declassification reasons, or audited release records that carry policy version
-and purpose.
-
-Tenth, deepen the DID cryptography story beyond the built-in Ed25519/X25519
-local key store. Real deployments still need distributed rotation publication,
-replay defense, DIDComm/JWE or HPKE interoperability, and KMS/HSM integration.
-
-Eleventh, add real DID resolver backends. The trait boundary is in place for
-`did:key`, `did:web`, Universal Resolver, and Hyperledger Indy VDR. Those
-backends should stay in `typesec-integrations` so ledger and network
-dependencies do not leak into `typesec-core`.
+Outside memory, the same direction continues: propagate revocation across a
+fleet instead of relying on an in-process epoch; version the machine-readable
+decision schema; compile generated policy types into ordinary downstream
+examples; deepen DID rotation, resolver, DIDComm/JWE or HPKE, and KMS/HSM
+support; and add opt-in live provider smoke tests while retaining deterministic
+mocked CI. Those changes should remain in their owning crates rather than
+turning `typesec-core` into a provider, database, or transport framework.
 
 # Conclusion
 
@@ -1929,15 +2227,23 @@ CLI policy checks
 Rust examples
 Python tool-gating example
 Grust/Sail graph integration
+capability-secured Marciana memory spaces
+clearance-typed recall and redacted hits
+purpose, retention, quarantine, and audited forgetting
+transactional temporal memory on the Grust boundary
+guarded memory tools across Rust, Python, WASM, MCP, and Pydantic AI
+identity-bound durable QueryGraph memory proof
 tests and documentation
 ```
 
-The design is not finished, but it is real enough to build on. The next work is
-to make the compile-time guarantees more aggressively tested, make generated
-policy types part of ordinary workflows, connect the provider adapters to live
-sandbox environments, and give non-Rust agents cleaner ways to use the same
-security boundary.
+The design is not finished, but its boundaries are now concrete. TypeSec owns
+the law: typed authority, labels, purpose, quarantine, and evidence. Grust and
+QueryGraph own durable storage, retrieval, and scale behind those laws. qg-rust
+owns the authenticated service edge, and agent frameworks receive ergonomic
+capabilities without receiving private identity material or a bypass around the
+vault.
 
-That is the arc of today's build: from an idea about impossible-to-forget
-authorization, to a working Rust workspace, to examples that show how agent
-tools can be shaped around typed proof.
+That is the arc from Torcello to Lido. Torcello made authorization impossible to
+forget when an agent calls a tool. Lido applies the same rule to what the agent
+remembers after the tool call is over. Remembering is useful; governed memory is
+infrastructure.

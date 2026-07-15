@@ -11,12 +11,12 @@ description = "WASM bindings for Typesec: policy-gated tool calls for JS/TS agen
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-typesec-core = { version = "0.12.0", path = "../typesec-core" }
+typesec-core = { version = "0.13.0", path = "../typesec-core" }
 # No graph engine on wasm: the grust stack is not wasm-ready.
-typesec-rbac = { version = "0.12.0", path = "../typesec-rbac", default-features = false }
-typesec-odrl = { version = "0.12.0", path = "../typesec-odrl" }
-typesec-agent = { version = "0.12.0", path = "../typesec-agent" }
-typesec-memory = { version = "0.12.0", path = "../typesec-memory", features = ["agent"] }
+typesec-rbac = { version = "0.13.0", path = "../typesec-rbac", default-features = false }
+typesec-odrl = { version = "0.13.0", path = "../typesec-odrl" }
+typesec-agent = { version = "0.13.0", path = "../typesec-agent" }
+typesec-memory = { version = "0.13.0", path = "../typesec-memory", features = ["agent"] }
 wasm-bindgen = "0.2"
 serde_json = { workspace = true }
 
