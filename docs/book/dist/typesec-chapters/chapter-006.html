@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
+  <meta name="dcterms.date" content="2026-07-15" />
   <title>Workspace Tour</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -117,7 +117,7 @@
 </nav>
 <h1 data-number="5" id="workspace-tour"><span
 class="header-section-number">5</span> Workspace Tour</h1>
-<p>The repository is a Rust workspace with nine crates:</p>
+<p>The repository is a Rust workspace with eleven crates:</p>
 <pre class="text"><code>typesec           facade crate re-exporting the common API
 typesec-core      traits, phantom types, Capability, SecureValue, PolicyEngine, typestate
 typesec-rbac      YAML RBAC parser, validator, engine, and code generator
@@ -126,7 +126,9 @@ typesec-agent     SecureAgent wrapper for async capability requests and execute
 typesec-integrations JWT/OIDC, WorkOS FGA, and Arcade-style tool auth engines
 typesec-macro     derive and policy macros for typed role declarations
 typesec-cli       validate, check, generate, and run commands
-typesec-python    PyO3 bindings for Rust-backed Python policy gates</code></pre>
+typesec-memory    Marciana vault, labels, stores, guarded memory tools, and cognition traits
+typesec-python    PyO3 bindings for Rust-backed Python policy gates
+typesec-wasm      JavaScript/TypeScript tool guards and the in-memory WASM vault</code></pre>
 <p>The integration layer also includes an initial DID messaging
 boundary. DIDs are used as verifiable subjects and key-discovery
 handles, while policy still flows through <code>PolicyEngine</code>. A
@@ -146,6 +148,8 @@ examples/odrl_agent.rs
 examples/provider_integrations.rs
 examples/did_messaging.rs
 examples/typedid_agent_communications.rs
+examples/memory_agent.rs
+examples/memory_consolidation.rs
 examples/pydantic_ai_capabilities.py
 examples/typedid_framework_adapters.py
 examples/company_graph/company_graph_grust_sail.rs
@@ -181,17 +185,18 @@ crates (<code>ed25519-dalek</code>, <code>x25519-dalek</code>,
 <code>getrandom</code>).</p>
 <p>Grust is published on crates.io (<code>grust-graph</code>,
 <code>grust-cypher</code>, and <code>grust-sail</code> are at
-<code>0.11.0</code>, codename Crab). The workspace pins each dependency
-with both a <code>version</code> and a local <code>path</code>, so a
-checkout that has a sibling <code>../grust</code> builds against that
-working copy (the <code>path</code> wins locally), while the
-<code>version</code> resolves against crates.io when Typesec is
-published or built without the sibling checkout:</p>
+<code>0.12.0</code>, codename Lobster). The workspace pins each
+dependency with both a <code>version</code> and a local
+<code>path</code>, so a checkout that has a sibling
+<code>../grust</code> builds against that working copy (the
+<code>path</code> wins locally), while the <code>version</code> resolves
+against crates.io when Typesec is published or built without the sibling
+checkout:</p>
 <div class="sourceCode" id="cb3"><pre
 class="sourceCode toml"><code class="sourceCode toml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># workspace Cargo.toml</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">grust-graph</span>  <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;0.11.0&quot;</span><span class="op">, </span><span class="dt">path</span><span class="op"> =</span> <span class="st">&quot;../grust/crates/grust&quot;</span><span class="op">, </span><span class="dt">features</span><span class="op"> =</span> <span class="op">[</span><span class="st">&quot;typed-zod-rs&quot;</span><span class="op">] }</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">grust-cypher</span> <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;0.11.0&quot;</span><span class="op">, </span><span class="dt">path</span><span class="op"> =</span> <span class="st">&quot;../grust/crates/grust-cypher&quot;</span><span class="op"> }</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">grust-sail</span>   <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;0.11.0&quot;</span><span class="op">, </span><span class="dt">path</span><span class="op"> =</span> <span class="st">&quot;../grust/crates/grust-sail&quot;</span><span class="op"> }</span></span></code></pre></div>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">grust-graph</span>  <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;0.12.0&quot;</span><span class="op">, </span><span class="dt">path</span><span class="op"> =</span> <span class="st">&quot;../grust/crates/grust&quot;</span><span class="op">, </span><span class="dt">features</span><span class="op"> =</span> <span class="op">[</span><span class="st">&quot;typed-zod-rs&quot;</span><span class="op">] }</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">grust-cypher</span> <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;0.12.0&quot;</span><span class="op">, </span><span class="dt">path</span><span class="op"> =</span> <span class="st">&quot;../grust/crates/grust-cypher&quot;</span><span class="op"> }</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">grust-sail</span>   <span class="op">=</span> <span class="op">{ </span><span class="dt">version</span><span class="op"> =</span> <span class="st">&quot;0.12.0&quot;</span><span class="op">, </span><span class="dt">path</span><span class="op"> =</span> <span class="st">&quot;../grust/crates/grust-sail&quot;</span><span class="op"> }</span></span></code></pre></div>
 <p>To build the Cypher company-graph example purely from crates.io, drop
 the <code>path</code> keys and keep the <code>version</code>; to develop
 Typesec and Grust together, keep the sibling <code>../grust</code>

@@ -5,8 +5,8 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
-  <title>What We Improved</title>
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>Tests and Validation</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -28,6 +28,71 @@
       vertical-align: middle;
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
   </style>
   <link rel="stylesheet" href="book.css" />
 </head>
@@ -43,128 +108,74 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-018.html" accesskey="n" rel="next">Design Tradeoffs</a>
+<span class="navlink-label">Next:</span> <a href="chapter-018.html" accesskey="n" rel="next">What We Improved</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-016.html" accesskey="p" rel="previous">Tests and Validation</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-016.html" accesskey="p" rel="previous">Examples</a>
 </span>
 </div>
 </nav>
-<h1 data-number="16" id="what-we-improved"><span
-class="header-section-number">16</span> What We Improved</h1>
-<p>The archived improvement notes in
-<code>docs/completed/improvements.md</code> record a useful snapshot of
-the early engineering work.</p>
-<p>The workspace was upgraded to Rust 2024. Compiler failures were fixed
-across lattice tests, proc-macro parsing, examples, and doctests. Clippy
-was made to pass across all targets by tightening APIs, deriving
-defaults, documenting public ODRL fields, and applying
-simplifications.</p>
-<p>The audit integration test was stabilized with a global capture
-subscriber for the test binary. That avoids a racy thread-local
-subscriber and makes the audit story more credible.</p>
-<p>Python smoke tests were added around <code>typesec check</code>,
-giving non-Rust agent wrappers a low-friction test path.</p>
-<p>The company graph examples were added to show Typesec at an
-application boundary, not just inside small unit tests. The Rust version
-proves the typed capability story with Grust. The Python version proves
-that the CLI can gate side-effecting tools in a LangChain-like
-shape.</p>
-<p>The provider integration layer was added to show how Typesec fits
-under OAuth-based systems instead of replacing them.
-<code>JwtAuthenticator</code>, <code>JwtClaimsEngine</code>,
-<code>WorkOsFgaEngine</code>, and <code>ArcadeToolAuthEngine</code> all
-feed the same <code>PolicyEngine</code> boundary.
-<code>ProtectedTool</code> then demonstrates the local last mile:
-provider authorization is not merely observed; it becomes a typed
-capability required by the handler.</p>
-<p>The new comparison document,
-<code>docs/typesec-and-auth-frameworks.md</code>, explains the strategic
-position: WorkOS handles enterprise identity and resource authorization,
-Arcade handles agent-oriented SaaS tool authorization, and Typesec makes
-the resulting local authority impossible to forget at the call site.</p>
-<p>The Grust dependency was bumped to the 0.11 line (codename Crab).
-Grust is published on crates.io, and the workspace pins each Grust crate
-with both a <code>version</code> and a local <code>path</code>
-(<code>../grust</code>): a checkout with a sibling Grust working copy
-builds against it, while the published <code>version</code> resolves for
-crates.io builds and when Typesec itself is published — see the
-Workspace Tour.</p>
-<p>A security review pass then hardened the runtime half of the system
-to match what the type-level half advertises. <code>SecureValue</code>
-stopped deriving <code>Debug</code> and <code>PartialEq</code>, so
-protected data cannot leak through logging or serve as an equality
-oracle. Capabilities became instance-bound at every consumption site:
-<code>reveal</code>, <code>declassify</code>, and <code>execute</code>
-compare the capability’s resource id and subject against the value or
-agent actually in hand. The typestate transition gained a real trust
-root through the <code>Authenticator</code> trait, with the unverified
-path renamed to say what it is. The demo DID cryptography moved behind a
-<code>demo-crypto</code> feature, replaced in production by an Ed25519
-key store with X25519 agreement and ChaCha20-Poly1305 sealing.
-Capabilities became short-lived leases.</p>
-<p>A follow-up pass finished the remaining items. Capabilities gained
-configurable TTLs through <code>MintOptions</code> and mid-lease
-revocation through <code>RevocationEpoch</code>. Bearer secrets moved
-into the <code>Token</code> newtype, which redacts itself from
-<code>Debug</code> the same way <code>SecureValue</code> does. The async
-agent now awaits the async policy surface; synchronous engines keep the
-default adapter, and I/O-bound engines can override it to avoid blocking
-the executor. The unmaintained <code>serde_yaml</code> dependency was
-replaced by the API-compatible <code>serde_norway</code> fork via a
-package rename, and <code>thiserror</code> moved to major version 2.</p>
-<h2 data-number="16.1" id="rialto-0.9.0"><span
-class="header-section-number">16.1</span> Rialto (0.9.0)</h2>
-<p>The Rialto release — the first of a Venetian-landmark release line —
-is a workspace-wide pass for human reviewability and a round of security
-and correctness hardening. Every Rust source file was brought under
-roughly four hundred lines: the 2,635-line DID module became an
-eleven-file <code>did/</code> directory, the policy engine, combinators,
-secure values, and the graph-policy engine were split along their
-natural seams, and every unit-test module moved into its own file.
-Duplicated logic was consolidated — eight combinator strategy functions
-became one accumulator, four role-inheritance traversals became one
-walker, and the WorkOS and Arcade providers now share a single HTTP
-shell.</p>
-<p>On the security side, DID envelopes now sign the <code>kid</code> and
-<code>nonce</code>, the gateway rejects replays and implausibly
-future-dated envelopes, the negotiated payload cap is enforced, and the
-encrypted payload is bound to its envelope identity as ChaCha20-Poly1305
-associated data. The ODRL audit trail was completed: a rule that matches
-but fails a constraint now emits a <code>ConstraintFailed</code> event
-instead of vanishing, and every matched permission is recorded. The CLI
-<code>run</code> command now reflects its decision in the exit code, and
-a GitHub Actions pipeline runs formatting, clippy, tests, and a
-benchmark smoke step on every change.</p>
-<h2 data-number="16.2" id="murano-0.10.0"><span
-class="header-section-number">16.2</span> Murano (0.10.0)</h2>
-<p>The Murano release — the second Venetian landmark in the line —
-tracks the Grust <strong>0.11.0 (Crab)</strong> dependency. The upgrade
-is source-compatible: the workspace builds and the full test suite
-passes with no changes to the typesec crates, so Murano is a
-dependency-tracking and version-bump release. The codename pool and the
-release-cutting checklist now live in <code>RELEASES.md</code>.</p>
-<h2 data-number="16.3" id="burano-0.11.0"><span
-class="header-section-number">16.3</span> Burano (0.11.0)</h2>
-<p>The Burano release — the third Venetian landmark — is a
-workspace-wide quality, DRY, and test-coverage pass (the codebase was
-already free of monolithic files), adding roughly forty tests. Glob
-matching, previously reimplemented three times across the RBAC, graph,
-and ODRL engines with subtly different wildcard semantics, was unified
-into a single <code>typesec_core::glob::GlobPattern</code>; ODRL now
-compiles each rule’s target once at load rather than on every check.
-This carries one <strong>behavior change</strong>: a single
-<code>*</code> in a subject, resource, or target pattern no longer
-crosses <code>/</code> separators, so <code>reports/*</code> grants
-<code>reports/q1</code> but not <code>reports/2024/q1</code> (use
-<code>reports/**</code>) — the safer authorization default, and the
-semantics the documentation already described. The graph engine now
-cross-checks every loaded policy graph against the declarative company
-schema using Grust 0.11’s <code>GraphSchema::validate_graph</code>, so
-the schema and the graph can no longer silently drift. JWT verification
-was hardened to never seed its validator from the token’s own
-<code>alg</code> header, and the public error types
-(<code>CapabilityError</code>, <code>AgentError</code>,
-<code>TaskError</code>) are now nameable by callers.</p>
+<h1 data-number="16" id="tests-and-validation"><span
+class="header-section-number">16</span> Tests and Validation</h1>
+<p>The repository has tests at several levels.</p>
+<p>Core unit tests check that capabilities carry the right subject and
+resource, that read and write capability types differ, and that denied
+engines do not mint capabilities.</p>
+<p>Typestate tests check that authentication transitions from
+unauthenticated to authenticated and that empty subjects fail.</p>
+<p>Agent tests check the full flow:</p>
+<pre class="text"><code>construct agent
+authenticate
+request capability
+execute with capability</code></pre>
+<p>RBAC tests cover role grants, inheritance, unknown subjects, and
+denials. ODRL tests cover allowed purpose, wrong purpose, prohibition,
+and delegation for unknown subjects.</p>
+<p>Integration tests in
+<code>crates/typesec-agent/tests/integration.rs</code> exercise the
+agent layer across more realistic scenarios. Provider integration tests
+in
+<code>crates/typesec-integrations/tests/provider_composition.rs</code>
+check the public WorkOS, Arcade, JWT, and capability-composition path.
+Python smoke tests in <code>tests/python/test_cli_policy.py</code>
+exercise the CLI as a policy oracle.</p>
+<p>Marciana adds a security-focused matrix of its own. The audited
+<code>typesec-memory</code> all-features suite contains 49 unit tests
+plus compile-fail, graph-integration, and doctest coverage. Compile-fail
+cases prove that external code cannot rehydrate a stored record or
+recall without the required capability. Runtime cases cover space
+binding, clearance and redaction, <code>Secret</code> sealing, purpose
+filtering, quarantine defaults, label joins, transactional
+consolidation, retention, forgetting, graph neighborhoods, semantic
+ranking, and guarded tool routing. The versioned conformance corpus is
+run against both <code>InMemoryStore</code> and
+<code>GrustMemoryStore</code> in tree.</p>
+<p>The cross-repository v1 proof tests a second boundary:
+<code>querygraph-memory</code> passes the same corpus on persistent
+Turso/Grust storage; qg-rust tests exact TypeDID route/body/identity
+binding, authorization denial, and close/reopen persistence; and the
+qg-python Pydantic AI demonstration proves specialist write, process
+restart, supervisor recall, signed-outsider <code>403</code>, and
+unsigned caller <code>401</code> without requiring a provider API key.
+These tests establish the durable local-service claim. They do not stand
+in for the post-v1 replica, persistent-ANN, assertion-lineage, or
+hosted-operations gates.</p>
+<p>Benchmark and fuzz tooling cover the hot paths and parser
+boundaries:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> bench <span class="at">-p</span> typesec-core <span class="at">--bench</span> policy_check</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> bench <span class="at">-p</span> typesec-rbac <span class="at">--bench</span> rbac_check</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> bench <span class="at">-p</span> typesec-odrl <span class="at">--bench</span> odrl_check</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> fuzz run rbac_yaml <span class="at">--</span> <span class="at">-max_total_time</span><span class="op">=</span>300</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> fuzz run odrl_yaml <span class="at">--</span> <span class="at">-max_total_time</span><span class="op">=</span>300</span></code></pre></div>
+<p>The workspace-level verification surface remains:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> check <span class="at">--workspace</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> test <span class="at">--workspace</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> check <span class="at">-p</span> typesec-cli <span class="at">--example</span> provider_integrations</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--example</span> provider_integrations</span></code></pre></div>
+<p>The Grust/Sail example has its own focused check:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> check <span class="at">-p</span> typesec-cli <span class="at">--example</span> company_graph_grust_sail</span></code></pre></div>
+<p>The release process runs these checks together with all-feature,
+Python, WASM, memory-conformance, and book validators before a tag or
+package publication.</p>
 </body>
 </html>

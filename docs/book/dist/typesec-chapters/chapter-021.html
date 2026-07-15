@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Alexy Khrabrov" />
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>Conclusion</title>
+  <style>
+    div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
+    span.navlink { flex: 1; }
+    span.navlink-label { display: inline-block; min-width: 4em; }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="book.css" />
+</head>
+<body>
+<nav id="sitenav">
+<div class="sitenav">
+<span class="navlink">
+<span class="navlink-label">Up:</span> <a href="chapter-001.html" accesskey="u" rel="up">Typesec</a>
+</span>
+<span class="navlink">
+<span class="navlink-label">Top:</span> <a href="index.html" accesskey="t" rel="top">Typesec</a>
+</span>
+</div>
+<div class="sitenav">
+<span class="navlink">
+</span>
+<span class="navlink">
+<span class="navlink-label">Previous:</span> <a href="chapter-020.html" accesskey="p" rel="previous">Roadmap</a>
+</span>
+</div>
+</nav>
+<h1 data-number="20" id="conclusion"><span
+class="header-section-number">20</span> Conclusion</h1>
+<p>Typesec is a small system with a sharp idea: authorization should not
+only be a runtime answer. For agentic AI systems, authorization should
+also leave a typed trace in the program. If a function can write, read
+sensitive data, train a model, or exfiltrate content, that power should
+be visible in the function’s inputs.</p>
+<p>The repository now contains the first coherent version of that
+idea:</p>
+<pre class="text"><code>typed capabilities
+opaque secure values
+sealed permissions
+resource abstractions
+typestate authentication
+RBAC policy evaluation
+ODRL contextual policy and prohibitions
+policy combinators
+async secure agents
+OAuth/OIDC provider integrations
+WorkOS FGA and Arcade-style tool auth engines
+DID-wrapped encrypted prompt handling
+CLI policy checks
+Rust examples
+Python tool-gating example
+Grust/Sail graph integration
+capability-secured Marciana memory spaces
+clearance-typed recall and redacted hits
+purpose, retention, quarantine, and audited forgetting
+transactional temporal memory on the Grust boundary
+guarded memory tools across Rust, Python, WASM, MCP, and Pydantic AI
+identity-bound durable QueryGraph memory proof
+tests and documentation</code></pre>
+<p>The design is not finished, but its boundaries are now concrete.
+TypeSec owns the law: typed authority, labels, purpose, quarantine, and
+evidence. Grust and QueryGraph own durable storage, retrieval, and scale
+behind those laws. qg-rust owns the authenticated service edge, and
+agent frameworks receive ergonomic capabilities without receiving
+private identity material or a bypass around the vault.</p>
+<p>That is the arc from Torcello to Lido. Torcello made authorization
+impossible to forget when an agent calls a tool. Lido applies the same
+rule to what the agent remembers after the tool call is over.
+Remembering is useful; governed memory is infrastructure.</p>
+</body>
+</html>

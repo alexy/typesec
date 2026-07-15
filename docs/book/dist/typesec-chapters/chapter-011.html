@@ -5,8 +5,8 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
-  <title>RBAC</title>
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>typesec-integrations</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -108,47 +108,96 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-012.html" accesskey="n" rel="next">ODRL</a>
+<span class="navlink-label">Next:</span> <a href="chapter-012.html" accesskey="n" rel="next">RBAC</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-010.html" accesskey="p" rel="previous"><code>typesec-integrations</code></a>
+<span class="navlink-label">Previous:</span> <a href="chapter-010.html" accesskey="p" rel="previous"><code>typesec-memory</code> — Marciana</a>
 </span>
 </div>
 </nav>
-<h1 data-number="10" id="rbac"><span
-class="header-section-number">10</span> RBAC</h1>
-<p>The <code>typesec-rbac</code> crate implements role-based access
-control from YAML. A policy has roles and assignments:</p>
-<div class="sourceCode" id="cb1"><pre
-class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">roles</span><span class="kw">:</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> analyst</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">permissions</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">read</span><span class="kw">,</span><span class="at"> read_sensitive</span><span class="kw">]</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">resources</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&quot;reports/*&quot;</span><span class="kw">,</span><span class="at"> </span><span class="st">&quot;metrics/*&quot;</span><span class="kw">]</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> admin</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">inherits</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">analyst</span><span class="kw">]</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">permissions</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">delete</span><span class="kw">,</span><span class="at"> delegate</span><span class="kw">]</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">resources</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&quot;*&quot;</span><span class="kw">]</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">assignments</span><span class="kw">:</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">subject</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;agent:data-pipeline&quot;</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">roles</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">analyst</span><span class="kw">]</span></span></code></pre></div>
-<p>The engine compiles this into subject grants. Role inheritance is
-flattened during construction, not recomputed from scratch at every
-check. A request then checks:</p>
-<pre class="text"><code>subject -&gt; assigned roles -&gt; effective grants -&gt; permission and glob match</code></pre>
-<p>The glob matching is intentionally simple. Resource patterns such as
-<code>reports/*</code>, <code>employee/**</code>, and <code>*</code> are
-enough for the first version. The code uses the <code>glob</code> crate
-rather than ad hoc string prefixes.</p>
-<p>RBAC is the system’s practical baseline. It answers common
-operational questions:</p>
-<pre class="text"><code>Can agent:data-pipeline read reports/q1?
-Can agent:deploy-bot write code/main.rs?
-Can agent:superuser delete anything?</code></pre>
-<p>The crate also contains code generation support.
-<code>typesec generate</code> can emit typed Rust structs from an RBAC
-policy. This is one of the paths toward the larger promise: if a role is
-renamed in policy, code referring to the old typed role should fail to
-compile.</p>
+<h1 data-number="10" id="typesec-integrations"><span
+class="header-section-number">10</span>
+<code>typesec-integrations</code></h1>
+<p>The integrations crate is intentionally outside
+<code>typesec-core</code>. Provider adapters need HTTP clients, JWT
+validation, provider-specific endpoints, and credential handling. The
+core crate should not own those dependencies.</p>
+<p>The crate currently contains six modules:</p>
+<pre class="text"><code>http          small injectable JSON HTTP client abstraction
+jwt           OIDC/JWT verification and JWT-claims policy engine
+workos        WorkOS FGA policy engine
+arcade        Arcade-style tool authorization policy engine
+pydantic_ai   capability metadata for Pydantic AI v2 tools
+did           DID documents, encrypted prompt envelopes, and Ollama bridge</code></pre>
+<p>The <code>http</code> module provides <code>ReqwestHttpClient</code>
+for production use plus <code>StaticHttpClient</code> and
+<code>RecordingHttpClient</code> for tests and examples. This lets the
+example exercise provider-like behavior without real credentials:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> workos_http <span class="op">=</span> <span class="pp">StaticHttpClient::</span>new()<span class="op">.</span>with_response(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;https://api.workos.test/authorization/organization_memberships/user@example.com/check&quot;</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="pp">json!</span>(<span class="op">{</span> <span class="st">&quot;authorized&quot;</span><span class="op">:</span> <span class="cn">true</span> <span class="op">}</span>)<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span></code></pre></div>
+<p>The JWT module has two layers. <code>JwtAuthenticator</code>
+validates a token against a JWKS endpoint, issuer, audience, algorithm
+list, and expiry. Once a token is verified, <code>VerifiedSubject</code>
+carries the subject, organization id, membership id, role, and
+permissions. <code>JwtClaimsEngine</code> then acts as a fast policy
+engine for permissions already embedded in the token.</p>
+<p>The WorkOS module translates a Typesec resource id into a WorkOS FGA
+check. For example:</p>
+<pre class="text"><code>resource: project/proj_123
+action:   write
+check:    project:write on project/proj_123</code></pre>
+<p>The Arcade module handles external tool authorization. It maps local
+resource ids to Arcade tool names and only allows execution when the
+provider reports a completed authorization:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> arcade <span class="op">=</span> <span class="pp">ArcadeToolAuthEngine::</span>new(arcade_api_key)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>with_tool_mapping(<span class="st">&quot;gmail/list&quot;</span><span class="op">,</span> <span class="st">&quot;Gmail.ListEmails&quot;</span>)<span class="op">;</span></span></code></pre></div>
+<p>The DID module handles decentralized identifiers and encrypted prompt
+envelopes. It exposes a resolver trait and a key-store trait so real DID
+methods and production cryptography can be added without changing the
+Typesec capability path:</p>
+<pre class="text"><code>DidResolver  -&gt; DidDocument
+DidKeyStore  -&gt; verify/decrypt envelope
+Gateway      -&gt; SecureValue&lt;Secret, String, GenericResource&gt;
+PolicyEngine -&gt; Capability&lt;AiCanInfer, _&gt; and Capability&lt;CanReadSensitive, _&gt;
+Ollama       -&gt; receives plaintext only after typed authority exists</code></pre>
+<p>TypeDID extends that DID boundary from prompt-only messages to agent
+communications. <code>TypeDidProfile</code> negotiates the secure
+envelope profile, <code>TypeDidConversation</code> binds the outer task,
+session, or room id plus protocol, mode, and profile into the envelope
+signature, and <code>TypeDidGateway</code> opens encrypted opaque
+payload bytes as
+<code>SecureValue&lt;Secret, Vec&lt;u8&gt;, GenericResource&gt;</code>.
+Transport adapters such as <code>A2aTypeDidAdapter</code>,
+<code>AcpTypeDidAdapter</code>, <code>BandSecureEnvelopeAdapter</code>,
+and <code>HttpTypeDidAdapter</code> keep A2A, ACP, BAND, and HTTPS
+responsible for their own lifecycle while TypeDID owns cryptographic
+sender/recipient binding and the Typesec policy handoff.</p>
+<p>The same boundary applies to Python agent frameworks. LangChain and
+Pydantic AI should not reimplement DID cryptography or become policy
+engines. Instead, a Rust <code>TypeDidGateway</code> or future native
+Python binding should produce a verified message view, and framework
+adapters should use <code>typesec check --json</code> or the native
+Python gate to decide whether a tool may see the payload. The
+<code>examples/typedid_framework_adapters.py</code> example shows this
+shape without depending on either framework: a LangChain-style
+middleware wrapper and a Pydantic-style dependency object both gate the
+verified TypeDID message before tool invocation.</p>
+<p>These engines are not special cases in the capability system. They
+implement the same <code>PolicyEngine</code> trait as RBAC, ODRL, and
+graph policies. That is the point: external OAuth and enterprise
+authorization decisions become ordinary inputs to
+<code>mint_capability</code>.</p>
+<p>This pattern is small enough to be adopted by application code
+directly. A database write wrapper can require a write capability. A
+vector-store retrieval wrapper can require a read capability. An
+outbound HTTP publisher can require an exfiltration capability.</p>
+<p>The crate also includes <code>AgentBuilder</code>, which can wrap a
+single engine or build a composed engine from a primary and fallback.
+The default composed behavior is priority order: the primary decides
+unless it delegates.</p>
 </body>
 </html>

@@ -5,8 +5,8 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
-  <title>Design Tradeoffs</title>
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>What We Improved</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -43,68 +43,167 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-019.html" accesskey="n" rel="next">Roadmap</a>
+<span class="navlink-label">Next:</span> <a href="chapter-019.html" accesskey="n" rel="next">Design Tradeoffs</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-017.html" accesskey="p" rel="previous">What We Improved</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-017.html" accesskey="p" rel="previous">Tests and Validation</a>
 </span>
 </div>
 </nav>
-<h1 data-number="17" id="design-tradeoffs"><span
-class="header-section-number">17</span> Design Tradeoffs</h1>
-<p>Typesec deliberately separates runtime policy from compile-time
-proof. This is a tradeoff.</p>
-<p>Putting all policy in types would be too rigid. Real policies come
-from YAML, databases, admin consoles, customer configuration, and
-external governance systems. They change without recompiling the
-application.</p>
-<p>Leaving all policy at runtime is too easy to bypass. A forgotten
-guard can become a production vulnerability.</p>
-<p>Typesec’s compromise is:</p>
-<pre class="text"><code>runtime policy decides
-typed capability proves the decision happened
-protected APIs require the proof</code></pre>
-<p>Another tradeoff is that capabilities prove a decision at mint time.
-They now carry a short lease, and capabilities minted with a
-<code>RevocationEpoch</code> can be invalidated immediately when
-governance changes — <code>revoke_all()</code> kills every outstanding
-proof minted before the bump. Capabilities can also be bound to a
-<code>CapabilityRevocationList</code> for exact single-proof revocation.
-What remains unmodeled is <em>distributed</em> revocation: the epoch is
-an in-process counter, so a fleet of agents sharing one policy service
-still needs a propagation story (a shared CRL, a policy-version claim, a
-shared epoch service, or capability re-validation against the engine)
-before revocation is truly global.</p>
-<p>The CLI is one of two Python boundaries, and choosing between them is
-a pragmatic tradeoff. Rust code gets the strongest type-level story.
-Python code can either shell out to <code>typesec check --json</code> (a
-subprocess oracle: weaker, but trivial to sandbox, inspect, and test) or
-link the in-process <code>typesec-python</code> PyO3 extension
-(<code>typesec_native</code>), which is a built workspace crate, not a
-hypothetical — see the Macros/CLI and Python example sections.</p>
-<p>The Grust integration also records a naming tradeoff. The package is
-named <code>grust-graph</code>, but it exposes the facade library as
-<code>grust</code>, so examples can keep the natural
-<code>use grust::prelude::*</code> shape.</p>
-<p>The graph-policy example now uses two validation boundaries. Zod
-validates author-facing YAML and JSON before the policy graph is built.
-Grust’s <code>GraphSchema</code> validates backend writes through
-<code>put_typed_graph</code>, so the same <code>Agent</code>,
-<code>Role</code>, <code>Employee</code>, <code>HAS_ROLE</code>, and
-<code>REPORTS_TO</code> model protects both policy loading and graph
-persistence.</p>
-<p>The OAuth provider integration records a different tradeoff. Typesec
-should not be a token vault, a hosted IdP, or a full MCP runtime. The
-integration crate therefore uses small provider-specific policy engines
-and injectable HTTP clients. That keeps provider decisions at the edge
-while preserving the core invariant: only an allow through
-<code>PolicyEngine</code> can mint the capability that local code
-requires.</p>
-<p>The new <code>SecureValue</code> API is another compromise. It brings
-information-flow style labeled data into the Rust workspace without
-pretending to be a full language-level IFC system. The type-level
-<code>Join</code> lattice is intentionally small and sealed. That keeps
-the model reviewable, while still giving examples a real opaque value
-that can be transformed before explicit reveal or declassification.</p>
+<h1 data-number="17" id="what-we-improved"><span
+class="header-section-number">17</span> What We Improved</h1>
+<p>The archived improvement notes in
+<code>docs/completed/improvements.md</code> record a useful snapshot of
+the early engineering work.</p>
+<p>The workspace was upgraded to Rust 2024. Compiler failures were fixed
+across lattice tests, proc-macro parsing, examples, and doctests. Clippy
+was made to pass across all targets by tightening APIs, deriving
+defaults, documenting public ODRL fields, and applying
+simplifications.</p>
+<p>The audit integration test was stabilized with a global capture
+subscriber for the test binary. That avoids a racy thread-local
+subscriber and makes the audit story more credible.</p>
+<p>Python smoke tests were added around <code>typesec check</code>,
+giving non-Rust agent wrappers a low-friction test path.</p>
+<p>The company graph examples were added to show Typesec at an
+application boundary, not just inside small unit tests. The Rust version
+proves the typed capability story with Grust. The Python version proves
+that the CLI can gate side-effecting tools in a LangChain-like
+shape.</p>
+<p>The provider integration layer was added to show how Typesec fits
+under OAuth-based systems instead of replacing them.
+<code>JwtAuthenticator</code>, <code>JwtClaimsEngine</code>,
+<code>WorkOsFgaEngine</code>, and <code>ArcadeToolAuthEngine</code> all
+feed the same <code>PolicyEngine</code> boundary.
+<code>ProtectedTool</code> then demonstrates the local last mile:
+provider authorization is not merely observed; it becomes a typed
+capability required by the handler.</p>
+<p>The new comparison document,
+<code>docs/typesec-and-auth-frameworks.md</code>, explains the strategic
+position: WorkOS handles enterprise identity and resource authorization,
+Arcade handles agent-oriented SaaS tool authorization, and Typesec makes
+the resulting local authority impossible to forget at the call site.</p>
+<p>The Grust dependency was bumped to the 0.12 line (codename Lobster).
+Grust is published on crates.io, and the workspace pins each Grust crate
+with both a <code>version</code> and a local <code>path</code>
+(<code>../grust</code>): a checkout with a sibling Grust working copy
+builds against it, while the published <code>version</code> resolves for
+crates.io builds and when Typesec itself is published — see the
+Workspace Tour.</p>
+<p>A security review pass then hardened the runtime half of the system
+to match what the type-level half advertises. <code>SecureValue</code>
+stopped deriving <code>Debug</code> and <code>PartialEq</code>, so
+protected data cannot leak through logging or serve as an equality
+oracle. Capabilities became instance-bound at every consumption site:
+<code>reveal</code>, <code>declassify</code>, and <code>execute</code>
+compare the capability’s resource id and subject against the value or
+agent actually in hand. The typestate transition gained a real trust
+root through the <code>Authenticator</code> trait, with the unverified
+path renamed to say what it is. The demo DID cryptography moved behind a
+<code>demo-crypto</code> feature, replaced in production by an Ed25519
+key store with X25519 agreement and ChaCha20-Poly1305 sealing.
+Capabilities became short-lived leases.</p>
+<p>A follow-up pass finished the remaining items. Capabilities gained
+configurable TTLs through <code>MintOptions</code> and mid-lease
+revocation through <code>RevocationEpoch</code>. Bearer secrets moved
+into the <code>Token</code> newtype, which redacts itself from
+<code>Debug</code> the same way <code>SecureValue</code> does. The async
+agent now awaits the async policy surface; synchronous engines keep the
+default adapter, and I/O-bound engines can override it to avoid blocking
+the executor. The unmaintained <code>serde_yaml</code> dependency was
+replaced by the API-compatible <code>serde_norway</code> fork via a
+package rename, and <code>thiserror</code> moved to major version 2.</p>
+<p>Marciana then carried the same impossible-to-forget authorization
+pattern into durable agent memory. The work added a separately versioned
+crate and conformance contract rather than embedding one preferred
+database in <code>typesec-core</code>: the vault owns capability, label,
+purpose, quarantine, and forgetting semantics; Grust and QueryGraph own
+durable graph storage and retrieval; qg-rust owns the authenticated
+service edge; and qg-python owns the agent-facing capability objects.
+The end-to-end proof now survives a service restart and denies a
+differently authorized subject without exposing signing material to
+model context.</p>
+<h2 data-number="17.1" id="rialto-0.9.0"><span
+class="header-section-number">17.1</span> Rialto (0.9.0)</h2>
+<p>The Rialto release — the first of a Venetian-landmark release line —
+is a workspace-wide pass for human reviewability and a round of security
+and correctness hardening. Every Rust source file was brought under
+roughly four hundred lines: the 2,635-line DID module became an
+eleven-file <code>did/</code> directory, the policy engine, combinators,
+secure values, and the graph-policy engine were split along their
+natural seams, and every unit-test module moved into its own file.
+Duplicated logic was consolidated — eight combinator strategy functions
+became one accumulator, four role-inheritance traversals became one
+walker, and the WorkOS and Arcade providers now share a single HTTP
+shell.</p>
+<p>On the security side, DID envelopes now sign the <code>kid</code> and
+<code>nonce</code>, the gateway rejects replays and implausibly
+future-dated envelopes, the negotiated payload cap is enforced, and the
+encrypted payload is bound to its envelope identity as ChaCha20-Poly1305
+associated data. The ODRL audit trail was completed: a rule that matches
+but fails a constraint now emits a <code>ConstraintFailed</code> event
+instead of vanishing, and every matched permission is recorded. The CLI
+<code>run</code> command now reflects its decision in the exit code, and
+a GitHub Actions pipeline runs formatting, clippy, tests, and a
+benchmark smoke step on every change.</p>
+<h2 data-number="17.2" id="murano-0.10.0"><span
+class="header-section-number">17.2</span> Murano (0.10.0)</h2>
+<p>The Murano release — the second Venetian landmark in the line —
+tracks the Grust <strong>0.11.0 (Crab)</strong> dependency. The upgrade
+is source-compatible: the workspace builds and the full test suite
+passes with no changes to the typesec crates, so Murano is a
+dependency-tracking and version-bump release. The codename pool and the
+release-cutting checklist now live in <code>RELEASES.md</code>.</p>
+<h2 data-number="17.3" id="burano-0.11.0"><span
+class="header-section-number">17.3</span> Burano (0.11.0)</h2>
+<p>The Burano release — the third Venetian landmark — is a
+workspace-wide quality, DRY, and test-coverage pass (the codebase was
+already free of monolithic files), adding roughly forty tests. Glob
+matching, previously reimplemented three times across the RBAC, graph,
+and ODRL engines with subtly different wildcard semantics, was unified
+into a single <code>typesec_core::glob::GlobPattern</code>; ODRL now
+compiles each rule’s target once at load rather than on every check.
+This carries one <strong>behavior change</strong>: a single
+<code>*</code> in a subject, resource, or target pattern no longer
+crosses <code>/</code> separators, so <code>reports/*</code> grants
+<code>reports/q1</code> but not <code>reports/2024/q1</code> (use
+<code>reports/**</code>) — the safer authorization default, and the
+semantics the documentation already described. The graph engine now
+cross-checks every loaded policy graph against the declarative company
+schema using Grust 0.11’s <code>GraphSchema::validate_graph</code>, so
+the schema and the graph can no longer silently drift. JWT verification
+was hardened to never seed its validator from the token’s own
+<code>alg</code> header, and the public error types
+(<code>CapabilityError</code>, <code>AgentError</code>,
+<code>TaskError</code>) are now nameable by callers.</p>
+<h2 data-number="17.4" id="torcello-0.12.0"><span
+class="header-section-number">17.4</span> Torcello (0.12.0)</h2>
+<p>Torcello made Typesec an interoperability layer for agent tools. The
+deny-by-default guard normalizes OpenAI, Anthropic, LangChain, Pydantic
+AI, and MCP calls; the CLI adds MCP and streaming-proxy gateways; signed
+decision receipts, JSON-Schema arguments, OpenTelemetry audit spans,
+policy-aware tool listing, replayable decision logs,
+<code>#[typesec_tool]</code>, lease attenuation, and conversation
+typestate carry the same authority contract across Rust, Python, and
+WASM. Torcello also moves the graph substrate to Grust <strong>0.12.0,
+Lobster</strong>.</p>
+<h2 data-number="17.5" id="lido-0.13.0"><span
+class="header-section-number">17.5</span> Lido (0.13.0)</h2>
+<p>Lido is the Marciana release. It adds <code>typesec-memory</code> as
+workspace member eleven and treats memory as an ordinary governed
+resource with separate read, write, and delete capabilities. The shipped
+v1 includes clearance-typed recall, redacted hits, guarded reveal
+through <code>Sensitive</code>, sealed <code>Secret</code> content,
+purpose and retention policy, provenance quarantine, bi-temporal
+supersession, audited forgetting, transactional consolidation, guarded
+memory tools, Python/WASM/MCP surfaces, Grust reference storage,
+semantic-index and cognition traits, and a shared conformance suite.</p>
+<p>The coordinated QueryGraph proof adds persistent Turso/Grust storage,
+identity-bound qg-rust routes, and Pydantic AI credentials plus memory
+across a real restart. Lido does not relabel that proof as a hosted
+product: durable ids, cross-replica replay, persistent ANN,
+assertion-level lineage, mandatory declassification promotion,
+distributed cognition, and hosted multi-tenant operations remain post-v1
+work.</p>
 </body>
 </html>

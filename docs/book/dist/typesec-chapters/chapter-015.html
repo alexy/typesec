@@ -5,8 +5,8 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
-  <title>Examples</title>
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>CLI</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -108,111 +108,81 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-016.html" accesskey="n" rel="next">Tests and Validation</a>
+<span class="navlink-label">Next:</span> <a href="chapter-016.html" accesskey="n" rel="next">Examples</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-014.html" accesskey="p" rel="previous">CLI</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-014.html" accesskey="p" rel="previous">Macros</a>
 </span>
 </div>
 </nav>
-<h1 data-number="14" id="examples"><span
-class="header-section-number">14</span> Examples</h1>
-<p>Typesec includes examples at several layers: pure Rust RBAC, pure
-Rust ODRL, OAuth-provider integration, and company-graph integrations
-that show how an agent tool boundary might look in a larger system.</p>
-<h2 data-number="14.1" id="rbac-agent"><span
-class="header-section-number">14.1</span> RBAC Agent</h2>
-<p>The RBAC example shows an authenticated agent requesting a capability
-and then executing a protected action. The interesting part is not the
-business object. The interesting part is the call shape: the protected
-operation is not called until after policy has minted a capability.</p>
-<p>The example also demonstrates denial. An agent assigned to a role
-with read permissions cannot use a write permission unless the policy
-grants it.</p>
-<p>The updated RBAC example also demonstrates the SecLib-inspired data
-container. It protects a report summary as
-<code>SecureValue&lt;Sensitive, String, GenericResource&gt;</code>, maps
-it to a length digest while it remains opaque, denies declassification
-for the ordinary analyst, and then allows a
-<code>privacy_reviewer</code> role to declassify the digest after policy
-mints <code>Capability&lt;CanDeclassify, GenericResource&gt;</code>.</p>
-<h2 data-number="14.2" id="odrl-agent"><span
-class="header-section-number">14.2</span> ODRL Agent</h2>
-<p>The ODRL example demonstrates contextual policy. Purpose matters. A
-read for analytics may be allowed while a read for billing delegates or
-denies. An exfiltration action can be prohibited even if a different
-action on the same target is allowed.</p>
-<h2 data-number="14.3" id="oauth-provider-integrations"><span
-class="header-section-number">14.3</span> OAuth Provider
-Integrations</h2>
-<p>The provider integration example is the concrete demonstration of the
-Arcade and WorkOS architecture described above. It does not require live
-provider credentials. Instead, it uses <code>StaticHttpClient</code> to
-stand in for WorkOS and Arcade responses while still exercising the same
-policy-engine and capability-minting path.</p>
+<h1 data-number="14" id="cli"><span
+class="header-section-number">14</span> CLI</h1>
+<p>The CLI is the bridge for humans, scripts, and non-Rust agents. It
+has four commands:</p>
+<pre class="text"><code>validate   parse and validate a policy YAML file
+check      evaluate one subject/action/resource query
+generate   emit typed Rust code from an RBAC policy
+run        simulate agent execution under policy</code></pre>
+<p>The <code>check</code> command is especially important because it
+makes Typesec usable from Python or shell without native bindings:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--</span> check <span class="dt">\</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--policy</span> policies/rbac-example.yaml <span class="dt">\</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--subject</span> agent:data-pipeline <span class="dt">\</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--action</span> read <span class="dt">\</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--resource</span> reports/q1</span></code></pre></div>
+<p>An allow exits successfully and prints an allow result. A deny exits
+with status <code>1</code>. A delegate exits with status <code>2</code>.
+That makes the command a simple policy oracle for external tools.</p>
+<p>For agent wrappers that should not parse human output, the same check
+can emit JSON:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--</span> check <span class="dt">\</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--policy</span> policies/rbac-example.yaml <span class="dt">\</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--subject</span> agent:data-pipeline <span class="dt">\</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--action</span> read <span class="dt">\</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--resource</span> reports/q1 <span class="dt">\</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--json</span></span></code></pre></div>
+<p>That prints a stable decision object with fields such as
+<code>decision</code>, <code>allowed</code>, <code>subject</code>,
+<code>action</code>, <code>resource</code>, and the detected
+<code>format</code>, while preserving the same exit codes. This closes
+the earlier machine-readable CLI gap and makes
+<code>typesec check --json</code> the recommended boundary for Python
+and shell agents.</p>
+<p>The format is detected from YAML shape unless
+<code>--format rbac</code> or <code>--format odrl</code> is passed
+explicitly. ODRL checks can receive a purpose:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--</span> check <span class="dt">\</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--policy</span> policies/odrl-example.yaml <span class="dt">\</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--subject</span> agent:summarizer <span class="dt">\</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--action</span> read <span class="dt">\</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--resource</span> customer-data <span class="dt">\</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--purpose</span> analytics</span></code></pre></div>
+<p>The Python tests exercise both the exit-code boundary and the JSON
+boundary, so the CLI contract is checked from the same subprocess seam
+that non-Rust agents use.</p>
+<p><code>typesec run</code> can also execute a multi-agent scenario
+file:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">scenario</span><span class="kw">:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> rbac smoke</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">policy</span><span class="kw">:</span><span class="at"> ./policies/rbac-example.yaml</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">format</span><span class="kw">:</span><span class="at"> rbac</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">steps</span><span class="kw">:</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">agent</span><span class="kw">:</span><span class="at"> agent:data-pipeline</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">action</span><span class="kw">:</span><span class="at"> read</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">resource</span><span class="kw">:</span><span class="at"> reports/q1</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">expect</span><span class="kw">:</span><span class="at"> allow</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">agent</span><span class="kw">:</span><span class="at"> agent:data-pipeline</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">action</span><span class="kw">:</span><span class="at"> write</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">resource</span><span class="kw">:</span><span class="at"> reports/q1</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">expect</span><span class="kw">:</span><span class="at"> deny</span></span></code></pre></div>
 <p>Run it with:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-p</span> typesec-cli <span class="at">--example</span> provider_integrations</span></code></pre></div>
-<p>The example composes three engines:</p>
-<div class="sourceCode" id="cb2"><pre
-class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> engine <span class="op">=</span> <span class="pp">PolicyEngineBuilder::</span>new()</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(jwt_claims)</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(workos)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(arcade)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>strategy(<span class="pp">CombineStrategy::</span>PriorityOrder)</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>build()<span class="op">;</span></span></code></pre></div>
-<p>The flow demonstrates three grants:</p>
-<pre class="text"><code>read org/acme              allowed from JWT claims
-write project/proj_123     delegated to mocked WorkOS FGA
-execute Gmail.ListEmails   delegated to mocked Arcade tool auth</code></pre>
-<p>The final step invokes a
-<code>ProtectedTool&lt;CanExecute, _, _&gt;</code>. That is the key
-piece of the example: after the provider engines allow the tool
-execution, Typesec still requires the local tool implementation to
-receive the typed execute capability before it can run.</p>
-<h2 data-number="14.4" id="company-graph-with-grust-and-sail"><span
-class="header-section-number">14.4</span> Company Graph with Grust and
-Sail</h2>
-<p>The company graph example is the most complete integration. It models
-a company hierarchy:</p>
-<pre class="text"><code>employee:evelyn CEO
-  &lt;- REPORTS_TO employee:priya VP Engineering
-      &lt;- REPORTS_TO employee:marco Engineering Manager
-          &lt;- REPORTS_TO employee:nia Senior Software Engineer
-          &lt;- REPORTS_TO employee:omar Data Engineer</code></pre>
-<p>The policy assigns different graph-writing powers to different
-agents:</p>
-<pre class="text"><code>agent:executive-chief   writes executive data, company graph, and sensitive network
-agent:hr-onboarding     writes non-executive employees and reporting lines
-agent:employee-nia      writes only Nia&#39;s public self-service profile</code></pre>
-<p>The Rust example uses the <code>grust</code> facade to build a
-backend-neutral property graph and to write the graph through the Sail
-adapter when a Sail SparkConnect server is available at
-<code>127.0.0.1:50051</code>. If Sail is not running, the example still
-demonstrates the Typesec decisions and prints the graph.</p>
-<p>The import shape is:</p>
-<div class="sourceCode" id="cb6"><pre
-class="sourceCode rust"><code class="sourceCode rust"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">grust::prelude::</span><span class="op">*;</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">grust_sail::</span><span class="op">{</span>SailConfig<span class="op">,</span> SailGraphStore<span class="op">};</span></span></code></pre></div>
-<p>The prelude pulls in the core graph types; the Sail adapter types
-(<code>SailConfig</code>, <code>SailGraphStore</code>) come from the
-separate <code>grust-sail</code> crate.</p>
-<h2 data-number="14.5" id="python-langchain-style-tool-gating"><span
-class="header-section-number">14.5</span> Python LangChain-Style Tool
-Gating</h2>
-<p>The Python example is intentionally self-contained. It does not
-require LangChain to be installed and it does not call an LLM. Instead,
-it uses the shape of a LangChain tool wrapper:</p>
-<pre class="text"><code>tool call requested
-  -&gt; TypesecGate.allowed(subject, action, resource)
-  -&gt; cargo run -q -p typesec-cli -- check ...
-  -&gt; only then mutate the graph</code></pre>
-<p>This is a realistic integration boundary. Python agents can ask the
-Rust CLI for a policy decision before calling a tool. The Python code
-treats exit code <code>0</code> as allow and any nonzero exit code as
-blocked. A denied tool call raises <code>PermissionError</code> before
-the graph mutates.</p>
-<p>This is not as strong as Rust’s type-level API, because Python cannot
-enforce the same phantom-type proof. But it gives Python systems a
-practical, testable gate today.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--</span> run <span class="at">--scenario</span> scenario.yaml</span></code></pre></div>
+<p>The trace authenticates each listed agent with the local simulation
+token, checks the requested action/resource pair, and prints whether
+each optional <code>expect</code> value matched the actual
+<code>allow</code>, <code>deny</code>, or <code>delegate</code> result.
+Any expectation mismatch makes the command exit nonzero after printing
+the trace.</p>
 </body>
 </html>

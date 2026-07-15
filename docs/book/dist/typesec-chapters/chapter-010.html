@@ -5,8 +5,8 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
-  <title>typesec-integrations</title>
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>typesec-memory — Marciana</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -108,96 +108,238 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-011.html" accesskey="n" rel="next">RBAC</a>
+<span class="navlink-label">Next:</span> <a href="chapter-011.html" accesskey="n" rel="next"><code>typesec-integrations</code></a>
 </span>
 <span class="navlink">
 <span class="navlink-label">Previous:</span> <a href="chapter-009.html" accesskey="p" rel="previous"><code>typesec-agent</code></a>
 </span>
 </div>
 </nav>
-<h1 data-number="9" id="typesec-integrations"><span
-class="header-section-number">9</span>
-<code>typesec-integrations</code></h1>
-<p>The integrations crate is intentionally outside
-<code>typesec-core</code>. Provider adapters need HTTP clients, JWT
-validation, provider-specific endpoints, and credential handling. The
-core crate should not own those dependencies.</p>
-<p>The crate currently contains six modules:</p>
-<pre class="text"><code>http          small injectable JSON HTTP client abstraction
-jwt           OIDC/JWT verification and JWT-claims policy engine
-workos        WorkOS FGA policy engine
-arcade        Arcade-style tool authorization policy engine
-pydantic_ai   capability metadata for Pydantic AI v2 tools
-did           DID documents, encrypted prompt envelopes, and Ollama bridge</code></pre>
-<p>The <code>http</code> module provides <code>ReqwestHttpClient</code>
-for production use plus <code>StaticHttpClient</code> and
-<code>RecordingHttpClient</code> for tests and examples. This lets the
-example exercise provider-like behavior without real credentials:</p>
+<h1 data-number="9" id="typesec-memory-marciana"><span
+class="header-section-number">9</span> <code>typesec-memory</code> —
+Marciana</h1>
+<p>An agent’s durable memory is not merely a retrieval feature. It
+accumulates the most sensitive material the agent has encountered,
+carries assertions across sessions, and can turn one successful prompt
+injection into a standing source of future instructions. A
+<code>user_id</code> predicate on a vector query is useful scoping, but
+it does not answer the governing questions: which verified agent may
+remember, recall, transform, share, or forget this record; for which
+purpose; at which clearance; and with what evidence afterward?</p>
+<p>Lido applies the existing Typesec model to that problem. The
+subsystem is named <strong>Marciana</strong>, after Venice’s Biblioteca
+Marciana: a library understood not as a pile of text, but as an
+institution for provenance, custody, classification, access, and
+stewardship. Its security core lives in the <code>typesec-memory</code>
+crate. The durable QueryGraph adapter lives on Grust, the authenticated
+service lives in <code>qg-rust</code>, and the agent ergonomics live in
+qg-python. That division keeps authority, persistence, transport, and
+framework integration in their proper homes.</p>
+<h2 data-number="9.1" id="memory-is-a-resource"><span
+class="header-section-number">9.1</span> Memory is a resource</h2>
+<p>Every memory space implements the ordinary Typesec
+<code>Resource</code> contract:</p>
+<pre class="text"><code>memory/user:alice/profile
+memory/agent:planner/procedural
+memory/team:research/shared</code></pre>
+<p>The existing RBAC, graph, and ODRL engines can therefore govern
+memory without a parallel policy language. Each operation requires a
+different typed proof:</p>
 <div class="sourceCode" id="cb2"><pre
-class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> workos_http <span class="op">=</span> <span class="pp">StaticHttpClient::</span>new()<span class="op">.</span>with_response(</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;https://api.workos.test/authorization/organization_memberships/user@example.com/check&quot;</span><span class="op">,</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="pp">json!</span>(<span class="op">{</span> <span class="st">&quot;authorized&quot;</span><span class="op">:</span> <span class="cn">true</span> <span class="op">}</span>)<span class="op">,</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>)<span class="op">;</span></span></code></pre></div>
-<p>The JWT module has two layers. <code>JwtAuthenticator</code>
-validates a token against a JWKS endpoint, issuer, audience, algorithm
-list, and expiry. Once a token is verified, <code>VerifiedSubject</code>
-carries the subject, organization id, membership id, role, and
-permissions. <code>JwtClaimsEngine</code> then acts as a fast policy
-engine for permissions already embedded in the token.</p>
-<p>The WorkOS module translates a Typesec resource id into a WorkOS FGA
-check. For example:</p>
-<pre class="text"><code>resource: project/proj_123
-action:   write
-check:    project:write on project/proj_123</code></pre>
-<p>The Arcade module handles external tool authorization. It maps local
-resource ids to Arcade tool names and only allows execution when the
-provider reports a completed authorization:</p>
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Capability<span class="op">&lt;</span>CanRead<span class="op">,</span> MemorySpace<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Capability<span class="op">&lt;</span>CanWrite<span class="op">,</span> MemorySpace<span class="op">&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>Capability<span class="op">&lt;</span>CanDelete<span class="op">,</span> MemorySpace<span class="op">&gt;</span></span></code></pre></div>
+<p>The proofs are not interchangeable. Write authority does not imply
+delete authority, and a capability for one space fails against another.
+They retain the same lease, revocation, attenuation, and audit behavior
+as every other Typesec capability. A planner can delegate a short-lived
+read capability to a sub-agent without handing it write or forget
+authority.</p>
+<p>The vault makes that distinction part of its API rather than an
+instruction in a system prompt:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> write<span class="op">:</span> Capability<span class="op">&lt;</span>CanWrite<span class="op">,</span> MemorySpace<span class="op">&gt;</span> <span class="op">=</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    mint_capability_for_id(<span class="op">&amp;</span>engine<span class="op">,</span> subject<span class="op">,</span> space<span class="op">.</span>resource_id()<span class="op">,</span> <span class="op">&amp;</span>options)<span class="op">?;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> id <span class="op">=</span> vault<span class="op">.</span>remember(</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>space<span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>write<span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="pp">MemoryDraft::</span>new(</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="pp">MemoryKind::</span>Profile<span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="pp">MemoryContent::</span>text(<span class="st">&quot;prefers dark mode&quot;</span>)<span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="pp">Provenance::</span>Operator<span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    )<span class="op">,</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>)<span class="op">?;</span></span></code></pre></div>
+<p><code>MemoryVault</code> checks that the capability is active and
+bound to the target space. When constructed with
+<code>with_policy</code>, it also rechecks policy at use time, so a
+still-live proof does not silently ignore a purpose or governance
+change. The model never receives a constructor for capabilities or an
+unguarded handle to stored content.</p>
+<h2 data-number="9.2" id="labels-travel-with-content"><span
+class="header-section-number">9.2</span> Labels travel with content</h2>
+<p>Scope answers whose memory this is. A label answers how sensitive its
+contents are. Every stored record carries a runtime <code>Public</code>,
+<code>Internal</code>, <code>Sensitive</code>, or <code>Secret</code>
+tag. Only the vault may rehydrate the private content field, and the
+typed Rust recall path declares the maximum sensitivity of the
+destination context:</p>
 <div class="sourceCode" id="cb4"><pre
-class="sourceCode rust"><code class="sourceCode rust"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> arcade <span class="op">=</span> <span class="pp">ArcadeToolAuthEngine::</span>new(arcade_api_key)</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>with_tool_mapping(<span class="st">&quot;gmail/list&quot;</span><span class="op">,</span> <span class="st">&quot;Gmail.ListEmails&quot;</span>)<span class="op">;</span></span></code></pre></div>
-<p>The DID module handles decentralized identifiers and encrypted prompt
-envelopes. It exposes a resolver trait and a key-store trait so real DID
-methods and production cryptography can be added without changing the
-Typesec capability path:</p>
-<pre class="text"><code>DidResolver  -&gt; DidDocument
-DidKeyStore  -&gt; verify/decrypt envelope
-Gateway      -&gt; SecureValue&lt;Secret, String, GenericResource&gt;
-PolicyEngine -&gt; Capability&lt;AiCanInfer, _&gt; and Capability&lt;CanReadSensitive, _&gt;
-Ollama       -&gt; receives plaintext only after typed authority exists</code></pre>
-<p>TypeDID extends that DID boundary from prompt-only messages to agent
-communications. <code>TypeDidProfile</code> negotiates the secure
-envelope profile, <code>TypeDidConversation</code> binds the outer task,
-session, or room id plus protocol, mode, and profile into the envelope
-signature, and <code>TypeDidGateway</code> opens encrypted opaque
-payload bytes as
-<code>SecureValue&lt;Secret, Vec&lt;u8&gt;, GenericResource&gt;</code>.
-Transport adapters such as <code>A2aTypeDidAdapter</code>,
-<code>AcpTypeDidAdapter</code>, <code>BandSecureEnvelopeAdapter</code>,
-and <code>HttpTypeDidAdapter</code> keep A2A, ACP, BAND, and HTTPS
-responsible for their own lifecycle while TypeDID owns cryptographic
-sender/recipient binding and the Typesec policy handoff.</p>
-<p>The same boundary applies to Python agent frameworks. LangChain and
-Pydantic AI should not reimplement DID cryptography or become policy
-engines. Instead, a Rust <code>TypeDidGateway</code> or future native
-Python binding should produce a verified message view, and framework
-adapters should use <code>typesec check --json</code> or the native
-Python gate to decide whether a tool may see the payload. The
-<code>examples/typedid_framework_adapters.py</code> example shows this
-shape without depending on either framework: a LangChain-style
-middleware wrapper and a Pydantic-style dependency object both gate the
-verified TypeDID message before tool invocation.</p>
-<p>These engines are not special cases in the capability system. They
-implement the same <code>PolicyEngine</code> trait as RBAC, ODRL, and
-graph policies. That is the point: external OAuth and enterprise
-authorization decisions become ordinary inputs to
-<code>mint_capability</code>.</p>
-<p>This pattern is small enough to be adopted by application code
-directly. A database write wrapper can require a write capability. A
-vector-store retrieval wrapper can require a read capability. An
-outbound HTTP publisher can require an exfiltration capability.</p>
-<p>The crate also includes <code>AgentBuilder</code>, which can wrap a
-single engine or build a composed engine from a primary and fallback.
-The default composed behavior is priority order: the primary decides
-unless it delegates.</p>
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> recalled<span class="op">:</span> Recall<span class="op">&lt;</span>Internal<span class="op">&gt;</span> <span class="op">=</span> vault<span class="op">.</span><span class="pp">recall::</span><span class="op">&lt;</span>Internal<span class="op">&gt;</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>space<span class="op">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>read<span class="op">,</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="pp">RecallQuery::</span>text(<span class="st">&quot;display preference&quot;</span>)<span class="op">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span><span class="pp">RequestContext::</span><span class="kw">default</span>()<span class="op">.</span>with_purpose(<span class="st">&quot;support&quot;</span>)<span class="op">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>)<span class="op">?;</span></span></code></pre></div>
+<p>Records at or below <code>Internal</code> arrive as typed hits.
+Hotter records arrive only as <code>RedactedHit</code> metadata.
+<code>CanReadSensitive</code> can reveal through the guarded escalation
+path up to <code>Sensitive</code>; <strong><code>Secret</code> remains
+sealed</strong> because v1 does not model a stronger reveal authority.
+At JSON and tool-call boundaries, where a runtime string cannot become a
+Rust type parameter, <code>recall_at</code> applies the same ceiling
+check dynamically.</p>
+<p>Purpose is a separate gate. A record limited to <code>support</code>
+is absent from an <code>analytics</code> recall even when the caller
+otherwise holds read authority. An expiry becomes enforceable retention
+state: <code>reap_expired</code> requires delete authority, tombstones
+the records, and emits the same audit trail as an explicit forget. With
+the receipts feature, deletion can also produce signed evidence for
+workflows that require offline verification.</p>
+<p>Consolidation preserves information-flow labels. Replacing several
+facts with a summary joins their labels, so a summary of
+<code>Sensitive</code> material is itself at least
+<code>Sensitive</code>; transformation cannot launder it into a cooler
+context. The entire supersede-and-replace plan is submitted through
+<code>MemoryStore::apply_batch</code> as one unit, which transactional
+adapters can commit atomically.</p>
+<h2 data-number="9.3"
+id="provenance-is-part-of-the-security-model"><span
+class="header-section-number">9.3</span> Provenance is part of the
+security model</h2>
+<p>Marciana records where a fact came from. A verified TypeDID envelope,
+a human operator, a guarded tool result, a conversation, and raw model
+text do not begin with the same trust. Raw model text is born
+quarantined, and ordinary recall, neighborhood recall, semantic recall,
+and consolidation exclude quarantined records by default. This is the
+defense against memory poisoning: an injected sentence may be retained
+for inspection without silently becoming durable truth that guides a
+later session.</p>
+<p>That guarantee has an important v1 edge. The Rust query model can
+explicitly request quarantined records, but Marciana does not yet expose
+a mandatory promotion operation that requires
+<code>CanDeclassify</code>, nor does every consolidation path require
+proof of promotion before quarantine can be cleared. Hosted use must add
+that audited promotion boundary and prove quarantine propagation across
+all derived records. The book treats this as unfinished security work,
+not as a property inferred from the default query behavior.</p>
+<h2 data-number="9.4" id="time-graph-and-retrieval"><span
+class="header-section-number">9.4</span> Time, graph, and retrieval</h2>
+<p>A memory record distinguishes when it was observed from when it was
+valid. Supersession invalidates an old assertion instead of overwriting
+history, so “Alice lives in Venice” can remain inspectable as a past
+belief beside its successor without being returned as current truth.
+Explicit forgetting is the separate destructive path.</p>
+<p>The in-tree <code>InMemoryStore</code> makes the contract easy to
+test and embed. The feature-gated <code>GrustMemoryStore</code> adds
+entity relationships and neighborhood recall. QueryGraph’s
+<code>querygraph-memory</code> adapter carries the same
+<code>MemoryStore</code> contract to persistent Turso/libSQL-backed
+Grust universal tables. In every case, the graph or semantic index
+returns candidate record identifiers; the vault decides whether content
+can be revealed. Retrieval can narrow and rank a candidate set, but it
+cannot widen authority.</p>
+<p>The <code>SemanticIndex</code> seam follows the same rule. Typesec
+ships a deterministic <code>KeywordIndex</code>, while QueryGraph v1
+proves an in-process <code>VectorIndex</code> with a privacy-aware
+embedder. The index is not the source of truth and does not return
+content. Remembering feeds it on a best-effort basis, forgetting prunes
+it, and recall always returns through the vault’s space, validity,
+quarantine, and label checks.</p>
+<p>Reference cognition is similarly constrained. Extractors and
+analytics produce <code>MemoryDraft</code>s and
+<code>ConsolidationPlan</code>s; they do not mutate the store directly.
+The deterministic <code>RuleExtractor</code> and local-model
+<code>OllamaExtractor</code> demonstrate that raw model output remains
+an untrusted proposal until authorized code sends it through
+<code>remember</code> or <code>consolidate</code>. QueryGraph’s
+reference analytics are also <strong>plan producers only</strong>.
+Distributed Sail cognition is post-v1 work and must preserve that
+inert-plan boundary.</p>
+<h2 data-number="9.5" id="the-guarded-agent-surface"><span
+class="header-section-number">9.5</span> The guarded agent surface</h2>
+<p>Marciana memory operations are normal protected tools:</p>
+<pre class="text"><code>memory.remember   -&gt; write  -&gt; resource from the space argument
+memory.recall     -&gt; read   -&gt; resource from the space argument
+memory.forget     -&gt; delete -&gt; resource from the space argument</code></pre>
+<p><code>memory_bindings()</code> registers those mappings with the same
+deny-by-default <code>ToolCallGuard</code> used for OpenAI, Anthropic,
+LangChain, Pydantic AI, and MCP. <code>MemoryToolRouter</code> validates
+the normalized request again, mints the operation-specific capability
+through the configured policy engine, and only then calls the vault. The
+CLI exposes the path through <code>typesec memory-serve</code>; Python
+has <code>MemoryGate</code>; and <code>typesec-wasm</code> provides
+<code>WasmMemoryVault</code> for the in-memory web boundary.</p>
+<p>The realized QueryGraph service preserves the same sequence across a
+network:</p>
+<p><img
+src="assets/7f82fe1bb0ac-diagram-6.png" /></p>
+<p>qg-python keeps the Ed25519 signing seed in typed runtime
+dependencies. qg-rust accepts the verified signing DID—not a
+caller-supplied JSON subject—as the policy principal. The signature
+binds sender, recipient, action, exact route, and body digest.
+Authentication failures return <code>401</code>; an authenticated
+subject denied by TypeSec receives a <code>403</code> receipt.</p>
+<p>The executable proof remembers a governed result as one authorized
+specialist, terminates and restarts qg-rust, recalls the durable record
+as a differently credentialed supervisor, and denies a validly signed
+outsider. This is a real restart-persistence and identity-bound
+authorization proof, not a claim that the service is already a hosted
+multi-tenant product.</p>
+<h2 data-number="9.6" id="the-exact-v1-boundary"><span
+class="header-section-number">9.6</span> The exact v1 boundary</h2>
+<p>Marciana v1 is complete at the durable local-service boundary. It
+includes the vault, runtime labels, clearance-typed recall, redaction
+and guarded reveal, purpose filtering, retention, tombstones and
+receipts, provenance quarantine, bi-temporal supersession, guarded agent
+tools, Python and WASM surfaces, Grust reference storage, a versioned
+backend conformance corpus, transactional consolidation, reference
+extraction, semantic-index hooks, persistent Turso, identity-bound
+qg-rust routes, and the Pydantic AI demonstration.</p>
+<p>The following limits are equally part of the contract:</p>
+<ul>
+<li><code>MemoryId::next()</code> is monotonic only within one process.
+A restarted process that writes into an existing durable store can
+collide with an older id until the durable-id contract is upgraded.</li>
+<li>TypeDID signatures bind identity, route, action, recipient, and
+body, but v1 does not durably claim a replay nonce across replicas.
+Durable cross-replica replay protection remains post-v1.</li>
+<li>The Turso/Grust adapter pushes only memory-space equality into the
+backend. The shared conformance-pinned matcher applies the remaining
+query dimensions after retrieval.</li>
+<li>QueryGraph’s <code>VectorIndex</code> is in-process and
+nonpersistent. Persistent, tenant-scoped LanceDB ANN is future work; ANN
+remains a ranking aid rather than an authorization mechanism.</li>
+<li>Reference extraction and analytics produce inert plans only. There
+are no distributed Sail cognition jobs in v1.</li>
+<li>Tenant isolation is enforced by TypeSec at the vault boundary. V1
+has no hosted multi-tenant control plane, physical isolation tiers,
+quotas, migrations, backup/restore program, or SLO-backed service.</li>
+<li>The v1 <code>querygraph-memory</code> <code>RELATES</code>
+representation identifies an edge by its structural
+<code>(from, label, to)</code> shape. It cannot preserve two assertions
+that differ only by <code>fact_id</code>; explicit assertion identity
+and fuller lineage are post-v1 schema work.</li>
+<li>Quarantine exclusion is the safe default, but mandatory audited
+<code>CanDeclassify</code> promotion and quarantine propagation through
+every derived record are not complete.</li>
+<li><code>CanReadSensitive</code> reveals through
+<code>Sensitive</code>; <code>Secret</code> remains sealed.</li>
+</ul>
+<p>These limits are not reasons to weaken the v1 claim. They make the
+claim reviewable: Lido delivers governed, persistent agent memory with a
+tested end-to-end proof, while durable identifiers, replica-safe replay,
+persistent ANN, assertion-level lineage, distributed cognition, and
+hosted operations remain named work with explicit acceptance gates.</p>
 </body>
 </html>

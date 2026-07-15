@@ -5,8 +5,8 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
-  <title>CLI</title>
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>Macros</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -108,81 +108,39 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-015.html" accesskey="n" rel="next">Examples</a>
+<span class="navlink-label">Next:</span> <a href="chapter-015.html" accesskey="n" rel="next">CLI</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-013.html" accesskey="p" rel="previous">Macros</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-013.html" accesskey="p" rel="previous">ODRL</a>
 </span>
 </div>
 </nav>
-<h1 data-number="13" id="cli"><span
-class="header-section-number">13</span> CLI</h1>
-<p>The CLI is the bridge for humans, scripts, and non-Rust agents. It
-has four commands:</p>
-<pre class="text"><code>validate   parse and validate a policy YAML file
-check      evaluate one subject/action/resource query
-generate   emit typed Rust code from an RBAC policy
-run        simulate agent execution under policy</code></pre>
-<p>The <code>check</code> command is especially important because it
-makes Typesec usable from Python or shell without native bindings:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--</span> check <span class="dt">\</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--policy</span> policies/rbac-example.yaml <span class="dt">\</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--subject</span> agent:data-pipeline <span class="dt">\</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--action</span> read <span class="dt">\</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--resource</span> reports/q1</span></code></pre></div>
-<p>An allow exits successfully and prints an allow result. A deny exits
-with status <code>1</code>. A delegate exits with status <code>2</code>.
-That makes the command a simple policy oracle for external tools.</p>
-<p>For agent wrappers that should not parse human output, the same check
-can emit JSON:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--</span> check <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--policy</span> policies/rbac-example.yaml <span class="dt">\</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--subject</span> agent:data-pipeline <span class="dt">\</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--action</span> read <span class="dt">\</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--resource</span> reports/q1 <span class="dt">\</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--json</span></span></code></pre></div>
-<p>That prints a stable decision object with fields such as
-<code>decision</code>, <code>allowed</code>, <code>subject</code>,
-<code>action</code>, <code>resource</code>, and the detected
-<code>format</code>, while preserving the same exit codes. This closes
-the earlier machine-readable CLI gap and makes
-<code>typesec check --json</code> the recommended boundary for Python
-and shell agents.</p>
-<p>The format is detected from YAML shape unless
-<code>--format rbac</code> or <code>--format odrl</code> is passed
-explicitly. ODRL checks can receive a purpose:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--</span> check <span class="dt">\</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--policy</span> policies/odrl-example.yaml <span class="dt">\</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--subject</span> agent:summarizer <span class="dt">\</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--action</span> read <span class="dt">\</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--resource</span> customer-data <span class="dt">\</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--purpose</span> analytics</span></code></pre></div>
-<p>The Python tests exercise both the exit-code boundary and the JSON
-boundary, so the CLI contract is checked from the same subprocess seam
-that non-Rust agents use.</p>
-<p><code>typesec run</code> can also execute a multi-agent scenario
-file:</p>
-<div class="sourceCode" id="cb5"><pre
-class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">scenario</span><span class="kw">:</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> rbac smoke</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">policy</span><span class="kw">:</span><span class="at"> ./policies/rbac-example.yaml</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">format</span><span class="kw">:</span><span class="at"> rbac</span></span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">steps</span><span class="kw">:</span></span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">agent</span><span class="kw">:</span><span class="at"> agent:data-pipeline</span></span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">action</span><span class="kw">:</span><span class="at"> read</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">resource</span><span class="kw">:</span><span class="at"> reports/q1</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">expect</span><span class="kw">:</span><span class="at"> allow</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">agent</span><span class="kw">:</span><span class="at"> agent:data-pipeline</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">action</span><span class="kw">:</span><span class="at"> write</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">resource</span><span class="kw">:</span><span class="at"> reports/q1</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">expect</span><span class="kw">:</span><span class="at"> deny</span></span></code></pre></div>
-<p>Run it with:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--</span> run <span class="at">--scenario</span> scenario.yaml</span></code></pre></div>
-<p>The trace authenticates each listed agent with the local simulation
-token, checks the requested action/resource pair, and prints whether
-each optional <code>expect</code> value matched the actual
-<code>allow</code>, <code>deny</code>, or <code>delegate</code> result.
-Any expectation mismatch makes the command exit nonzero after printing
-the trace.</p>
+<h1 data-number="13" id="macros"><span
+class="header-section-number">13</span> Macros</h1>
+<p>The <code>typesec-macro</code> crate sketches two
+developer-experience paths.</p>
+<p>The first is a derive macro:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">#[</span>derive<span class="at">(</span>TypesecRole<span class="at">)]</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">#[</span>role<span class="at">(</span>permissions <span class="op">=</span> <span class="st">&quot;read,write&quot;</span><span class="op">,</span> resources <span class="op">=</span> <span class="st">&quot;code/*&quot;</span><span class="at">)]</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">struct</span> Engineer<span class="op">;</span></span></code></pre></div>
+<p>The second is an inline policy macro:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">policy!</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    role Analyst <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        can [read<span class="op">,</span> read_sensitive] on [<span class="st">&quot;reports/*&quot;</span><span class="op">,</span> <span class="st">&quot;metrics/*&quot;</span>]<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    role LeadAnalyst extends Analyst <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        can [write] on [<span class="st">&quot;reports/drafts/*&quot;</span>]<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><code>extends</code> flattens inherited permissions and resource
+patterns at macro expansion time, matching the RBAC YAML model while
+keeping the generated <code>Role</code> impls as simple static
+slices.</p>
+<p>Macros are not the security core. The core is capabilities and
+policy-engine minting. The macros are there to make typed policy
+declarations less tedious and to give future generated code a natural
+shape.</p>
 </body>
 </html>

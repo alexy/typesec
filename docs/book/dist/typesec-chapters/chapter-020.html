@@ -5,8 +5,8 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
-  <title>Conclusion</title>
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>Roadmap</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -43,45 +43,70 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
+<span class="navlink-label">Next:</span> <a href="chapter-021.html" accesskey="n" rel="next">Conclusion</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-019.html" accesskey="p" rel="previous">Roadmap</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-019.html" accesskey="p" rel="previous">Design Tradeoffs</a>
 </span>
 </div>
 </nav>
-<h1 data-number="19" id="conclusion"><span
-class="header-section-number">19</span> Conclusion</h1>
-<p>Typesec is a small system with a sharp idea: authorization should not
-only be a runtime answer. For agentic AI systems, authorization should
-also leave a typed trace in the program. If a function can write, read
-sensitive data, train a model, or exfiltrate content, that power should
-be visible in the function’s inputs.</p>
-<p>The repository now contains the first coherent version of that
-idea:</p>
-<pre class="text"><code>typed capabilities
-opaque secure values
-sealed permissions
-resource abstractions
-typestate authentication
-RBAC policy evaluation
-ODRL contextual policy and prohibitions
-policy combinators
-async secure agents
-OAuth/OIDC provider integrations
-WorkOS FGA and Arcade-style tool auth engines
-DID-wrapped encrypted prompt handling
-CLI policy checks
-Rust examples
-Python tool-gating example
-Grust/Sail graph integration
-tests and documentation</code></pre>
-<p>The design is not finished, but it is real enough to build on. The
-next work is to make the compile-time guarantees more aggressively
-tested, make generated policy types part of ordinary workflows, connect
-the provider adapters to live sandbox environments, and give non-Rust
-agents cleaner ways to use the same security boundary.</p>
-<p>That is the arc of today’s build: from an idea about
-impossible-to-forget authorization, to a working Rust workspace, to
-examples that show how agent tools can be shaped around typed proof.</p>
+<h1 data-number="19" id="roadmap"><span
+class="header-section-number">19</span> Roadmap</h1>
+<p>Lido closes the Marciana v1 milestone rather than moving it forward
+as an ever-receding roadmap item. The next memory work is a staged scale
+program with non-regression rules: every backend still goes through the
+vault, every optimization returns candidate ids rather than content,
+every cognitive worker returns an inert plan, and no hosted layer
+weakens capability, purpose, clearance, quarantine, or deletion
+semantics.</p>
+<h2 data-number="19.1" id="marciana-after-v1"><span
+class="header-section-number">19.1</span> Marciana after v1</h2>
+<p>The first phase is contract hardening. Replace process-local
+<code>MemoryId::next()</code> with durable, collision-safe identifiers;
+define a signed-envelope v2 with a persistent replay store and mutation
+idempotency; introduce explicit assertion identity so repeated
+same-endpoint relationships retain distinct lineage; add an audited
+<code>CanDeclassify</code> promotion operation with mandatory quarantine
+propagation; and version the component and migration contracts. A
+decision about authority stronger than <code>CanReadSensitive</code> is
+required before any path may reveal <code>Secret</code>; until then,
+<code>Secret</code> stays sealed.</p>
+<p>The second phase moves more query work into the durable backend
+without changing semantics. Turso/Grust can push temporal, label,
+provenance, entity, and assertion-lineage predicates only after an
+equivalence corpus proves the same answers and failure posture as the
+shared matcher. Durable replay claims must be tested across restart and
+concurrent replicas, not only within one server.</p>
+<p>The third phase adds persistent semantic retrieval. A tenant-scoped
+LanceDB ANN index can replace the in-process <code>VectorIndex</code> as
+a rebuildable ranking sidecar, but the memory store remains
+authoritative and the vault still applies space, purpose, validity,
+quarantine, and clearance. Deletion and retention must prune or
+reconcile both stores, and content above the configured embedding
+ceiling must never leave the trusted embedder boundary.</p>
+<p>The fourth phase distributes cognition through Sail. Extraction,
+deduplication, contradiction detection, entity resolution, community
+summaries, and consolidation may run as data-parallel jobs, but workers
+receive bounded inputs and return signed or hash-bound proposals. Only
+an authorized vault applies a fresh plan. Stale policy, worker retry,
+partial failure, and idempotent reapply are part of the acceptance
+suite.</p>
+<p>The fifth phase is the hosted product, not merely v1 behind a load
+balancer. It requires a tenant control plane, physical isolation
+profiles, quotas, durable anti-replay and idempotency, online
+migrations, backup and point-in-time restore, deletion propagation,
+observability, rolling upgrades, incident drills, and explicit SLOs. The
+full TypeSec and backend conformance corpus must run against that path
+before it is called complete.</p>
+<h2 data-number="19.2" id="broader-typesec-work"><span
+class="header-section-number">19.2</span> Broader TypeSec work</h2>
+<p>Outside memory, the same direction continues: propagate revocation
+across a fleet instead of relying on an in-process epoch; version the
+machine-readable decision schema; compile generated policy types into
+ordinary downstream examples; deepen DID rotation, resolver, DIDComm/JWE
+or HPKE, and KMS/HSM support; and add opt-in live provider smoke tests
+while retaining deterministic mocked CI. Those changes should remain in
+their owning crates rather than turning <code>typesec-core</code> into a
+provider, database, or transport framework.</p>
 </body>
 </html>

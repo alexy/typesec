@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
+  <meta name="dcterms.date" content="2026-07-15" />
   <title>Architecture at a Glance</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -61,11 +61,14 @@ path to one runs a <code>PolicyEngine</code> and emits an audit event; a
 denial is a typed error, never a capability.</p>
 <p><img
 src="assets/d2676d91b2eb-diagram-1.png" /></p>
-<p>The workspace is nine crates layered on <code>typesec-core</code>;
-the umbrella <code>typesec</code> crate re-exports the rest behind
-feature flags.</p>
+<p>The workspace is eleven crates layered on <code>typesec-core</code>.
+The umbrella <code>typesec</code> crate re-exports the core, policy,
+agent, macro, and integration surfaces behind feature flags;
+<code>typesec-memory</code> and <code>typesec-wasm</code> remain
+purpose-built distribution surfaces rather than being hidden inside the
+facade.</p>
 <p><img
-src="assets/16019647308e-diagram-2.png" /></p>
+src="assets/7a086c098325-diagram-2.png" /></p>
 <p>Every engine — RBAC, the graph engine, ODRL, and the provider-backed
 engines — implements the same <code>check_with_context</code> contract
 returning <code>Allow</code>, <code>Deny</code>, or

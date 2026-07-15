@@ -5,8 +5,8 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
-  <title>Tests and Validation</title>
+  <meta name="dcterms.date" content="2026-07-15" />
+  <title>Examples</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
     span.navlink { flex: 1; }
@@ -108,53 +108,111 @@
 </div>
 <div class="sitenav">
 <span class="navlink">
-<span class="navlink-label">Next:</span> <a href="chapter-017.html" accesskey="n" rel="next">What We Improved</a>
+<span class="navlink-label">Next:</span> <a href="chapter-017.html" accesskey="n" rel="next">Tests and Validation</a>
 </span>
 <span class="navlink">
-<span class="navlink-label">Previous:</span> <a href="chapter-015.html" accesskey="p" rel="previous">Examples</a>
+<span class="navlink-label">Previous:</span> <a href="chapter-015.html" accesskey="p" rel="previous">CLI</a>
 </span>
 </div>
 </nav>
-<h1 data-number="15" id="tests-and-validation"><span
-class="header-section-number">15</span> Tests and Validation</h1>
-<p>The repository has tests at several levels.</p>
-<p>Core unit tests check that capabilities carry the right subject and
-resource, that read and write capability types differ, and that denied
-engines do not mint capabilities.</p>
-<p>Typestate tests check that authentication transitions from
-unauthenticated to authenticated and that empty subjects fail.</p>
-<p>Agent tests check the full flow:</p>
-<pre class="text"><code>construct agent
-authenticate
-request capability
-execute with capability</code></pre>
-<p>RBAC tests cover role grants, inheritance, unknown subjects, and
-denials. ODRL tests cover allowed purpose, wrong purpose, prohibition,
-and delegation for unknown subjects.</p>
-<p>Integration tests in
-<code>crates/typesec-agent/tests/integration.rs</code> exercise the
-agent layer across more realistic scenarios. Provider integration tests
-in
-<code>crates/typesec-integrations/tests/provider_composition.rs</code>
-check the public WorkOS, Arcade, JWT, and capability-composition path.
-Python smoke tests in <code>tests/python/test_cli_policy.py</code>
-exercise the CLI as a policy oracle.</p>
-<p>Benchmark and fuzz tooling cover the hot paths and parser
-boundaries:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> bench <span class="at">-p</span> typesec-core <span class="at">--bench</span> policy_check</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> bench <span class="at">-p</span> typesec-rbac <span class="at">--bench</span> rbac_check</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> bench <span class="at">-p</span> typesec-odrl <span class="at">--bench</span> odrl_check</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> fuzz run rbac_yaml <span class="at">--</span> <span class="at">-max_total_time</span><span class="op">=</span>300</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> fuzz run odrl_yaml <span class="at">--</span> <span class="at">-max_total_time</span><span class="op">=</span>300</span></code></pre></div>
-<p>During today’s final publishing pass, the merged repository was
-checked with:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> check <span class="at">--workspace</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> test <span class="at">--workspace</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> check <span class="at">-p</span> typesec-cli <span class="at">--example</span> provider_integrations</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-q</span> <span class="at">-p</span> typesec-cli <span class="at">--example</span> provider_integrations</span></code></pre></div>
-<p>When the Grust dependency was switched from a path dependency to
-published crates, the Grust/Sail example was checked separately:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> check <span class="at">-p</span> typesec-cli <span class="at">--example</span> company_graph_grust_sail</span></code></pre></div>
-<p>All passed.</p>
+<h1 data-number="15" id="examples"><span
+class="header-section-number">15</span> Examples</h1>
+<p>Typesec includes examples at several layers: pure Rust RBAC, pure
+Rust ODRL, OAuth-provider integration, and company-graph integrations
+that show how an agent tool boundary might look in a larger system.</p>
+<h2 data-number="15.1" id="rbac-agent"><span
+class="header-section-number">15.1</span> RBAC Agent</h2>
+<p>The RBAC example shows an authenticated agent requesting a capability
+and then executing a protected action. The interesting part is not the
+business object. The interesting part is the call shape: the protected
+operation is not called until after policy has minted a capability.</p>
+<p>The example also demonstrates denial. An agent assigned to a role
+with read permissions cannot use a write permission unless the policy
+grants it.</p>
+<p>The updated RBAC example also demonstrates the SecLib-inspired data
+container. It protects a report summary as
+<code>SecureValue&lt;Sensitive, String, GenericResource&gt;</code>, maps
+it to a length digest while it remains opaque, denies declassification
+for the ordinary analyst, and then allows a
+<code>privacy_reviewer</code> role to declassify the digest after policy
+mints <code>Capability&lt;CanDeclassify, GenericResource&gt;</code>.</p>
+<h2 data-number="15.2" id="odrl-agent"><span
+class="header-section-number">15.2</span> ODRL Agent</h2>
+<p>The ODRL example demonstrates contextual policy. Purpose matters. A
+read for analytics may be allowed while a read for billing delegates or
+denies. An exfiltration action can be prohibited even if a different
+action on the same target is allowed.</p>
+<h2 data-number="15.3" id="oauth-provider-integrations"><span
+class="header-section-number">15.3</span> OAuth Provider
+Integrations</h2>
+<p>The provider integration example is the concrete demonstration of the
+Arcade and WorkOS architecture described above. It does not require live
+provider credentials. Instead, it uses <code>StaticHttpClient</code> to
+stand in for WorkOS and Arcade responses while still exercising the same
+policy-engine and capability-minting path.</p>
+<p>Run it with:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">cargo</span> run <span class="at">-p</span> typesec-cli <span class="at">--example</span> provider_integrations</span></code></pre></div>
+<p>The example composes three engines:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> engine <span class="op">=</span> <span class="pp">PolicyEngineBuilder::</span>new()</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(jwt_claims)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(workos)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>add_engine(arcade)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>strategy(<span class="pp">CombineStrategy::</span>PriorityOrder)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>build()<span class="op">;</span></span></code></pre></div>
+<p>The flow demonstrates three grants:</p>
+<pre class="text"><code>read org/acme              allowed from JWT claims
+write project/proj_123     delegated to mocked WorkOS FGA
+execute Gmail.ListEmails   delegated to mocked Arcade tool auth</code></pre>
+<p>The final step invokes a
+<code>ProtectedTool&lt;CanExecute, _, _&gt;</code>. That is the key
+piece of the example: after the provider engines allow the tool
+execution, Typesec still requires the local tool implementation to
+receive the typed execute capability before it can run.</p>
+<h2 data-number="15.4" id="company-graph-with-grust-and-sail"><span
+class="header-section-number">15.4</span> Company Graph with Grust and
+Sail</h2>
+<p>The company graph example is the most complete integration. It models
+a company hierarchy:</p>
+<pre class="text"><code>employee:evelyn CEO
+  &lt;- REPORTS_TO employee:priya VP Engineering
+      &lt;- REPORTS_TO employee:marco Engineering Manager
+          &lt;- REPORTS_TO employee:nia Senior Software Engineer
+          &lt;- REPORTS_TO employee:omar Data Engineer</code></pre>
+<p>The policy assigns different graph-writing powers to different
+agents:</p>
+<pre class="text"><code>agent:executive-chief   writes executive data, company graph, and sensitive network
+agent:hr-onboarding     writes non-executive employees and reporting lines
+agent:employee-nia      writes only Nia&#39;s public self-service profile</code></pre>
+<p>The Rust example uses the <code>grust</code> facade to build a
+backend-neutral property graph and to write the graph through the Sail
+adapter when a Sail SparkConnect server is available at
+<code>127.0.0.1:50051</code>. If Sail is not running, the example still
+demonstrates the Typesec decisions and prints the graph.</p>
+<p>The import shape is:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">grust::prelude::</span><span class="op">*;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">grust_sail::</span><span class="op">{</span>SailConfig<span class="op">,</span> SailGraphStore<span class="op">};</span></span></code></pre></div>
+<p>The prelude pulls in the core graph types; the Sail adapter types
+(<code>SailConfig</code>, <code>SailGraphStore</code>) come from the
+separate <code>grust-sail</code> crate.</p>
+<h2 data-number="15.5" id="python-langchain-style-tool-gating"><span
+class="header-section-number">15.5</span> Python LangChain-Style Tool
+Gating</h2>
+<p>The Python example is intentionally self-contained. It does not
+require LangChain to be installed and it does not call an LLM. Instead,
+it uses the shape of a LangChain tool wrapper:</p>
+<pre class="text"><code>tool call requested
+  -&gt; TypesecGate.allowed(subject, action, resource)
+  -&gt; cargo run -q -p typesec-cli -- check ...
+  -&gt; only then mutate the graph</code></pre>
+<p>This is a realistic integration boundary. Python agents can ask the
+Rust CLI for a policy decision before calling a tool. The Python code
+treats exit code <code>0</code> as allow and any nonzero exit code as
+blocked. A denied tool call raises <code>PermissionError</code> before
+the graph mutates.</p>
+<p>This is not as strong as Rust’s type-level API, because Python cannot
+enforce the same phantom-type proof. But it gives Python systems a
+practical, testable gate today.</p>
 </body>
 </html>

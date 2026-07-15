@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-14" />
+  <meta name="dcterms.date" content="2026-07-15" />
   <title>Typesec</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -51,7 +51,7 @@
 <h1 class="title">Typesec</h1>
 <p class="subtitle">Type-Level Security for Agentic AI</p>
 <p class="author">Alexy Khrabrov</p>
-<p class="date">2026-07-14</p>
+<p class="date">2026-07-15</p>
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
@@ -121,60 +121,100 @@ Architecture</a></li>
 <li><a href="chapter-009.html#typesec-agent"
 id="toc-typesec-agent"><span class="toc-section-number">8</span>
 <code>typesec-agent</code></a></li>
-<li><a href="chapter-010.html#typesec-integrations"
-id="toc-typesec-integrations"><span class="toc-section-number">9</span>
-<code>typesec-integrations</code></a></li>
-<li><a href="chapter-011.html#rbac" id="toc-rbac"><span
-class="toc-section-number">10</span> RBAC</a></li>
-<li><a href="chapter-012.html#odrl" id="toc-odrl"><span
-class="toc-section-number">11</span> ODRL</a></li>
-<li><a href="chapter-013.html#macros" id="toc-macros"><span
-class="toc-section-number">12</span> Macros</a></li>
-<li><a href="chapter-014.html#cli" id="toc-cli"><span
-class="toc-section-number">13</span> CLI</a></li>
-<li><a href="chapter-015.html#examples" id="toc-examples"><span
-class="toc-section-number">14</span> Examples</a>
+<li><a href="chapter-010.html#typesec-memory-marciana"
+id="toc-typesec-memory-marciana"><span
+class="toc-section-number">9</span> <code>typesec-memory</code> —
+Marciana</a>
 <ul>
-<li><a href="chapter-015.html#rbac-agent" id="toc-rbac-agent"><span
-class="toc-section-number">14.1</span> RBAC Agent</a></li>
-<li><a href="chapter-015.html#odrl-agent" id="toc-odrl-agent"><span
-class="toc-section-number">14.2</span> ODRL Agent</a></li>
-<li><a href="chapter-015.html#oauth-provider-integrations"
+<li><a href="chapter-010.html#memory-is-a-resource"
+id="toc-memory-is-a-resource"><span
+class="toc-section-number">9.1</span> Memory is a resource</a></li>
+<li><a href="chapter-010.html#labels-travel-with-content"
+id="toc-labels-travel-with-content"><span
+class="toc-section-number">9.2</span> Labels travel with
+content</a></li>
+<li><a href="chapter-010.html#provenance-is-part-of-the-security-model"
+id="toc-provenance-is-part-of-the-security-model"><span
+class="toc-section-number">9.3</span> Provenance is part of the security
+model</a></li>
+<li><a href="chapter-010.html#time-graph-and-retrieval"
+id="toc-time-graph-and-retrieval"><span
+class="toc-section-number">9.4</span> Time, graph, and
+retrieval</a></li>
+<li><a href="chapter-010.html#the-guarded-agent-surface"
+id="toc-the-guarded-agent-surface"><span
+class="toc-section-number">9.5</span> The guarded agent surface</a></li>
+<li><a href="chapter-010.html#the-exact-v1-boundary"
+id="toc-the-exact-v1-boundary"><span
+class="toc-section-number">9.6</span> The exact v1 boundary</a></li>
+</ul></li>
+<li><a href="chapter-011.html#typesec-integrations"
+id="toc-typesec-integrations"><span class="toc-section-number">10</span>
+<code>typesec-integrations</code></a></li>
+<li><a href="chapter-012.html#rbac" id="toc-rbac"><span
+class="toc-section-number">11</span> RBAC</a></li>
+<li><a href="chapter-013.html#odrl" id="toc-odrl"><span
+class="toc-section-number">12</span> ODRL</a></li>
+<li><a href="chapter-014.html#macros" id="toc-macros"><span
+class="toc-section-number">13</span> Macros</a></li>
+<li><a href="chapter-015.html#cli" id="toc-cli"><span
+class="toc-section-number">14</span> CLI</a></li>
+<li><a href="chapter-016.html#examples" id="toc-examples"><span
+class="toc-section-number">15</span> Examples</a>
+<ul>
+<li><a href="chapter-016.html#rbac-agent" id="toc-rbac-agent"><span
+class="toc-section-number">15.1</span> RBAC Agent</a></li>
+<li><a href="chapter-016.html#odrl-agent" id="toc-odrl-agent"><span
+class="toc-section-number">15.2</span> ODRL Agent</a></li>
+<li><a href="chapter-016.html#oauth-provider-integrations"
 id="toc-oauth-provider-integrations"><span
-class="toc-section-number">14.3</span> OAuth Provider
+class="toc-section-number">15.3</span> OAuth Provider
 Integrations</a></li>
-<li><a href="chapter-015.html#company-graph-with-grust-and-sail"
+<li><a href="chapter-016.html#company-graph-with-grust-and-sail"
 id="toc-company-graph-with-grust-and-sail"><span
-class="toc-section-number">14.4</span> Company Graph with Grust and
+class="toc-section-number">15.4</span> Company Graph with Grust and
 Sail</a></li>
-<li><a href="chapter-015.html#python-langchain-style-tool-gating"
+<li><a href="chapter-016.html#python-langchain-style-tool-gating"
 id="toc-python-langchain-style-tool-gating"><span
-class="toc-section-number">14.5</span> Python LangChain-Style Tool
+class="toc-section-number">15.5</span> Python LangChain-Style Tool
 Gating</a></li>
 </ul></li>
-<li><a href="chapter-016.html#tests-and-validation"
-id="toc-tests-and-validation"><span class="toc-section-number">15</span>
+<li><a href="chapter-017.html#tests-and-validation"
+id="toc-tests-and-validation"><span class="toc-section-number">16</span>
 Tests and Validation</a></li>
-<li><a href="chapter-017.html#what-we-improved"
-id="toc-what-we-improved"><span class="toc-section-number">16</span>
+<li><a href="chapter-018.html#what-we-improved"
+id="toc-what-we-improved"><span class="toc-section-number">17</span>
 What We Improved</a>
 <ul>
-<li><a href="chapter-017.html#rialto-0.9.0" id="toc-rialto-0.9.0"><span
-class="toc-section-number">16.1</span> Rialto (0.9.0)</a></li>
-<li><a href="chapter-017.html#murano-0.10.0"
-id="toc-murano-0.10.0"><span class="toc-section-number">16.2</span>
+<li><a href="chapter-018.html#rialto-0.9.0" id="toc-rialto-0.9.0"><span
+class="toc-section-number">17.1</span> Rialto (0.9.0)</a></li>
+<li><a href="chapter-018.html#murano-0.10.0"
+id="toc-murano-0.10.0"><span class="toc-section-number">17.2</span>
 Murano (0.10.0)</a></li>
-<li><a href="chapter-017.html#burano-0.11.0"
-id="toc-burano-0.11.0"><span class="toc-section-number">16.3</span>
+<li><a href="chapter-018.html#burano-0.11.0"
+id="toc-burano-0.11.0"><span class="toc-section-number">17.3</span>
 Burano (0.11.0)</a></li>
+<li><a href="chapter-018.html#torcello-0.12.0"
+id="toc-torcello-0.12.0"><span class="toc-section-number">17.4</span>
+Torcello (0.12.0)</a></li>
+<li><a href="chapter-018.html#lido-0.13.0" id="toc-lido-0.13.0"><span
+class="toc-section-number">17.5</span> Lido (0.13.0)</a></li>
 </ul></li>
-<li><a href="chapter-018.html#design-tradeoffs"
-id="toc-design-tradeoffs"><span class="toc-section-number">17</span>
+<li><a href="chapter-019.html#design-tradeoffs"
+id="toc-design-tradeoffs"><span class="toc-section-number">18</span>
 Design Tradeoffs</a></li>
-<li><a href="chapter-019.html#roadmap" id="toc-roadmap"><span
-class="toc-section-number">18</span> Roadmap</a></li>
-<li><a href="chapter-020.html#conclusion" id="toc-conclusion"><span
-class="toc-section-number">19</span> Conclusion</a></li>
+<li><a href="chapter-020.html#roadmap" id="toc-roadmap"><span
+class="toc-section-number">19</span> Roadmap</a>
+<ul>
+<li><a href="chapter-020.html#marciana-after-v1"
+id="toc-marciana-after-v1"><span class="toc-section-number">19.1</span>
+Marciana after v1</a></li>
+<li><a href="chapter-020.html#broader-typesec-work"
+id="toc-broader-typesec-work"><span
+class="toc-section-number">19.2</span> Broader TypeSec work</a></li>
+</ul></li>
+<li><a href="chapter-021.html#conclusion" id="toc-conclusion"><span
+class="toc-section-number">20</span> Conclusion</a></li>
 </ul>
 </nav>
 
