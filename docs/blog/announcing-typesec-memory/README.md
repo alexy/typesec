@@ -33,12 +33,22 @@ incunable rather than depicting a printed book as his contemporary object.
 
 ## TextPack
 
-Rebuild the committed bundle with:
+Build the Omnighost TextPack with the centralized FirstPair flow. This may
+create a source commit to stamp `info.json` with `omnighost-textpack-v1`
+provenance, so follow `~/src/firstpair/AGENTS.md` and get explicit permission
+before running it:
 
 ```sh
-python3 scripts/textpack.py docs/blog/announcing-typesec-memory \
-  --blog querygraph.ai \
+BLOG_DOMAIN=querygraph.ai \
+BLOG_TAGS='querygraph,typesec,memory,responsible-ai,agents' \
+BLOG_EXCERPT='Marciana makes AI memory privacy-first with typed capabilities, provenance, temporal history, TypeDID accountability, and durable QueryGraph persistence.' \
+python3 ~/src/firstpair/publishing/scripts/textpack.py \
+  docs/blog/announcing-typesec-memory \
+  --blog "$BLOG_DOMAIN" \
   --slug announcing-typesec-memory \
-  --tags 'querygraph,typesec,memory,responsible-ai,agents' \
-  --excerpt 'Marciana makes AI memory privacy-first with typed capabilities, provenance, temporal history, TypeDID accountability, and durable QueryGraph persistence.'
+  --tags "$BLOG_TAGS" \
+  --excerpt "$BLOG_EXCERPT"
 ```
+
+The output lands at
+`docs/blog/announcing-typesec-memory/dist/announcing-typesec-memory.textpack`.

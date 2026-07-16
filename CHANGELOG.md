@@ -5,6 +5,12 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+### 2026-07-16
+
+- Refreshed the Marciana announcement post for the shipped TypeSec 0.13.0
+  Lido release and the July 2026 QueryGraph Stack positioning, and moved the
+  blog TextPack handoff notes to the centralized FirstPair Omnighost flow.
+
 ## 0.13.0 — Lido
 
 ### 2026-07-15

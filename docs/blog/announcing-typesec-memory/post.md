@@ -16,6 +16,8 @@ Today we are announcing **TypeSec Memory**, codename **Marciana**: capability-se
 
 Marciana takes its name from Venice's Biblioteca Marciana. A library is not merely a pile of documents: it is an institution for provenance, custody, classification, access, and stewardship. That is the distinction we are building into agent memory.
 
+This announcement is the technical companion to the QueryGraph Stack announcement: Lobster, Lido, Ocelot, Sentinel, and Marciana now form one governed path from semantic lakehouse data to identity-bound agent memory.
+
 ## Memory with the law inside
 
 Marciana starts from a simple rule: **memory is a resource, and access to it is a capability**.
@@ -105,7 +107,7 @@ Marciana makes those questions architectural. We believe that makes capability-s
 
 ## What comes next
 
-Marciana v1 is a complete durable local-service proof, and `typesec-memory` is on main for the next TypeSec release. It is not yet a hosted multi-tenant product. The scale program is explicit:
+Marciana v1 shipped in **TypeSec 0.13.0 "Lido"** as a complete durable local-service proof. Current QueryGraph main is post-Sentinel: the latest tagged QueryGraph release remains **0.4.0 "Sentinel"**, while qg-rust and qg-python now exercise the released TypeSec 0.13 memory core through durable, identity-bound Marciana service integration. It is not yet a hosted multi-tenant product. The scale program is explicit:
 
 - native, tenant-scoped LanceDB ANN as a rebuildable semantic side index;
 - fuller memory-specific GQL pushdown and assertion-level temporal lineage;
@@ -124,6 +126,7 @@ Welcome to Marciana.
 Read next:
 
 - `MEMORY.md` for the canonical cross-stack design and post-v1 roadmap.
+- `qg-rust/docs/blog/announcing-querygraph-stack.md` for the broader QueryGraph Stack announcement.
 - `crates/typesec-memory/src/lib.rs` for the TypeSec memory API and examples.
 - `qg-rust/docs/memory-service.md` for the service contract.
 - `qg-python/examples/pydantic_ai_v2_memory_agents.py` for the executable Pydantic AI v2 demonstration.
