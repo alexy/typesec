@@ -246,6 +246,11 @@ fn typedid_verified_message_exposes_audit_safe_attestation() {
     );
     assert_eq!(attestation.protocol, "a2a");
     assert_eq!(attestation.mode, TypeDidMode::RequestReply);
+    let context = verified.verified_context();
+    assert_eq!(context.subject(), &alice);
+    assert_eq!(context.purpose(), Some("research"));
+    assert_eq!(context.request_digest(), attestation.envelope_digest);
+    assert_eq!(context.attestation(), attestation);
     let serialized = serde_json::to_string(&attestation).unwrap();
     assert!(!serialized.contains("secret payload"));
     assert!(!serialized.contains(&envelope.signature));

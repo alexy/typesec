@@ -26,7 +26,8 @@ pub use did::{
     HttpTypeDidAdapter, InMemoryReplayStore, NegotiatedTypeDidProfile, ReplayStore,
     SecureEnvelopeAdapter, StaticDidResolver, StaticTypeDidProfileResolver, TypeDidAttestation,
     TypeDidConversation, TypeDidGateway, TypeDidMode, TypeDidProfile, TypeDidProfileResolver,
-    TypeDidWrapRequest, VerificationMethod, VerifiedDidPrompt, VerifiedTypeDidMessage,
+    TypeDidWrapRequest, VerificationMethod, VerifiedDidPrompt, VerifiedTypeDidContext,
+    VerifiedTypeDidMessage,
 };
 #[cfg(feature = "demo-crypto")]
 pub use did::{DemoDidKeyPair, DemoDidKeyStore};

@@ -7,6 +7,9 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Added a borrow-scoped, non-constructible `VerifiedTypeDidContext` so
+  downstream cognition can require identity, purpose, and request digests
+  directly from a gateway-verified message while persisting only safe evidence.
 - Added signed Marciana cognition commit receipts binding the verified TypeDID
   request, governed snapshot and authorization evidence, proposal and policy
   digests, affected IDs, backend versions, and durable Grust commit identity.
