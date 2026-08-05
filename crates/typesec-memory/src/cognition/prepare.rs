@@ -4,17 +4,18 @@ use chrono::{DateTime, Utc};
 use sha2::{Digest, Sha256};
 use typesec_core::Resource;
 
+use super::PreparedCognitionCommit;
 use super::digest::{binding_digest, evidence_digest};
 use super::types::{
     CognitionApplyError, CognitionAuditEvidence, CognitionAuthorityEvidence, CognitionBinding,
-    CognitionIdempotencyKey, CognitionSourceManifest, PreparedCognitionCommit,
+    CognitionIdempotencyKey, CognitionSourceManifest,
 };
 use crate::CognitionProposal;
 use crate::index::IndexMutation;
 use crate::record::{MemoryDraft, Provenance, StoredRecord};
 use crate::space::{MemoryId, MemorySpace};
 use crate::store::StoreBatchOp;
-use crate::vault::{ConsolidationStep, build_record_with_id};
+use crate::vault::{ConsolidationStep, build_record_with_id_at};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_commit(
@@ -40,16 +41,16 @@ pub(super) fn prepare_commit(
     builder.add_plan()?;
     let parts = builder.finish()?;
 
-    Ok(PreparedCognitionCommit {
-        idempotency_key: CognitionIdempotencyKey {
+    Ok(PreparedCognitionCommit::new(
+        CognitionIdempotencyKey {
             space_id: binding.space_id.clone(),
             job_id: proposal.job_id.clone(),
         },
-        proposal_digest: proposal_digest.clone(),
-        source_preconditions: manifest.sources,
-        operations: parts.operations,
-        index_outbox: parts.index_outbox,
-        audit: CognitionAuditEvidence {
+        proposal_digest.clone(),
+        manifest.sources,
+        parts.operations,
+        parts.index_outbox,
+        CognitionAuditEvidence {
             operation_id: proposal.job_id.clone(),
             subject: binding.subject.clone(),
             space_id: binding.space_id.clone(),
@@ -65,7 +66,7 @@ pub(super) fn prepare_commit(
             affected_ids: parts.affected_ids,
             prepared_at: now,
         },
-    })
+    ))
 }
 
 struct CommitBuilder<'a> {
@@ -183,7 +184,13 @@ impl<'a> CommitBuilder<'a> {
         self.output_ordinal += 1;
         let draft =
             secure_derived_draft(draft, self.proposal, self.binding, self.retention_ceiling);
-        let record = build_record_with_id(self.space, draft, Some(self.label_floor), id.clone());
+        let record = build_record_with_id_at(
+            self.space,
+            draft,
+            Some(self.label_floor),
+            id.clone(),
+            self.prepared_at,
+        );
         self.operations.push(StoreBatchOp::Put(Box::new(record)));
         self.index_outbox
             .insert(id.clone(), IndexMutation::Upsert(id.clone()));

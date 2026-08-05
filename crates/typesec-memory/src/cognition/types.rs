@@ -3,10 +3,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use typesec_core::policy::RequestContext;
 
-use crate::index::IndexMutation;
 use crate::label::Label;
 use crate::space::MemoryId;
-use crate::store::{MemoryStore, StoreBatchOp, StoreError};
+use crate::store::{MemoryStore, StoreError};
+
+use super::PreparedCognitionCommit;
 
 /// Immutable authority and input evidence a cognition proposal must echo.
 ///
@@ -194,24 +195,6 @@ pub struct CognitionAuditEvidence {
     pub prepared_at: DateTime<Utc>,
 }
 
-/// Complete input to one authoritative cognition transaction.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PreparedCognitionCommit {
-    /// Unique application key.
-    pub idempotency_key: CognitionIdempotencyKey,
-    /// Digest that must match on an idempotent retry.
-    pub proposal_digest: String,
-    /// Exact source revisions compared inside the transaction.
-    pub source_preconditions: Vec<CognitionSourcePrecondition>,
-    /// Record writes and invalidations to commit atomically.
-    pub operations: Vec<StoreBatchOp>,
-    /// ID-only semantic-index work committed in the same transaction.
-    pub index_outbox: Vec<IndexMutation>,
-    /// Plaintext-free evidence committed in the same transaction.
-    pub audit: CognitionAuditEvidence,
-}
-
 /// Whether this call performed or recovered a commit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -261,7 +244,9 @@ pub enum CognitionCommitError {
 /// There is deliberately no default implementation. A backend must compare
 /// every source precondition, claim the idempotency key, apply all operations,
 /// insert the ID-only outbox rows, and persist audit evidence in one atomic
-/// transaction, or it does not support production cognition.
+/// transaction, or it does not support production cognition. The prepared
+/// token has no debug or serialization surface; implementations use its
+/// borrow-only accessors inside that trusted transaction boundary.
 pub trait CognitionCommitStore: MemoryStore {
     /// Recover a completed application before re-reading sources it may have
     /// intentionally invalidated. A reused key with a different proposal

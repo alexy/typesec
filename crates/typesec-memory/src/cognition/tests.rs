@@ -143,8 +143,8 @@ impl CognitionCommitStore for TransactionalTestStore {
         commit: PreparedCognitionCommit,
     ) -> Result<CognitionCommitOutcome, CognitionCommitError> {
         let mut state = self.state();
-        if let Some(previous) = state.applications.get(&commit.idempotency_key) {
-            if previous.proposal_digest != commit.proposal_digest {
+        if let Some(previous) = state.applications.get(commit.idempotency_key()) {
+            if previous.proposal_digest != commit.proposal_digest() {
                 return Err(CognitionCommitError::IdempotencyConflict);
             }
             let mut recovered = previous.outcome.clone();
@@ -153,10 +153,10 @@ impl CognitionCommitStore for TransactionalTestStore {
         }
         if std::mem::take(&mut state.fail_precondition_once) {
             return Err(CognitionCommitError::StaleSource(
-                commit.source_preconditions[0].id.clone(),
+                commit.source_preconditions()[0].id.clone(),
             ));
         }
-        for expected in &commit.source_preconditions {
+        for expected in commit.source_preconditions() {
             let current = state
                 .records
                 .get(&expected.id)
@@ -169,7 +169,7 @@ impl CognitionCommitStore for TransactionalTestStore {
         }
 
         let mut next_records = state.records.clone();
-        for operation in &commit.operations {
+        for operation in commit.operations() {
             match operation {
                 StoreBatchOp::Put(record) => {
                     next_records.insert(record.id.clone(), (**record).clone());
@@ -185,27 +185,27 @@ impl CognitionCommitStore for TransactionalTestStore {
 
         let prior = state.version;
         let resulting = prior + 1;
-        let audit = commit.audit.clone();
+        let audit = commit.audit().clone();
         let outcome = CognitionCommitOutcome {
             status: CognitionCommitStatus::Applied,
             backend_commit_hash: format!(
                 "test-commit-{resulting}-{}",
-                &commit.proposal_digest[7..19]
+                &commit.proposal_digest()[7..19]
             ),
             prior_version: prior.to_string(),
             resulting_version: resulting.to_string(),
-            affected_ids: commit.audit.affected_ids.clone(),
-            committed_at: commit.audit.prepared_at,
+            affected_ids: commit.audit().affected_ids.clone(),
+            committed_at: commit.audit().prepared_at,
             audit: audit.clone(),
         };
         state.records = next_records;
         state.version = resulting;
-        state.outbox.extend(commit.index_outbox);
+        state.outbox.extend(commit.index_outbox().iter().cloned());
         state.audits.push(audit);
         state.applications.insert(
-            commit.idempotency_key,
+            commit.idempotency_key().clone(),
             StoredApplication {
-                proposal_digest: commit.proposal_digest,
+                proposal_digest: commit.proposal_digest().to_owned(),
                 outcome: outcome.clone(),
             },
         );
@@ -540,3 +540,5 @@ fn proposal_digest_is_stable_across_worker_retry_time() {
         retry.canonical_digest().unwrap()
     );
 }
+
+mod prepared_commit;

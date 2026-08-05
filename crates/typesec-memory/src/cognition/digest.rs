@@ -1,31 +1,53 @@
+use serde::Serialize;
 use sha2::{Digest, Sha256};
 
+use super::PreparedCognitionCommit;
 use super::types::{
     CognitionApplyError, CognitionBinding, CognitionSourceManifest, CognitionSourcePrecondition,
 };
-use crate::{CognitionProposal, Label, StoredRecord};
+use crate::index::IndexMutation;
+use crate::store::StoreBatchOp;
+use crate::{
+    CognitionAuditEvidence, CognitionIdempotencyKey, CognitionProposal, Label, StoredRecord,
+};
 
 const RECORD_DOMAIN: &[u8] = b"typesec.marciana.source-record.v1\0";
 const MANIFEST_DOMAIN: &[u8] = b"typesec.marciana.source-manifest.v1\0";
 const BINDING_DOMAIN: &[u8] = b"typesec.marciana.binding.v1\0";
 const PROPOSAL_DOMAIN: &[u8] = b"typesec.marciana.proposal.v1\0";
 const EVIDENCE_DOMAIN: &[u8] = b"typesec.marciana.evidence.v1\0";
+const PREPARED_COMMIT_DOMAIN: &[u8] = b"typesec.marciana.prepared-commit.v1\0";
 
-fn tagged_digest(domain: &[u8], bytes: &[u8]) -> String {
+fn tagged_serialized_digest<T: Serialize + ?Sized>(
+    domain: &[u8],
+    value: &T,
+) -> Result<String, CognitionApplyError> {
     let mut digest = Sha256::new();
     digest.update(domain);
-    digest.update(bytes);
-    format!("sha256:{:x}", digest.finalize())
+    serde_json::to_writer(DigestWriter(&mut digest), value)
+        .map_err(|error| CognitionApplyError::Serialization(error.to_string()))?;
+    Ok(format!("sha256:{:x}", digest.finalize()))
+}
+
+struct DigestWriter<'a>(&'a mut Sha256);
+
+impl std::io::Write for DigestWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 pub(super) fn source_precondition(
     record: &StoredRecord,
 ) -> Result<CognitionSourcePrecondition, CognitionApplyError> {
-    let bytes = serde_json::to_vec(record)
-        .map_err(|error| CognitionApplyError::Serialization(error.to_string()))?;
     Ok(CognitionSourcePrecondition {
         id: record.id.clone(),
-        record_digest: tagged_digest(RECORD_DOMAIN, &bytes),
+        record_digest: tagged_serialized_digest(RECORD_DOMAIN, record)?,
     })
 }
 
@@ -40,11 +62,9 @@ pub(super) fn source_manifest(
     let joined_label = records
         .iter()
         .fold(Label::Public, |joined, record| joined.join(record.label));
-    let bytes = serde_json::to_vec(&sources)
-        .map_err(|error| CognitionApplyError::Serialization(error.to_string()))?;
     Ok(CognitionSourceManifest {
+        digest: tagged_serialized_digest(MANIFEST_DOMAIN, &sources)?,
         sources,
-        digest: tagged_digest(MANIFEST_DOMAIN, &bytes),
         joined_label,
     })
 }
@@ -52,9 +72,7 @@ pub(super) fn source_manifest(
 pub(super) fn binding_digest(binding: &CognitionBinding) -> Result<String, CognitionApplyError> {
     let mut canonical = binding.clone();
     canonical.effective_projection.sort();
-    let bytes = serde_json::to_vec(&canonical)
-        .map_err(|error| CognitionApplyError::Serialization(error.to_string()))?;
-    Ok(tagged_digest(BINDING_DOMAIN, &bytes))
+    tagged_serialized_digest(BINDING_DOMAIN, &canonical)
 }
 
 pub(super) fn proposal_digest(proposal: &CognitionProposal) -> Result<String, CognitionApplyError> {
@@ -67,13 +85,36 @@ pub(super) fn proposal_digest(proposal: &CognitionProposal) -> Result<String, Co
     if let Some(binding) = &mut canonical.binding {
         binding.effective_projection.sort();
     }
-    let bytes = serde_json::to_vec(&canonical)
-        .map_err(|error| CognitionApplyError::Serialization(error.to_string()))?;
-    Ok(tagged_digest(PROPOSAL_DOMAIN, &bytes))
+    tagged_serialized_digest(PROPOSAL_DOMAIN, &canonical)
 }
 
 pub(super) fn evidence_digest(evidence: &[String]) -> Result<String, CognitionApplyError> {
-    let bytes = serde_json::to_vec(evidence)
-        .map_err(|error| CognitionApplyError::Serialization(error.to_string()))?;
-    Ok(tagged_digest(EVIDENCE_DOMAIN, &bytes))
+    tagged_serialized_digest(EVIDENCE_DOMAIN, evidence)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CanonicalPreparedCommit<'a> {
+    idempotency_key: &'a CognitionIdempotencyKey,
+    proposal_digest: &'a str,
+    source_preconditions: &'a [CognitionSourcePrecondition],
+    operations: &'a [StoreBatchOp],
+    index_outbox: &'a [IndexMutation],
+    audit: &'a CognitionAuditEvidence,
+}
+
+pub(super) fn prepared_commit_digest(
+    commit: &PreparedCognitionCommit,
+) -> Result<String, CognitionApplyError> {
+    tagged_serialized_digest(
+        PREPARED_COMMIT_DOMAIN,
+        &CanonicalPreparedCommit {
+            idempotency_key: commit.idempotency_key(),
+            proposal_digest: commit.proposal_digest(),
+            source_preconditions: commit.source_preconditions(),
+            operations: commit.operations(),
+            index_outbox: commit.index_outbox(),
+            audit: commit.audit(),
+        },
+    )
 }

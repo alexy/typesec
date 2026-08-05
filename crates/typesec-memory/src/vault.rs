@@ -626,6 +626,20 @@ pub(crate) fn build_record_with_id(
     label_floor: Option<Label>,
     id: MemoryId,
 ) -> StoredRecord {
+    build_record_with_id_at(space, draft, label_floor, id, Utc::now())
+}
+
+/// Assemble a record at an authoritative caller-supplied time.
+///
+/// Transaction preparation uses this path so retries over identical inputs do
+/// not acquire fresh observational timestamps.
+pub(crate) fn build_record_with_id_at(
+    space: &MemorySpace,
+    draft: MemoryDraft,
+    label_floor: Option<Label>,
+    id: MemoryId,
+    now: DateTime<Utc>,
+) -> StoredRecord {
     let birth = draft.provenance.default_label();
     let quarantined = draft.provenance.is_untrusted();
     // A trusted source's declared label is authoritative (it may set anything,
@@ -639,7 +653,6 @@ pub(crate) fn build_record_with_id(
     if let Some(floor) = label_floor {
         label = label.max(floor);
     }
-    let now = Utc::now();
     StoredRecord::assemble(
         id,
         space.resource_id().to_string(),

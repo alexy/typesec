@@ -9,15 +9,17 @@ mod apply;
 mod digest;
 mod input;
 mod prepare;
+mod prepared;
 mod types;
 mod validate;
 
 pub use input::AuthorizedCognitionInput;
+pub use prepared::PreparedCognitionCommit;
 pub use types::{
     CognitionApplyError, CognitionAuditEvidence, CognitionAuthorityEvidence,
     CognitionAuthorityVerifier, CognitionBinding, CognitionCommitError, CognitionCommitOutcome,
     CognitionCommitStatus, CognitionCommitStore, CognitionIdempotencyKey, CognitionSourceManifest,
-    CognitionSourcePrecondition, PreparedCognitionCommit,
+    CognitionSourcePrecondition,
 };
 
 impl crate::CognitionProposal {
