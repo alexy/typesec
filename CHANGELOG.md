@@ -18,6 +18,9 @@ by release version, then by the date the logical change landed.
   repair outbox. Failed post-commit index operations queue memory IDs rather
   than plaintext and can be rehydrated and retried through an authorized vault
   operation.
+- Added `MARCIANA.md`, recording the Cognee Rust and Akka/Fluree review, the
+  resulting Marciana and TypeDID architecture, delivered corrections,
+  remaining cross-repository work, and acceptance criteria.
 
 ### 2026-07-16
 
