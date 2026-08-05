@@ -21,6 +21,9 @@ by release version, then by the date the logical change landed.
 - Added `MARCIANA.md`, recording the Cognee Rust and Akka/Fluree review, the
   resulting Marciana and TypeDID architecture, delivered corrections,
   remaining cross-repository work, and acceptance criteria.
+- Recorded the first QueryGraph-native Marciana cognition implementation:
+  Grust proposal planning, LakeCat governed Sail-scan proofs, and qg-rust
+  TypeDID identity/purpose composition, with no Cognee dependency.
 
 ### 2026-07-16
 

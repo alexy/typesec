@@ -334,3 +334,22 @@ durable replay, transactional record-plus-outbox delivery, Cognee adapters,
 and Fluree/Grust commit-backed receipts remain cross-repository work. They are
 requirements here, not falsely reported as shipped behavior.
 
+## QueryGraph-native implementation update
+
+The first cross-repository implementation landed on 2026-08-05 without a
+Cognee dependency:
+
+- TypeSec defines the inert `CognitionProposal`, guarded vault, TypeDID
+  obligations, and repairable index boundary.
+- Grust `querygraph-memory` binds native cognition to LakeCat/Iceberg snapshot
+  evidence and provides reference plus injectable Sail execution contracts.
+- LakeCat exports a secret-free `GovernedScanProof` containing the authorized
+  principal, purpose, snapshot, narrowed projection, and hashes—not plaintext
+  copies—of the Sail plan token and authorization receipt.
+- qg-rust converts that LakeCat proof into the Grust cognition source,
+  cross-checks its subject and purpose against the verified TypeDID request,
+  and receives an inert proposal for later vault application.
+
+The next implementation increment is a live `grust-sail` executor and durable
+proposal application workflow. Those remain unchecked above until tested
+against a running Sail service and an authoritative Grust store.
