@@ -31,6 +31,7 @@ consolidation:
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | TypeSec repository guidance and concise implementation status |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release-oriented record of shipped TypeSec behavior |
+| [`MARCIANA-PROJECT.md`](MARCIANA-PROJECT.md) | Proposed standalone Marciana project boundary, dependency direction, extraction plan, and acceptance criteria |
 | [`../grust/docs/QUERYGRAPH_MEMORY_GOAL.md`](../grust/docs/QUERYGRAPH_MEMORY_GOAL.md) | Grust-side durable-backend goal, verification commands, and implementation evidence |
 | [`../grust/docs/lancedb-backend-plan.md`](../grust/docs/lancedb-backend-plan.md) | Existing Grust LanceDB backend plan and substrate detail |
 | [`../grust/docs/sail-backend-proposal.md`](../grust/docs/sail-backend-proposal.md) | Existing Sail/Spark backend proposal and operational assumptions |

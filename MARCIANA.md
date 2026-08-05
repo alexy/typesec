@@ -9,7 +9,9 @@ This document records the review requested on 2026-08-05 and turns its useful
 findings into a concrete Marciana and TypeDID program. It complements
 `MEMORY.md`: `MEMORY.md` remains the canonical product design and QueryGraph
 handoff; this file records the comparative review, the resulting corrections,
-and the implementation boundary.
+and the implementation boundary. `MARCIANA-PROJECT.md` records the proposed
+extraction of Marciana's product, cognition, and composition tier into a
+first-class sibling project in the QueryGraph stack.
 
 ## Sources reviewed
 
