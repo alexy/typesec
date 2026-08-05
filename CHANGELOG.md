@@ -7,6 +7,11 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Added `MARCIANA-PROJECT.md`, defining Marciana as a proposed standalone
+  QueryGraph-stack product and composition project with explicit TypeSec,
+  Grust, Sail, LakeCat, and QueryGraph ownership boundaries, four-verb API
+  semantics, dependency rules, extraction sequencing, compatibility policy,
+  and separate extraction and production-cognition acceptance gates.
 - Added fail-closed Marciana proposal application with serializable governed
   bindings, fresh policy and authority revalidation, source-manifest and label
   checks, deterministic derived lineage, and a mandatory atomic store contract
@@ -14,7 +19,8 @@ by release version, then by the date the logical change landed.
   evidence. Commit outcomes retain the authoritative commit time and exact
   committed audit evidence so response recovery can reproduce the same receipt;
   public canonical digest helpers keep proposal and binding identity consistent
-  across durable backends.
+  across durable backends, including worker retries whose observational
+  proposal creation timestamps differ.
 - Added a borrow-scoped, non-constructible `VerifiedTypeDidContext` so
   downstream cognition can require identity, purpose, and request digests
   directly from a gateway-verified message while persisting only safe evidence.

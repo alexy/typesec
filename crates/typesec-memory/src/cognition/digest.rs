@@ -59,6 +59,11 @@ pub(super) fn binding_digest(binding: &CognitionBinding) -> Result<String, Cogni
 
 pub(super) fn proposal_digest(proposal: &CognitionProposal) -> Result<String, CognitionApplyError> {
     let mut canonical = proposal.clone();
+    // Creation time is observational scheduler metadata, not mutation
+    // identity. A worker retry may regenerate the same inert proposal later;
+    // every authority, source, plan, draft, and evidence field remains bound
+    // below while the durable idempotency digest stays stable.
+    canonical.created_at = chrono::DateTime::<chrono::Utc>::UNIX_EPOCH;
     if let Some(binding) = &mut canonical.binding {
         binding.effective_projection.sort();
     }

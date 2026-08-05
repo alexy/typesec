@@ -521,3 +521,22 @@ fn proposal_and_plan_round_trip_for_durable_job_storage() {
     assert_eq!(decoded.binding, proposal.binding);
     assert_eq!(decoded.plan.steps.len(), 1);
 }
+
+#[test]
+fn proposal_digest_is_stable_across_worker_retry_time() {
+    let fixture = Fixture::new();
+    let first = fixture.proposal();
+    let mut retry = first.clone();
+    retry.created_at += chrono::TimeDelta::minutes(5);
+
+    assert_eq!(
+        first.canonical_digest().unwrap(),
+        retry.canonical_digest().unwrap()
+    );
+
+    retry.algorithm_version.push_str("-changed");
+    assert_ne!(
+        first.canonical_digest().unwrap(),
+        retry.canonical_digest().unwrap()
+    );
+}

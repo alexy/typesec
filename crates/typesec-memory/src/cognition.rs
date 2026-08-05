@@ -21,8 +21,9 @@ pub use types::{
 impl crate::CognitionProposal {
     /// Domain-separated canonical digest used for durable proposal identity.
     ///
-    /// Projection order is normalized before hashing, so every backend uses
-    /// the same idempotency digest without reimplementing TypeSec internals.
+    /// Projection order is normalized and observational `created_at` metadata
+    /// is excluded, so a later worker retry of the same governed mutation has
+    /// the same identity without reimplementing TypeSec internals.
     pub fn canonical_digest(&self) -> Result<String, CognitionApplyError> {
         digest::proposal_digest(self)
     }
