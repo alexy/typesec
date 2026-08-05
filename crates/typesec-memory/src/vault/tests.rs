@@ -113,7 +113,12 @@ fn recall_ceiling_redacts_hotter_records() {
     // The redacted hit reveals with CanReadSensitive.
     let reveal_cap: Capability<CanReadSensitive, _> = cap("agent:keeper", &space);
     let content = vault
-        .reveal(&space, &reveal_cap, &recall.redacted[0].id)
+        .reveal(
+            &space,
+            &reveal_cap,
+            &recall.redacted[0].id,
+            &RequestContext::default(),
+        )
         .unwrap();
     assert_eq!(content.text, "SSN 123-45-6789");
 }
@@ -471,6 +476,49 @@ policies:
 }
 
 #[test]
+fn every_alternate_read_path_binds_purpose_at_use_time() {
+    let odrl = typesec_odrl::OdrlEngine::from_yaml(
+        r#"
+policies:
+  - uid: "policy:mem-alternate-reads"
+    type: Set
+    rules:
+      - type: permission
+        assignee: "agent:keeper"
+        action: read
+        target: "memory/user:alice/profile"
+        constraints:
+          - leftOperand: purpose
+            operator: eq
+            rightOperand: "support"
+      - type: permission
+        assignee: "agent:keeper"
+        action: read_sensitive
+        target: "memory/user:alice/profile"
+        constraints:
+          - leftOperand: purpose
+            operator: eq
+            rightOperand: "support"
+"#,
+    )
+    .expect("odrl parses");
+    let space = MemorySpace::new("user:alice", "profile");
+    let vault = MemoryVault::new(InMemoryStore::new()).with_policy(std::sync::Arc::new(odrl));
+    let read: Capability<CanRead, _> = cap("agent:keeper", &space);
+    let sensitive: Capability<CanReadSensitive, _> = cap("agent:keeper", &space);
+    let no_purpose = RequestContext::default();
+
+    let graph = vault.recall_neighborhood(&space, &read, "ACME", 1, Label::Internal, &no_purpose);
+    assert!(matches!(graph, Err(MemoryError::PolicyDenied { .. })));
+
+    let semantic = vault.recall_semantic(&space, &read, "ticket", 10, Label::Internal, &no_purpose);
+    assert!(matches!(semantic, Err(MemoryError::PolicyDenied { .. })));
+
+    let reveal = vault.reveal(&space, &sensitive, &MemoryId::next(), &no_purpose);
+    assert!(matches!(reveal, Err(MemoryError::PolicyDenied { .. })));
+}
+
+#[test]
 fn purpose_binds_recall() {
     let space = MemorySpace::new("user:alice", "profile");
     let vault = vault();
@@ -541,7 +589,14 @@ fn semantic_recall_ranks_through_the_label_gate() {
     // Internal ceiling: the Venice match is a hit, the Sensitive one is
     // redacted, and the unrelated record isn't ranked at all.
     let (hits, redacted) = vault
-        .recall_semantic(&space, &read, "venice", 10, Label::Internal)
+        .recall_semantic(
+            &space,
+            &read,
+            "venice",
+            10,
+            Label::Internal,
+            &RequestContext::default(),
+        )
         .unwrap();
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].content.text, "Alice lives in Venice");
@@ -553,14 +608,28 @@ fn semantic_recall_ranks_through_the_label_gate() {
         .forget(&space, &delete, ForgetSelector::Ids(vec![secret_id]))
         .unwrap();
     let (_, redacted) = vault
-        .recall_semantic(&space, &read, "venice", 10, Label::Internal)
+        .recall_semantic(
+            &space,
+            &read,
+            "venice",
+            10,
+            Label::Internal,
+            &RequestContext::default(),
+        )
         .unwrap();
     assert!(redacted.is_empty(), "forgotten record no longer surfaces");
 
     // Without an index attached, semantic recall is Unsupported.
     let bare = MemoryVault::new(InMemoryStore::new());
     let err = bare
-        .recall_semantic(&space, &read, "venice", 10, Label::Internal)
+        .recall_semantic(
+            &space,
+            &read,
+            "venice",
+            10,
+            Label::Internal,
+            &RequestContext::default(),
+        )
         .unwrap_err();
     assert!(matches!(
         err,

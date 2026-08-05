@@ -281,8 +281,9 @@ impl<S: MemoryStore> MemoryVault<S> {
         entity: &str,
         hops: u8,
         ceiling: Label,
+        ctx: &RequestContext,
     ) -> Result<(Vec<RecalledMemory>, Vec<RedactedHit>), MemoryError> {
-        self.authorize(space, cap, &RequestContext::default())?;
+        self.authorize(space, cap, ctx)?;
         let ids = self.store.neighborhood(entity, hops)?;
 
         let mut hits = Vec::new();
@@ -336,8 +337,9 @@ impl<S: MemoryStore> MemoryVault<S> {
         query_text: &str,
         limit: usize,
         ceiling: Label,
+        ctx: &RequestContext,
     ) -> Result<(Vec<RecalledMemory>, Vec<RedactedHit>), MemoryError> {
-        self.authorize(space, cap, &RequestContext::default())?;
+        self.authorize(space, cap, ctx)?;
         let index = self
             .index
             .as_ref()
@@ -395,8 +397,9 @@ impl<S: MemoryStore> MemoryVault<S> {
         space: &MemorySpace,
         cap: &Capability<CanReadSensitive, MemorySpace>,
         id: &MemoryId,
+        ctx: &RequestContext,
     ) -> Result<MemoryContent, MemoryError> {
-        self.authorize(space, cap, &RequestContext::default())?;
+        self.authorize(space, cap, ctx)?;
         let record = self.fetch_in_space(space, id)?;
         if record.label > Label::Sensitive {
             return Err(MemoryError::AboveCeiling {

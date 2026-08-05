@@ -2,7 +2,7 @@
 
 #![cfg(feature = "graph-memory")]
 
-use typesec_core::policy::{MintOptions, mint_capability_for_id};
+use typesec_core::policy::{MintOptions, RequestContext, mint_capability_for_id};
 use typesec_core::{CanRead, CanWrite, Capability};
 use typesec_memory::store::{GrustMemoryStore, MemoryStore};
 use typesec_memory::{
@@ -77,7 +77,14 @@ fn graph_recall_returns_neighborhood_records_through_the_label_gate() {
     // Graph recall at Public: the ACME record is a hit, the Sensitive Venice
     // record is redacted (visible existence, sealed content).
     let (hits, redacted) = vault
-        .recall_neighborhood(&space, &read, "ACME", 1, Label::Public)
+        .recall_neighborhood(
+            &space,
+            &read,
+            "ACME",
+            1,
+            Label::Public,
+            &RequestContext::default(),
+        )
         .unwrap();
     assert!(
         hits.iter()
@@ -91,7 +98,14 @@ fn graph_recall_returns_neighborhood_records_through_the_label_gate() {
 
     // At Sensitive clearance, the neighbor's content comes through.
     let (hits, redacted) = vault
-        .recall_neighborhood(&space, &read, "ACME", 1, Label::Sensitive)
+        .recall_neighborhood(
+            &space,
+            &read,
+            "ACME",
+            1,
+            Label::Sensitive,
+            &RequestContext::default(),
+        )
         .unwrap();
     assert!(redacted.is_empty());
     assert!(hits.iter().any(|h| h.content.text.contains("confidential")));
