@@ -7,6 +7,14 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Replaced ambiguous TypeDID envelope authentication with an explicit,
+  fail-closed v2 protocol whose domain-separated length-framed transcripts
+  cover every policy claim and envelope field, made gateway-verified prompt and
+  message types externally nonconstructible, exposed authenticated request
+  metadata and effective expiry through read-only context accessors, and made
+  envelope references canonical `sha256:` digests with a cross-language golden
+  fixture. Gateways now also reject signed cross-protocol message types after
+  signature verification but before decryption or replay consumption.
 - Added `MARCIANA-PROJECT.md`, defining Marciana as a proposed standalone
   QueryGraph-stack product and composition project with explicit TypeSec,
   Grust, Sail, LakeCat, and QueryGraph ownership boundaries, four-verb API

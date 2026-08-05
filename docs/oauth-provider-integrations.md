@@ -153,7 +153,7 @@ DID envelope
   -> DidKeyStore verifies the sender signature
   -> DidKeyStore decrypts the payload for the local recipient DID
   -> DidMessageGateway returns VerifiedDidPrompt
-  -> VerifiedDidPrompt.prompt is SecureValue<Secret, String, GenericResource>
+  -> VerifiedDidPrompt::prompt() borrows SecureValue<Secret, String, GenericResource>
 ```
 
 The verified DID string becomes the Typesec subject:
@@ -176,9 +176,9 @@ use typesec::integrations::{DidMessageGateway, DidOllamaClient};
 let verified = gateway.open_prompt(&envelope)?;
 
 let infer: Capability<AiCanInfer, _> =
-    mint_capability(engine, verified.subject.as_str(), &verified.resource)?;
+    mint_capability(engine, verified.subject().as_str(), verified.resource())?;
 let read: Capability<CanReadSensitive, _> =
-    mint_capability(engine, verified.subject.as_str(), &verified.resource)?;
+    mint_capability(engine, verified.subject().as_str(), verified.resource())?;
 
 let ollama = DidOllamaClient::new("http://localhost:11434", "llama3.2");
 let response = ollama.chat_verified_prompt(verified, &infer, &read)?;

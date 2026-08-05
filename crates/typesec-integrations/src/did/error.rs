@@ -3,6 +3,21 @@
 /// DID integration errors.
 #[derive(Debug, thiserror::Error)]
 pub enum DidError {
+    /// A serialized legacy envelope omitted its authentication version.
+    #[error("DID envelope is missing its authentication version")]
+    MissingEnvelopeAuthVersion,
+    /// The envelope names an authentication transcript this implementation
+    /// does not recognize.
+    #[error("unsupported DID envelope authentication version: {0}")]
+    UnsupportedEnvelopeAuthVersion(String),
+    /// The authenticated envelope type is not accepted by this gateway.
+    #[error("unexpected DID envelope type: expected {expected}, got {actual}")]
+    UnexpectedMessageType {
+        /// Human-readable accepted protocol family.
+        expected: &'static str,
+        /// Authenticated message-type URI supplied by the sender.
+        actual: String,
+    },
     /// DID syntax is invalid.
     #[error("invalid DID: {0}")]
     InvalidDid(String),

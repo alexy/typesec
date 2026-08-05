@@ -22,12 +22,12 @@ impl VerifiedTypeDidMessage {
 impl VerifiedTypeDidContext<'_> {
     /// Cryptographically verified sender DID.
     pub fn subject(&self) -> &Did {
-        &self.message.subject
+        self.message.subject()
     }
 
     /// A signed policy-visible claim from the verified envelope.
     pub fn claim(&self, name: &str) -> Option<&str> {
-        self.message.body.claims.get(name).map(String::as_str)
+        self.message.body().claims.get(name).map(String::as_str)
     }
 
     /// Signed purpose claim, when supplied by the negotiated profile.
@@ -37,7 +37,27 @@ impl VerifiedTypeDidContext<'_> {
 
     /// Stable signed-envelope digest for downstream binding.
     pub fn request_digest(&self) -> &str {
-        &self.message.message_ref.digest
+        &self.message.message_ref().digest
+    }
+
+    /// Authenticated policy-visible action.
+    pub fn action(&self) -> &str {
+        &self.message.body().action
+    }
+
+    /// Authenticated policy-visible resource identifier.
+    pub fn resource(&self) -> &str {
+        &self.message.body().resource
+    }
+
+    /// Authenticated policy-visible privacy class.
+    pub fn privacy(&self) -> &str {
+        &self.message.body().privacy
+    }
+
+    /// Minimum authenticated outer-envelope and conversation expiry.
+    pub fn effective_expires_at(&self) -> u64 {
+        self.message.effective_expires_at()
     }
 
     /// Produce the audit-safe serializable evidence for this verified context.

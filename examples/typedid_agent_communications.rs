@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &key_store,
     )?;
     let a2a_verified = gateway.open_message(&a2a_envelope)?;
-    let read = mint_agent_read(&policy, &a2a_verified.subject, &a2a_verified.resource)?;
+    let read = mint_agent_read(&policy, a2a_verified.subject(), a2a_verified.resource())?;
     let a2a_reply = DidEnvelope::typedid_reply(
         "a2a-delegate-reply-1",
         reviewer.clone(),
@@ -90,8 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "A2A:  {} {} -> {}",
         a2a.content_type(),
-        a2a_verified.conversation.conversation_id,
-        String::from_utf8(a2a_verified.payload.reveal(&read)?)?
+        a2a_verified.conversation().conversation_id,
+        String::from_utf8(a2a_verified.payload().clone().reveal(&read)?)?
     );
     println!(
         "A2A reply: bound to {}\n",
@@ -118,12 +118,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &key_store,
     )?;
     let acp_verified = gateway.open_message(&acp_envelope)?;
-    let read = mint_agent_read(&policy, &acp_verified.subject, &acp_verified.resource)?;
+    let read = mint_agent_read(&policy, acp_verified.subject(), acp_verified.resource())?;
     println!(
         "ACP:  {} {} -> {}",
         acp.content_type(),
-        acp_verified.conversation.conversation_id,
-        String::from_utf8(acp_verified.payload.reveal(&read)?)?
+        acp_verified.conversation().conversation_id,
+        String::from_utf8(acp_verified.payload().clone().reveal(&read)?)?
     );
 
     let band = BandSecureEnvelopeAdapter;
@@ -146,12 +146,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &key_store,
     )?;
     let band_verified = gateway.open_message(&band_envelope)?;
-    let read = mint_agent_read(&policy, &band_verified.subject, &band_verified.resource)?;
+    let read = mint_agent_read(&policy, band_verified.subject(), band_verified.resource())?;
     println!(
         "BAND: {} {} -> {}",
         band.content_type(),
-        band_verified.conversation.conversation_id,
-        String::from_utf8(band_verified.payload.reveal(&read)?)?
+        band_verified.conversation().conversation_id,
+        String::from_utf8(band_verified.payload().clone().reveal(&read)?)?
     );
 
     println!("\n=== Demo complete ===");

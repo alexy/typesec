@@ -797,8 +797,9 @@ Ollama server. The conservative path keeps Typesec in charge of reveal:
 
 ```text
 DID envelope arrives
+  -> require authVersion = typesec.did-envelope-auth.v2
   -> DidResolver resolves sender and recipient DID documents
-  -> DidKeyStore verifies the sender signature
+  -> DidKeyStore verifies the complete length-framed envelope transcript
   -> DidKeyStore decrypts for the local recipient DID
   -> DidMessageGateway returns VerifiedDidPrompt
   -> prompt is SecureValue<Secret, String, GenericResource>
@@ -819,13 +820,22 @@ That means the client must hold a sensitive-read capability to reveal it:
 let verified = gateway.open_prompt(&envelope)?;
 
 let infer: Capability<AiCanInfer, _> =
-    mint_capability(engine, verified.subject.as_str(), &verified.resource)?;
+    mint_capability(engine, verified.subject().as_str(), verified.resource())?;
 let read: Capability<CanReadSensitive, _> =
-    mint_capability(engine, verified.subject.as_str(), &verified.resource)?;
+    mint_capability(engine, verified.subject().as_str(), verified.resource())?;
 
 let ollama = DidOllamaClient::new("http://localhost:11434", "llama3.2");
 let response = ollama.chat_verified_prompt(verified, &infer, &read)?;
 ```
+
+The gateway rejects missing, legacy, and unknown authentication versions.
+Version 2 length-frames and authenticates routing, timing, policy claims,
+conversation and reply metadata, key id, nonce, and ciphertext. Its verified
+prompt and TypeDID message types have private fields, so downstream code can
+read authenticated values through accessors but cannot forge gateway
+provenance. After signature verification, the DID-message gateway accepts only
+prompt and reply types and the TypeDID gateway accepts only TypeDID messages;
+cross-protocol envelopes are rejected before decryption or replay consumption.
 
 When the Ollama reply needs to travel with the same authority context as the
 prompt, Typesec can bind the assistant message back to the prompt:

@@ -40,8 +40,8 @@ fn encrypted_prompt_opens_as_secret_secure_value() {
 
     let gateway = DidMessageGateway::new(Arc::new(resolver), Arc::new(keys), agent);
     let verified = gateway.open_prompt(&envelope).expect("verified prompt");
-    assert_eq!(verified.subject, alice);
-    assert_eq!(verified.resource.resource_id(), "prompt/session/123");
+    assert_eq!(verified.subject(), &alice);
+    assert_eq!(verified.resource().resource_id(), "prompt/session/123");
     assert_eq!(
         SecureValue::<Secret, String, GenericResource>::label_name(),
         "secret"
@@ -49,19 +49,23 @@ fn encrypted_prompt_opens_as_secret_secure_value() {
 
     let infer = mint_capability::<AiCanInfer, _>(
         &PromptPolicy,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("infer cap");
     let read = mint_capability::<CanReadSensitive, _>(
         &PromptPolicy,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("read cap");
     assert_eq!(infer.resource_id(), "prompt/session/123");
     assert_eq!(
-        verified.prompt.reveal(&read).expect("matching resource"),
+        verified
+            .prompt()
+            .clone()
+            .reveal(&read)
+            .expect("matching resource"),
         "summarize this confidential record"
     );
 }
@@ -112,14 +116,14 @@ fn bound_ollama_reply_creates_signed_reply_envelope_for_prompt() {
         .expect("verified prompt");
     let infer = mint_capability::<AiCanInfer, _>(
         &PromptPolicy,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("infer cap");
     let read = mint_capability::<CanReadSensitive, _>(
         &PromptPolicy,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("read cap");
 
@@ -149,10 +153,11 @@ fn bound_ollama_reply_creates_signed_reply_envelope_for_prompt() {
     let opened_reply = reply_gateway
         .open_prompt(&reply_envelope)
         .expect("verified reply");
-    assert_eq!(opened_reply.subject, reply_envelope.from);
+    assert_eq!(opened_reply.subject(), &reply_envelope.from);
     assert_eq!(
         opened_reply
-            .prompt
+            .prompt()
+            .clone()
             .reveal(&read)
             .expect("matching resource"),
         "bound reply"

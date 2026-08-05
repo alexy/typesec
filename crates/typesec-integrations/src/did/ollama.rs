@@ -76,7 +76,7 @@ impl DidOllamaClient {
         _infer: &Capability<AiCanInfer, GenericResource>,
         read: &Capability<CanReadSensitive, GenericResource>,
     ) -> Result<Value, DidError> {
-        let plaintext = prompt.prompt.reveal(read)?;
+        let plaintext = prompt.prompt().clone().reveal(read)?;
         self.post_chat(&self.chat_body(&plaintext))
     }
 
@@ -90,9 +90,9 @@ impl DidOllamaClient {
         _infer: &Capability<AiCanInfer, GenericResource>,
         read: &Capability<CanReadSensitive, GenericResource>,
     ) -> Result<DidEnvelope, DidError> {
-        let reply_to = prompt.subject.clone();
+        let reply_to = prompt.subject().clone();
         let binding = DidReplyBinding::for_prompt(&prompt);
-        let plaintext = prompt.prompt.reveal(read)?;
+        let plaintext = prompt.prompt().clone().reveal(read)?;
         let response = self.post_chat(&self.chat_body(&plaintext))?;
         let reply = ollama_reply_content(&response)?;
         let reply_did = Did::key(sha256_tagged(

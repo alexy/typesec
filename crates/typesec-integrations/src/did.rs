@@ -12,6 +12,7 @@
 //! production builds. Deployments with stronger requirements should implement
 //! [`DidKeyStore`] with JOSE/DIDComm, HPKE, or an HSM/KMS.
 
+mod auth;
 mod context;
 mod crypto;
 mod document;
@@ -26,6 +27,7 @@ mod ollama;
 mod replay;
 mod typedid;
 
+pub use auth::DID_ENVELOPE_AUTH_V2;
 pub use context::VerifiedTypeDidContext;
 pub use document::{DidDocument, DidResolver, DidService, StaticDidResolver, VerificationMethod};
 pub use envelope::{DidEnvelope, DidMessageBody, DidMessageReference, DidReplyBinding};

@@ -1,0 +1,39 @@
+{
+  "envelope": {
+    "authVersion": "typesec.did-envelope-auth.v2",
+    "id": "golden-message-42",
+    "type": "https://typesec.dev/did/message/v1/typedid",
+    "from": "did:web:alice.example",
+    "to": ["did:web:agent.example", "did:web:auditor.example"],
+    "created_time": 1700000000,
+    "expires_time": 1700000300,
+    "body": {
+      "action": "agent:delegate",
+      "resource": "memory/tenant:acme/research",
+      "privacy": "sensitive",
+      "claims": {
+        "org": "acme",
+        "purpose": "research"
+      },
+      "reply_to": {
+        "id": "request-41",
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    "typedid": {
+      "conversation_id": "conversation/golden-42",
+      "mode": "request_reply",
+      "profile": "typedid/v1/x25519-chacha20poly1305-ed25519",
+      "protocol": "a2a",
+      "expires_at": 1700000250
+    },
+    "kid": "did:web:alice.example#key-signing-v2",
+    "nonce": "000102030405060708090a0b",
+    "ciphertext": "deadbeef00ff",
+    "signature": "0123456789abcdef"
+  },
+  "authenticatedHeaderSha256": "sha256:1f13b07f80c2b04edc6a3bdc1543c1001ad287e5743747cb9f1de71686c00c0f",
+  "signatureTranscriptSha256": "sha256:0b661e07e2d110e63da7d508500479fc879a0552b82380d132fe92243f77834a",
+  "referenceId": "golden-message-42",
+  "referenceDigest": "sha256:e9d59f5f750634b14efa10277a5f9585b29d0444f8693d3a4c424055dc5bc209"
+}

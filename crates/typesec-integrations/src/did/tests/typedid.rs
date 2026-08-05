@@ -160,19 +160,22 @@ fn typedid_adapter_wraps_and_gateway_opens_opaque_payload() {
 
     let gateway = TypeDidGateway::new(Arc::new(resolver), Arc::new(keys), agent);
     let verified = gateway.open_message(&envelope).expect("verified typedid");
-    assert_eq!(verified.subject, alice);
-    assert_eq!(verified.conversation.conversation_id, "task/a2a-123");
-    assert_eq!(verified.body.action, "agent:delegate");
+    assert_eq!(verified.subject(), &alice);
+    assert_eq!(verified.conversation().conversation_id, "task/a2a-123");
+    assert_eq!(verified.body().action, "agent:delegate");
 
     let read = mint_capability::<CanReadSensitive, _>(
         &AgentPolicy {
-            allowed_subject: verified.subject.to_string(),
+            allowed_subject: verified.subject().to_string(),
         },
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("read cap");
-    assert_eq!(verified.payload.reveal(&read).expect("payload"), payload);
+    assert_eq!(
+        verified.payload().clone().reveal(&read).expect("payload"),
+        payload
+    );
 }
 
 #[test]
@@ -249,7 +252,18 @@ fn typedid_verified_message_exposes_audit_safe_attestation() {
     let context = verified.verified_context();
     assert_eq!(context.subject(), &alice);
     assert_eq!(context.purpose(), Some("research"));
+    assert_eq!(context.action(), "agent:message");
+    assert_eq!(context.resource(), "lakecat:table:events");
+    assert_eq!(context.privacy(), "internal");
+    let expected_expiry = envelope
+        .typedid
+        .as_ref()
+        .and_then(|conversation| conversation.expires_at)
+        .unwrap()
+        .min(envelope.expires_time);
+    assert_eq!(context.effective_expires_at(), expected_expiry);
     assert_eq!(context.request_digest(), attestation.envelope_digest);
+    assert!(context.request_digest().starts_with("sha256:"));
     assert_eq!(context.attestation(), attestation);
     let serialized = serde_json::to_string(&attestation).unwrap();
     assert!(!serialized.contains("secret payload"));
@@ -298,7 +312,7 @@ fn typedid_reply_is_bound_to_request_envelope() {
 
     let reply_gateway = TypeDidGateway::new(Arc::new(resolver), Arc::new(keys), alice);
     let opened_reply = reply_gateway.open_message(&reply).expect("opened reply");
-    assert_eq!(opened_reply.subject, agent);
+    assert_eq!(opened_reply.subject(), &agent);
 }
 
 #[test]

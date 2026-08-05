@@ -30,20 +30,23 @@ already adopting.
 
 ## Implemented Protocol Shape
 
-TypeDID extends the existing `DidEnvelope` model with optional signed
-conversation metadata. Existing DID prompt envelopes remain compatible because
-the TypeDID fields are only present on TypeDID envelopes:
+TypeDID extends `DidEnvelope` with optional authenticated conversation metadata.
+Every newly sealed envelope declares
+`authVersion = "typesec.did-envelope-auth.v2"`; gateways reject missing,
+legacy, and unknown authentication versions rather than guessing a transcript:
 
 ```text
 id             envelope id
+authVersion    typesec.did-envelope-auth.v2
 sender         sender DID
 recipient      recipient DID
 body.action    policy-visible action, such as ai:infer or agent:delegate
 body.resource  policy-visible resource, such as task/123 or room/acme-support
 body.privacy   payload label, such as public, internal, confidential, secret
+body.claims    canonical ordered policy-visible claim key/value pairs
 body.reply_to  optional signed reference to the envelope being answered
 ciphertext     encrypted protocol payload
-signature      sender signature over the protected envelope
+signature      sender signature over the complete v2 transcript
 ```
 
 TypeDID envelopes add conversation metadata without making it transport
@@ -60,6 +63,36 @@ protocol         outer protocol hint: a2a, acp, band, http, websocket, queue
 The encrypted payload can contain an A2A part, ACP message, BAND room message,
 tool call, approval request, or Typesec-native command. `TypeDidGateway` treats
 it as opaque bytes until policy permits reveal.
+
+### Envelope authentication v2
+
+V2 uses one domain-separated, length-framed transcript family. The AEAD header
+covers the version, routing and timing fields, action, resource, privacy,
+every claim key/value pair, reply reference, TypeDID metadata, key id, and
+nonce. The signature transcript nests those exact header bytes and appends the
+ciphertext. The reference transcript nests the signed-envelope transcript and
+appends the signature. No delimiter-separated strings or map iteration order
+are part of the wire contract.
+
+`DidEnvelope::reference().digest` is canonical lowercase
+`sha256:<64 hex>`. The cross-language parity fixture at
+`crates/typesec-integrations/tests/fixtures/did-envelope-auth-v2.json` pins the
+authenticated-header digest, signature-transcript digest, and envelope
+reference for a deterministic envelope.
+
+The exact field order, binary framing rules, and digest formula live in
+[`did-envelope-auth-v2.md`](did-envelope-auth-v2.md).
+
+Gateway-returned `VerifiedTypeDidMessage` values are provenance objects with
+private fields. Consumers use read-only accessors and
+`verified_context()`; they cannot construct a “verified” message from caller
+metadata. The context exposes the authenticated action, resource, privacy,
+purpose, request digest, and effective expiry. Effective expiry is the earlier
+of the outer envelope and optional conversation expiry.
+
+`TypeDidGateway` accepts only the authenticated TypeDID message-type URI. A
+signed prompt or reply sent to that gateway is rejected before decryption and
+does not consume its replay claim.
 
 ## Rust API
 

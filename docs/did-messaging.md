@@ -41,8 +41,9 @@ to fail.
 
 ```text
 DID envelope arrives
+  -> require envelope-auth v2
   -> resolve sender DID
-  -> verify envelope signature
+  -> verify the complete length-framed envelope transcript
   -> decrypt payload for the local recipient DID
   -> wrap plaintext as SecureValue<Secret, String, GenericResource>
   -> request CanReadSensitive and AiCanInfer capabilities
@@ -117,9 +118,9 @@ Ollama-shaped endpoint:
 
 ```rust
 let infer: Capability<AiCanInfer, _> =
-    mint_capability(&policy, verified.subject.as_str(), &verified.resource)?;
+    mint_capability(&policy, verified.subject().as_str(), verified.resource())?;
 let read: Capability<CanReadSensitive, _> =
-    mint_capability(&policy, verified.subject.as_str(), &verified.resource)?;
+    mint_capability(&policy, verified.subject().as_str(), verified.resource())?;
 
 let reply = ollama.chat_verified_prompt_bound(
     verified,
@@ -133,6 +134,41 @@ let reply = ollama.chat_verified_prompt_bound(
 
 This mirrors the production control flow even though the example uses
 deterministic local keys and a recording HTTP client.
+
+## Envelope Authentication V2
+
+Every accepted envelope carries the explicit wire field
+`authVersion: "typesec.did-envelope-auth.v2"`. Missing, legacy, and unknown
+versions fail closed. V2 replaces delimiter-concatenated signing input with one
+domain-separated, length-framed transcript family:
+
+1. The AEAD header authenticates version, routing, timing, action, resource,
+   privacy, every ordered claim key/value pair, reply binding, TypeDID
+   conversation/profile metadata, key id, and nonce.
+2. The signature transcript nests those exact header bytes and adds the
+   ciphertext.
+3. The reference transcript nests the signed-envelope transcript and adds the
+   signature; its digest is canonical lowercase `sha256:<64 hex>`.
+
+The deterministic fixture
+`crates/typesec-integrations/tests/fixtures/did-envelope-auth-v2.json` pins the
+header, signature-transcript, and reference digests for implementations in
+other languages. V1 or unversioned envelopes require an explicit migration;
+gateways do not silently reinterpret them as v2.
+
+See [`did-envelope-auth-v2.md`](did-envelope-auth-v2.md) for the authoritative
+field order and binary framing contract.
+
+`VerifiedDidPrompt` and `VerifiedTypeDidMessage` have private fields and can be
+created only by their gateways. Their accessors expose authenticated metadata
+and capability-protected payloads without exposing a constructor that could
+launder unverified caller data.
+
+The authenticated message type is also a gateway boundary:
+`DidMessageGateway` accepts only prompt and reply envelopes, while
+`TypeDidGateway` accepts only TypeDID envelopes. Cross-protocol envelopes are
+rejected after signature verification and before decryption or replay-store
+consumption.
 
 ## TypeDID Agent Communications
 

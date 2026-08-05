@@ -3,13 +3,18 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::error::DidError;
-use super::typedid::TypeDidConversation;
 
 pub(super) fn unix_time() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .unwrap_or_default()
+}
+
+/// SHA-256 digest of canonical protocol bytes.
+pub(super) fn sha256(data: &[u8]) -> [u8; 32] {
+    use sha2::Digest;
+    sha2::Sha256::digest(data).into()
 }
 
 /// Domain-separated SHA-256: `SHA-256(domain || 0x00 || data)`.
@@ -27,20 +32,6 @@ pub(super) fn random_nonce() -> Result<[u8; 12], DidError> {
     let mut nonce = [0u8; 12];
     getrandom::getrandom(&mut nonce).map_err(|e| DidError::KeyGen(e.to_string()))?;
     Ok(nonce)
-}
-
-pub(super) fn canonical_typedid_conversation(conversation: &TypeDidConversation) -> String {
-    format!(
-        "{}\n{:?}\n{}\n{}\n{}",
-        conversation.conversation_id,
-        conversation.mode,
-        conversation.profile,
-        conversation.protocol,
-        conversation
-            .expires_at
-            .map(|expires_at| expires_at.to_string())
-            .unwrap_or_default()
-    )
 }
 
 pub(super) fn contains(values: &[String], needle: &str) -> bool {

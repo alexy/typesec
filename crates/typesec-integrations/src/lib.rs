@@ -20,14 +20,14 @@ pub mod workos;
 
 pub use arcade::{ArcadeToolAuthEngine, ArcadeToolAuthRequest};
 pub use did::{
-    A2aTypeDidAdapter, AcpTypeDidAdapter, BandSecureEnvelopeAdapter, Did, DidDocument, DidEnvelope,
-    DidError, DidKeyStore, DidMessageBody, DidMessageGateway, DidMessageReference, DidOllamaClient,
-    DidReplyBinding, DidResolver, DidService, Ed25519DidKey, Ed25519DidKeyStore,
-    HttpTypeDidAdapter, InMemoryReplayStore, NegotiatedTypeDidProfile, ReplayStore,
-    SecureEnvelopeAdapter, StaticDidResolver, StaticTypeDidProfileResolver, TypeDidAttestation,
-    TypeDidConversation, TypeDidGateway, TypeDidMode, TypeDidProfile, TypeDidProfileResolver,
-    TypeDidWrapRequest, VerificationMethod, VerifiedDidPrompt, VerifiedTypeDidContext,
-    VerifiedTypeDidMessage,
+    A2aTypeDidAdapter, AcpTypeDidAdapter, BandSecureEnvelopeAdapter, DID_ENVELOPE_AUTH_V2, Did,
+    DidDocument, DidEnvelope, DidError, DidKeyStore, DidMessageBody, DidMessageGateway,
+    DidMessageReference, DidOllamaClient, DidReplyBinding, DidResolver, DidService, Ed25519DidKey,
+    Ed25519DidKeyStore, HttpTypeDidAdapter, InMemoryReplayStore, NegotiatedTypeDidProfile,
+    ReplayStore, SecureEnvelopeAdapter, StaticDidResolver, StaticTypeDidProfileResolver,
+    TypeDidAttestation, TypeDidConversation, TypeDidGateway, TypeDidMode, TypeDidProfile,
+    TypeDidProfileResolver, TypeDidWrapRequest, VerificationMethod, VerifiedDidPrompt,
+    VerifiedTypeDidContext, VerifiedTypeDidMessage,
 };
 #[cfg(feature = "demo-crypto")]
 pub use did::{DemoDidKeyPair, DemoDidKeyStore};

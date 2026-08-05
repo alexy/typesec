@@ -66,20 +66,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         gateway_did.clone(),
     );
     let verified = gateway.open_prompt(&envelope)?;
-    println!("verified:   {}", verified.subject);
+    println!("verified:   {}", verified.subject());
 
     let policy = PromptPolicy {
         allowed_subject: alice.to_string(),
     };
     let infer: Capability<AiCanInfer, GenericResource> =
-        mint_capability(&policy, verified.subject.as_str(), &verified.resource)?;
+        mint_capability(&policy, verified.subject().as_str(), verified.resource())?;
     let read: Capability<CanReadSensitive, GenericResource> =
-        mint_capability(&policy, verified.subject.as_str(), &verified.resource)?;
+        mint_capability(&policy, verified.subject().as_str(), verified.resource())?;
     println!(
         "caps:       {} and {} on {}",
         Capability::<AiCanInfer, GenericResource>::permission_name(),
         Capability::<CanReadSensitive, GenericResource>::permission_name(),
-        verified.resource.resource_id()
+        verified.resource().resource_id()
     );
 
     let http = RecordingHttpClient::new().with_response(

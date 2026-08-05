@@ -3,15 +3,18 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use super::crypto::{
-    canonical_typedid_conversation, hex_encode, random_nonce, sha256_tagged, unix_time,
-};
+use super::auth::{DID_ENVELOPE_AUTH_V2, TranscriptKind, canonical_transcript};
+use super::crypto::{hex_encode, random_nonce, sha256, unix_time};
 use super::document::DidResolver;
 use super::error::DidError;
 use super::gateway::{VerifiedDidPrompt, VerifiedTypeDidMessage};
 use super::identifier::Did;
 use super::keystore::DidKeyStore;
 use super::typedid::{TypeDidConversation, TypeDidMode};
+
+pub(super) const PROMPT_MESSAGE_TYPE: &str = "https://typesec.dev/did/message/v1/prompt";
+pub(super) const REPLY_MESSAGE_TYPE: &str = "https://typesec.dev/did/message/v1/reply";
+pub(super) const TYPEDID_MESSAGE_TYPE: &str = "https://typesec.dev/did/message/v1/typedid";
 
 /// Message metadata that policy engines evaluate before payload use.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,11 +50,11 @@ impl DidMessageBody {
     /// Create a reply body that inherits the prompt's policy-visible metadata.
     pub fn reply_to_prompt(prompt: &VerifiedDidPrompt) -> Self {
         Self {
-            action: prompt.body.action.clone(),
-            resource: prompt.body.resource.clone(),
-            privacy: prompt.body.privacy.clone(),
-            claims: prompt.body.claims.clone(),
-            reply_to: Some(prompt.prompt_ref.clone()),
+            action: prompt.body().action.clone(),
+            resource: prompt.body().resource.clone(),
+            privacy: prompt.body().privacy.clone(),
+            claims: prompt.body().claims.clone(),
+            reply_to: Some(prompt.prompt_ref().clone()),
         }
     }
 
@@ -98,8 +101,8 @@ impl DidReplyBinding {
     /// Bind a reply to a verified prompt.
     pub fn for_prompt(prompt: &VerifiedDidPrompt) -> Self {
         Self {
-            prompt_body: prompt.body.clone(),
-            prompt_ref: prompt.prompt_ref.clone(),
+            prompt_body: prompt.body().clone(),
+            prompt_ref: prompt.prompt_ref().clone(),
         }
     }
 }
@@ -109,13 +112,18 @@ impl DidReplyBinding {
 pub struct DidMessageReference {
     /// Referenced DID message id.
     pub id: String,
-    /// SHA-256 digest of the referenced signed envelope.
+    /// Canonical lowercase `sha256:<64 hex>` digest of the referenced signed
+    /// envelope transcript.
     pub digest: String,
 }
 
 /// Encrypted DID message envelope.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DidEnvelope {
+    /// Versioned authentication transcript required to verify this envelope.
+    /// Missing and unknown versions fail closed at every gateway.
+    #[serde(rename = "authVersion", default)]
+    pub auth_version: String,
     /// Message id.
     pub id: String,
     /// Message type URI.
@@ -178,6 +186,7 @@ impl DidEnvelope {
         // Build the envelope first (empty ciphertext) so the AEAD can bind to its
         // routing/timing identity, then encrypt and sign.
         let mut envelope = Self {
+            auth_version: DID_ENVELOPE_AUTH_V2.to_owned(),
             id,
             message_type: message_type.to_owned(),
             from,
@@ -194,7 +203,7 @@ impl DidEnvelope {
         let aad = envelope.associated_data();
         envelope.ciphertext =
             key_store.encrypt_for(&envelope.from, &recipient_public, plaintext, &nonce, &aad)?;
-        envelope.signature = key_store.sign(&envelope.from, envelope.signing_input().as_bytes())?;
+        envelope.signature = key_store.sign(&envelope.from, &envelope.signing_input())?;
         Ok(envelope)
     }
 
@@ -210,7 +219,7 @@ impl DidEnvelope {
     ) -> Result<Self, DidError> {
         Self::seal(
             id.into(),
-            "https://typesec.dev/did/message/v1/prompt",
+            PROMPT_MESSAGE_TYPE,
             from,
             to,
             body,
@@ -237,7 +246,7 @@ impl DidEnvelope {
         } = binding;
         Self::seal(
             reply_did.to_string(),
-            "https://typesec.dev/did/message/v1/reply",
+            REPLY_MESSAGE_TYPE,
             from,
             to,
             DidMessageBody {
@@ -268,7 +277,7 @@ impl DidEnvelope {
     ) -> Result<Self, DidError> {
         Self::seal(
             id.into(),
-            "https://typesec.dev/did/message/v1/typedid",
+            TYPEDID_MESSAGE_TYPE,
             from,
             to,
             body,
@@ -289,14 +298,15 @@ impl DidEnvelope {
         resolver: &dyn DidResolver,
         key_store: &dyn DidKeyStore,
     ) -> Result<Self, DidError> {
-        let mut body = request.body.clone();
-        body.reply_to = Some(request.message_ref.clone());
+        let mut body = request.body().clone();
+        body.reply_to = Some(request.message_ref().clone());
+        let request_conversation = request.conversation();
         let conversation = TypeDidConversation {
-            conversation_id: request.conversation.conversation_id.clone(),
+            conversation_id: request_conversation.conversation_id.clone(),
             mode: TypeDidMode::RequestReply,
-            profile: request.conversation.profile.clone(),
-            protocol: request.conversation.protocol.clone(),
-            expires_at: request.conversation.expires_at,
+            profile: request_conversation.profile.clone(),
+            protocol: request_conversation.protocol.clone(),
+            expires_at: request_conversation.expires_at,
         };
         Self::typedid(
             id,
@@ -312,82 +322,35 @@ impl DidEnvelope {
 
     /// Stable reference to this signed envelope for reply binding.
     pub fn reference(&self) -> DidMessageReference {
-        let seed = format!("{}\n{}", self.signing_input(), self.signature);
+        let transcript = canonical_transcript(self, TranscriptKind::Reference);
         DidMessageReference {
             id: self.id.clone(),
-            digest: hex_encode(&sha256_tagged(
-                b"typesec-did-envelope-reference",
-                seed.as_bytes(),
-            )),
+            digest: format!("sha256:{}", hex_encode(&sha256(&transcript))),
         }
     }
 
-    /// AEAD associated data binding the ciphertext to the envelope's
-    /// routing/timing identity.
+    /// Canonical AEAD header binding every field available before encryption.
     ///
-    /// Binds the envelope's routing/timing identity (`id`, `from`, `to`,
-    /// `created_time`, `expires_time`) — notably **not** `message_type` or
-    /// `typedid`. Those are still authenticated by the signature (see
-    /// [`signing_input`][Self::signing_input]); the AAD adds a second, AEAD-level
-    /// binding so the ciphertext can't be lifted into a different envelope even if
-    /// the signature layer were bypassed.
+    /// The length-framed v2 header includes routing, timing, policy-visible
+    /// body and claims, TypeDID conversation, reply binding, key id, and nonce.
     pub(super) fn associated_data(&self) -> Vec<u8> {
-        format!(
-            "{}\n{}\n{}\n{}\n{}",
-            self.id,
-            self.from,
-            self.to
-                .iter()
-                .map(Did::as_str)
-                .collect::<Vec<_>>()
-                .join(","),
-            self.created_time,
-            self.expires_time,
-        )
-        .into_bytes()
+        canonical_transcript(self, TranscriptKind::Header)
     }
 
     /// Canonical bytes the sender signs and the recipient verifies.
     ///
-    /// This MUST cover every security-relevant field of the envelope. In
-    /// particular `kid` (which key authenticates the sender) and `nonce` (which
-    /// drives the AEAD) are included so they cannot be swapped without breaking
-    /// the signature. When adding a field to [`DidEnvelope`], add it here too.
-    pub(super) fn signing_input(&self) -> String {
-        let reply_to = self
-            .body
-            .reply_to
+    /// The signature transcript nests the exact AEAD header and appends the
+    /// ciphertext as one additional length-framed field.
+    pub(super) fn signing_input(&self) -> Vec<u8> {
+        canonical_transcript(self, TranscriptKind::Signature)
+    }
+
+    pub(super) fn effective_expires_at(&self) -> u64 {
+        self.typedid
             .as_ref()
-            .map(|reference| format!("{}\n{}", reference.id, reference.digest))
-            .unwrap_or_default();
-        let base = format!(
-            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
-            self.id,
-            self.message_type,
-            self.from,
-            self.to
-                .iter()
-                .map(Did::as_str)
-                .collect::<Vec<_>>()
-                .join(","),
-            self.created_time,
-            self.expires_time,
-            self.body.action,
-            self.body.resource,
-            self.body.privacy,
-            reply_to,
-            self.kid,
-            self.nonce,
-        );
-        if let Some(typedid) = self.typedid.as_ref() {
-            format!(
-                "{}\n{}\n{}",
-                base,
-                canonical_typedid_conversation(typedid),
-                self.ciphertext
-            )
-        } else {
-            format!("{}\n{}", base, self.ciphertext)
-        }
+            .and_then(|conversation| conversation.expires_at)
+            .map_or(self.expires_time, |expires_at| {
+                expires_at.min(self.expires_time)
+            })
     }
 }

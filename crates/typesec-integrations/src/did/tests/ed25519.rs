@@ -25,16 +25,20 @@ fn ed25519_envelope_roundtrip() {
 
     let gateway = DidMessageGateway::new(Arc::new(resolver), Arc::new(keys), agent);
     let verified = gateway.open_prompt(&envelope).expect("verified prompt");
-    assert_eq!(verified.subject, alice);
+    assert_eq!(verified.subject(), &alice);
 
     let cap: Capability<CanReadSensitive, GenericResource> = mint_capability(
         &AllowAllForTest,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("read cap");
     assert_eq!(
-        verified.prompt.reveal(&cap).expect("matching resource"),
+        verified
+            .prompt()
+            .clone()
+            .reveal(&cap)
+            .expect("matching resource"),
         "confidential prompt over real crypto"
     );
 }
@@ -140,7 +144,7 @@ fn ed25519_rotation_keeps_old_envelopes_until_retired() {
         .open_prompt(&old_envelope)
         .expect("old envelope remains valid while previous key is advertised");
     assert_eq!(
-        verified.resource.resource_id(),
+        verified.resource().resource_id(),
         "prompt/session/rot",
         "old payload opened after sender and recipient rotation"
     );
@@ -190,7 +194,7 @@ fn ed25519_retired_key_rejects_old_signatures() {
     keys.retire_key(&alice, 1).expect("retire old alice key");
 
     assert!(matches!(
-        keys.verify(&old_method, envelope.signing_input().as_bytes(), &envelope.signature),
+        keys.verify(&old_method, &envelope.signing_input(), &envelope.signature),
         Err(DidError::RetiredKey(method)) if method == old_method.id
     ));
     let rotated_doc = keys.document(&alice).expect("rotated alice document");

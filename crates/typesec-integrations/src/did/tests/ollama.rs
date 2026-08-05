@@ -27,14 +27,14 @@ fn did_ollama_client_sends_plaintext_only_after_capabilities() {
     let verified = gateway.open_prompt(&envelope).expect("verified prompt");
     let infer = mint_capability::<AiCanInfer, _>(
         &PromptPolicy,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("infer cap");
     let read = mint_capability::<CanReadSensitive, _>(
         &PromptPolicy,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("read cap");
 
@@ -78,14 +78,14 @@ fn did_ollama_bound_reply_requires_assistant_content() {
     let verified = gateway.open_prompt(&envelope).expect("verified prompt");
     let infer = mint_capability::<AiCanInfer, _>(
         &PromptPolicy,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("infer cap");
     let read = mint_capability::<CanReadSensitive, _>(
         &PromptPolicy,
-        verified.subject.as_str(),
-        &verified.resource,
+        verified.subject().as_str(),
+        verified.resource(),
     )
     .expect("read cap");
 

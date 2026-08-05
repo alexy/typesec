@@ -6,9 +6,13 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use typesec_core::{SecureValue, resource::GenericResource, secure_value::Secret};
 
+use super::auth::DID_ENVELOPE_AUTH_V2;
 use super::crypto::{hex_decode, unix_time};
 use super::document::DidResolver;
-use super::envelope::{DidEnvelope, DidMessageBody, DidMessageReference};
+use super::envelope::{
+    DidEnvelope, DidMessageBody, DidMessageReference, PROMPT_MESSAGE_TYPE, REPLY_MESSAGE_TYPE,
+    TYPEDID_MESSAGE_TYPE,
+};
 use super::error::DidError;
 use super::identifier::Did;
 use super::keystore::DidKeyStore;
@@ -16,20 +20,40 @@ use super::replay::{InMemoryReplayStore, ReplayStore};
 use super::typedid::{TypeDidConversation, TypeDidMode};
 
 /// Verified and decrypted TypeDID agent message.
+///
+/// Only [`TypeDidGateway::open_message`] can construct this provenance type.
+/// Its private fields prevent downstream crates from laundering caller-created
+/// metadata into a [`crate::VerifiedTypeDidContext`].
+///
+/// ```compile_fail,E0451
+/// use typesec_integrations::{VerifiedTypeDidMessage, Did};
+///
+/// let _forged = VerifiedTypeDidMessage {
+///     subject: Did::parse("did:web:forged.example").unwrap(),
+///     message_ref: unimplemented!(),
+///     body: unimplemented!(),
+///     conversation: unimplemented!(),
+///     resource: unimplemented!(),
+///     payload: unimplemented!(),
+///     effective_expires_at: u64::MAX,
+/// };
+/// ```
 #[derive(Debug)]
 pub struct VerifiedTypeDidMessage {
     /// Verified DID subject.
-    pub subject: Did,
+    subject: Did,
     /// Stable reference to the verified envelope.
-    pub message_ref: DidMessageReference,
+    message_ref: DidMessageReference,
     /// Policy-visible message metadata.
-    pub body: DidMessageBody,
+    body: DidMessageBody,
     /// TypeDID conversation/profile metadata.
-    pub conversation: TypeDidConversation,
+    conversation: TypeDidConversation,
     /// Resource associated with the payload.
-    pub resource: GenericResource,
+    resource: GenericResource,
     /// Secret opaque payload bytes.
-    pub payload: SecureValue<Secret, Vec<u8>, GenericResource>,
+    payload: SecureValue<Secret, Vec<u8>, GenericResource>,
+    /// Minimum of the authenticated outer and conversation expiries.
+    effective_expires_at: u64,
 }
 
 /// Policy/audit-safe attestation derived from a verified TypeDID message.
@@ -65,12 +89,48 @@ pub struct TypeDidAttestation {
     pub mode: TypeDidMode,
     /// Negotiated TypeDID crypto/profile id.
     pub profile: String,
-    /// Conversation expiry time as unix seconds, when supplied by the sender.
+    /// Effective verified expiry: the minimum of outer-envelope and optional
+    /// conversation expiry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<u64>,
 }
 
 impl VerifiedTypeDidMessage {
+    /// Cryptographically verified sender DID.
+    pub fn subject(&self) -> &Did {
+        &self.subject
+    }
+
+    /// Stable reference to the authenticated envelope.
+    pub fn message_ref(&self) -> &DidMessageReference {
+        &self.message_ref
+    }
+
+    /// Authenticated, policy-visible action, resource, privacy, and claims.
+    pub fn body(&self) -> &DidMessageBody {
+        &self.body
+    }
+
+    /// Authenticated TypeDID conversation/profile metadata.
+    pub fn conversation(&self) -> &TypeDidConversation {
+        &self.conversation
+    }
+
+    /// Runtime resource protecting the opaque payload.
+    pub fn resource(&self) -> &GenericResource {
+        &self.resource
+    }
+
+    /// Capability-protected opaque payload.
+    pub fn payload(&self) -> &SecureValue<Secret, Vec<u8>, GenericResource> {
+        &self.payload
+    }
+
+    /// Minimum authenticated expiry for this verified message.
+    pub fn effective_expires_at(&self) -> u64 {
+        self.effective_expires_at
+    }
+
     /// Return an audit-safe attestation for this verified message.
     pub fn attestation(&self) -> TypeDidAttestation {
         TypeDidAttestation {
@@ -85,28 +145,104 @@ impl VerifiedTypeDidMessage {
             protocol: self.conversation.protocol.clone(),
             mode: self.conversation.mode,
             profile: self.conversation.profile.clone(),
-            expires_at: self.conversation.expires_at,
+            expires_at: Some(self.effective_expires_at),
         }
     }
 }
 
 /// Verified and decrypted DID prompt.
+///
+/// ```compile_fail,E0451
+/// use typesec_integrations::{VerifiedDidPrompt, Did};
+///
+/// let _forged = VerifiedDidPrompt {
+///     subject: Did::parse("did:web:forged.example").unwrap(),
+///     prompt_ref: unimplemented!(),
+///     body: unimplemented!(),
+///     resource: unimplemented!(),
+///     prompt: unimplemented!(),
+///     effective_expires_at: u64::MAX,
+/// };
+/// ```
 #[derive(Debug)]
 pub struct VerifiedDidPrompt {
     /// Verified DID subject.
-    pub subject: Did,
+    subject: Did,
     /// Stable reference to the verified prompt envelope.
-    pub prompt_ref: DidMessageReference,
+    prompt_ref: DidMessageReference,
     /// Policy-visible metadata.
-    pub body: DidMessageBody,
+    body: DidMessageBody,
     /// Resource associated with the payload.
-    pub resource: GenericResource,
+    resource: GenericResource,
     /// Secret prompt payload.
-    pub prompt: SecureValue<Secret, String, GenericResource>,
+    prompt: SecureValue<Secret, String, GenericResource>,
+    effective_expires_at: u64,
+}
+
+impl VerifiedDidPrompt {
+    /// Cryptographically verified sender DID.
+    pub fn subject(&self) -> &Did {
+        &self.subject
+    }
+
+    /// Stable reference to the authenticated prompt envelope.
+    pub fn prompt_ref(&self) -> &DidMessageReference {
+        &self.prompt_ref
+    }
+
+    /// Authenticated policy-visible prompt metadata.
+    pub fn body(&self) -> &DidMessageBody {
+        &self.body
+    }
+
+    /// Runtime resource protecting the prompt.
+    pub fn resource(&self) -> &GenericResource {
+        &self.resource
+    }
+
+    /// Capability-protected prompt plaintext.
+    pub fn prompt(&self) -> &SecureValue<Secret, String, GenericResource> {
+        &self.prompt
+    }
+
+    /// Authenticated outer-envelope expiry.
+    pub fn effective_expires_at(&self) -> u64 {
+        self.effective_expires_at
+    }
 }
 
 /// Tolerated clock skew (seconds) for an envelope dated in the future.
 const CLOCK_SKEW_SECS: u64 = 300;
+
+const DID_MESSAGE_TYPES: &[&str] = &[PROMPT_MESSAGE_TYPE, REPLY_MESSAGE_TYPE];
+const TYPEDID_MESSAGE_TYPES: &[&str] = &[TYPEDID_MESSAGE_TYPE];
+
+fn validate_message_type(
+    envelope: &DidEnvelope,
+    expected: &'static str,
+    accepted: &[&str],
+) -> Result<(), DidError> {
+    if accepted.contains(&envelope.message_type.as_str()) {
+        Ok(())
+    } else {
+        Err(DidError::UnexpectedMessageType {
+            expected,
+            actual: envelope.message_type.clone(),
+        })
+    }
+}
+
+fn validate_did_message(envelope: &DidEnvelope) -> Result<(), DidError> {
+    validate_message_type(envelope, "prompt or reply", DID_MESSAGE_TYPES)
+}
+
+fn validate_typedid_message(envelope: &DidEnvelope) -> Result<TypeDidConversation, DidError> {
+    validate_message_type(envelope, "TypeDID", TYPEDID_MESSAGE_TYPES)?;
+    envelope
+        .typedid
+        .clone()
+        .ok_or(DidError::MissingTypeDidMetadata)
+}
 
 /// Verifies DID envelopes and converts encrypted payloads into `SecureValue`s.
 pub struct DidMessageGateway {
@@ -142,10 +278,15 @@ impl DidMessageGateway {
     /// Reject an envelope already opened within its validity window (replay).
     /// Call only after the signature has verified, so the cache holds only
     /// authentic envelopes.
-    fn guard_replay(&self, envelope: &DidEnvelope, now: u64) -> Result<(), DidError> {
+    fn guard_replay(
+        &self,
+        envelope: &DidEnvelope,
+        effective_expires_at: u64,
+        now: u64,
+    ) -> Result<(), DidError> {
         let claimed = self
             .replay_store
-            .claim(&envelope.signature, envelope.expires_time, now)
+            .claim(&envelope.signature, effective_expires_at, now)
             .map_err(DidError::ReplayStore)?;
         if !claimed {
             return Err(DidError::Replayed(envelope.id.clone()));
@@ -155,7 +296,7 @@ impl DidMessageGateway {
 
     /// Verify, decrypt, and protect a DID prompt envelope.
     pub fn open_prompt(&self, envelope: &DidEnvelope) -> Result<VerifiedDidPrompt, DidError> {
-        let opened = self.open_bytes(envelope)?;
+        let (opened, ()) = self.open_bytes(envelope, validate_did_message)?;
         let prompt = String::from_utf8(opened.plaintext).map_err(|_| DidError::InvalidUtf8)?;
         Ok(VerifiedDidPrompt {
             subject: opened.subject,
@@ -163,15 +304,28 @@ impl DidMessageGateway {
             body: opened.body,
             prompt: SecureValue::protect(prompt, &opened.resource),
             resource: opened.resource,
+            effective_expires_at: opened.effective_expires_at,
         })
     }
 
-    pub(super) fn open_bytes(&self, envelope: &DidEnvelope) -> Result<OpenedDidEnvelope, DidError> {
+    fn open_bytes<T>(
+        &self,
+        envelope: &DidEnvelope,
+        validate_semantics: impl FnOnce(&DidEnvelope) -> Result<T, DidError>,
+    ) -> Result<(OpenedDidEnvelope, T), DidError> {
+        match envelope.auth_version.as_str() {
+            "" => return Err(DidError::MissingEnvelopeAuthVersion),
+            DID_ENVELOPE_AUTH_V2 => {}
+            other => {
+                return Err(DidError::UnsupportedEnvelopeAuthVersion(other.to_owned()));
+            }
+        }
         if !envelope.to.iter().any(|did| did == &self.recipient) {
             return Err(DidError::WrongRecipient(self.recipient.to_string()));
         }
         let now = unix_time();
-        if envelope.expires_time < now {
+        let effective_expires_at = envelope.effective_expires_at();
+        if effective_expires_at <= now {
             return Err(DidError::Expired);
         }
         // Reject envelopes dated implausibly far in the future (clock skew or a
@@ -185,11 +339,12 @@ impl DidMessageGateway {
 
         let sender_document = self.resolver.resolve(&envelope.from)?;
         let sender_key = sender_document.authentication_key(&envelope.kid)?;
-        self.key_store.verify(
-            sender_key,
-            envelope.signing_input().as_bytes(),
-            &envelope.signature,
-        )?;
+        self.key_store
+            .verify(sender_key, &envelope.signing_input(), &envelope.signature)?;
+        // Semantic routing is meaningful only after `message_type` has been
+        // authenticated. Reject cross-protocol envelopes before key agreement,
+        // decryption, or replay-store consumption.
+        let semantics = validate_semantics(envelope)?;
 
         // Decryption uses the sender's *key-agreement* key, which may be a
         // different key (X25519) than the authentication key (Ed25519). During
@@ -220,16 +375,20 @@ impl DidMessageGateway {
         // Consume the replay claim only after the authenticated ciphertext has
         // decrypted successfully. A valid signature over an undecryptable
         // envelope must not poison a later delivery attempt.
-        self.guard_replay(envelope, now)?;
+        self.guard_replay(envelope, effective_expires_at, now)?;
         let resource = GenericResource::new(&envelope.body.resource, "did-prompt");
 
-        Ok(OpenedDidEnvelope {
-            subject: envelope.from.clone(),
-            message_ref: envelope.reference(),
-            body: envelope.body.clone(),
-            resource,
-            plaintext,
-        })
+        Ok((
+            OpenedDidEnvelope {
+                subject: envelope.from.clone(),
+                message_ref: envelope.reference(),
+                body: envelope.body.clone(),
+                resource,
+                plaintext,
+                effective_expires_at,
+            },
+            semantics,
+        ))
     }
 }
 
@@ -240,6 +399,7 @@ pub(super) struct OpenedDidEnvelope {
     pub(super) body: DidMessageBody,
     pub(super) resource: GenericResource,
     pub(super) plaintext: Vec<u8>,
+    pub(super) effective_expires_at: u64,
 }
 
 /// Verifies TypeDID envelopes and protects arbitrary agent payload bytes.
@@ -268,11 +428,7 @@ impl TypeDidGateway {
 
     /// Verify, decrypt, and protect a TypeDID message envelope.
     pub fn open_message(&self, envelope: &DidEnvelope) -> Result<VerifiedTypeDidMessage, DidError> {
-        let conversation = envelope
-            .typedid
-            .clone()
-            .ok_or(DidError::MissingTypeDidMetadata)?;
-        let opened = self.inner.open_bytes(envelope)?;
+        let (opened, conversation) = self.inner.open_bytes(envelope, validate_typedid_message)?;
         Ok(VerifiedTypeDidMessage {
             subject: opened.subject,
             message_ref: opened.message_ref,
@@ -280,6 +436,7 @@ impl TypeDidGateway {
             conversation,
             payload: SecureValue::protect(opened.plaintext, &opened.resource),
             resource: opened.resource,
+            effective_expires_at: opened.effective_expires_at,
         })
     }
 }
