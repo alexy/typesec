@@ -1,6 +1,6 @@
 # Marciana as a QueryGraph Stack Project
 
-**Status:** proposed project boundary and extraction plan
+**Status:** accepted project boundary; extraction in progress
 
 **Decision date:** 2026-08-05
 
@@ -10,8 +10,8 @@
 
 ## Document role
 
-This document records the architectural decision to establish Marciana as a
-standalone QueryGraph-stack project. It defines the proposed repository charter,
+This document records the architectural decision establishing Marciana as a
+standalone QueryGraph-stack project. It defines the repository charter,
 ownership boundaries, dependency direction, extraction inventory, migration
 sequence, and acceptance criteria.
 
@@ -23,11 +23,10 @@ It does not replace the existing Marciana security design:
 - [`MARCIANA.md`](MARCIANA.md) records the Cognee Rust and Akka/Fluree review,
   the resulting production-cognition program, and its cross-repository
   acceptance criteria.
-- This file owns the proposed repository extraction and product-ownership
-  decision. After `~/src/marciana` exists, that repository should own the
-  active product API, roadmap, compatibility matrix, and integration release
-  process; this source-side file should become the durable handoff rather than
-  a competing roadmap.
+- This file is the TypeSec-side extraction handoff. The initialized
+  `~/src/marciana` repository owns the active product design, roadmap,
+  compatibility matrix, and integration release process; this file must not
+  become a competing roadmap.
 
 ## Decision
 
@@ -36,8 +35,8 @@ QueryGraph stack.
 
 Marciana will be a product and composition layer, not a fifth storage or
 security substrate. It will own the public memory lifecycle, cognition
-orchestration, durable jobs, memory-specific adapters, and Cognee-compatible
-API behavior while depending on the existing projects for their authoritative
+orchestration, durable jobs, memory-specific adapters, and native four-verb API
+behavior while depending on the existing projects for their authoritative
 capabilities:
 
 - TypeSec remains the trust and information-flow kernel.
@@ -89,8 +88,7 @@ tier to the QueryGraph stack. It is not a reversal of that design.
 
 Marciana will own:
 
-- the native and Cognee-compatible `remember`, `recall`, `improve`, and
-  `forget` lifecycle;
+- the native `remember`, `recall`, `improve`, and `forget` lifecycle;
 - dataset, memory-space, and session behavior above the TypeSec resource
   model;
 - versioned public request, response, status, error, event, and receipt DTOs;
@@ -173,10 +171,11 @@ selected when cognition operates over authorized Iceberg snapshots.
 
 ## Four-verb API boundary
 
-Cognee may inspire an optional compatibility facade at Marciana's public edge,
-but it is not a product dependency or a completeness criterion. The native
-four-verb contract is authoritative; any Cognee-shaped adapter must lower into
-that contract without importing Cognee runtime or storage behavior.
+Cognee is design inspiration, not an API compatibility target, product
+dependency, or completeness criterion. The native four-verb contract is
+authoritative. A Cognee-shaped edge adapter is outside the baseline and would
+require a separate future decision; it could only lower into the native
+contract without importing Cognee runtime or storage behavior.
 
 | Verb | Marciana behavior | Security and durability rule |
 |---|---|---|
@@ -185,10 +184,9 @@ that contract without importing Cognee runtime or storage behavior.
 | `improve` | Run extraction or enrichment over an authorized immutable snapshot and produce a versioned proposal | The job emits inert `CognitionProposal` data; the vault reauthorizes, recomputes source and label evidence, and applies one guarded transaction |
 | `forget` | Remove or retract scoped session, item, or dataset memory and its derived retrieval artifacts | Deletion is tenant- and space-scoped, capability-gated, audited, transactionally paired with outbox work, and receipt-producing; no production `forgetAll` path exists |
 
-Lower-level compatibility operations such as `add`, `cognify`, `search`, and
-explicit dataset management may be exposed as adapters. They must lower into
-the same four lifecycle semantics and may not create an alternate authority
-path.
+Lower-level operations such as explicit dataset management may be exposed as
+native adapters. They must lower into the same four lifecycle semantics and
+may not create an alternate authority path.
 
 ## Ledger and persistence boundary
 
@@ -348,9 +346,9 @@ combined into one unreviewable change.
    existing paths so clients do not change.
 7. **Split adapters.** Separate Grust, Sail, and LakeCat integrations only after
    the transplant and qg-rust switch are green.
-8. **Establish the four-verb facade.** Add the native API and Cognee-compatible
-   adapter. Implement `improve` only over durable jobs, inert proposals,
-   TypeSec reauthorization, and guarded commits.
+8. **Establish the four-verb facade.** Add the native API. Implement `improve`
+   only over durable jobs, inert proposals, TypeSec reauthorization, and
+   guarded commits; no Cognee compatibility layer is required for completion.
 9. **Move clients after wire fixtures.** Extract generic Python and later
    JavaScript clients only after Rust request/response canonicalization and
    malformed-input fixtures are versioned.

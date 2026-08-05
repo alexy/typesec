@@ -25,11 +25,10 @@ by release version, then by the date the logical change landed.
   envelope references canonical `sha256:` digests with a cross-language golden
   fixture. Gateways now also reject signed cross-protocol message types after
   signature verification but before decryption or replay consumption.
-- Added `MARCIANA-PROJECT.md`, defining Marciana as a proposed standalone
-  QueryGraph-stack product and composition project with explicit TypeSec,
-  Grust, Sail, LakeCat, and QueryGraph ownership boundaries, four-verb API
-  semantics, dependency rules, extraction sequencing, compatibility policy,
-  and separate extraction and production-cognition acceptance gates.
+- Established `MARCIANA-PROJECT.md` as TypeSec's handoff for the accepted
+  standalone Marciana extraction, with native four-verb semantics, explicit
+  TypeSec, Grust, Sail, LakeCat, and QueryGraph ownership, dependency and
+  migration rules, and no Cognee compatibility requirement.
 - Added fail-closed Marciana proposal application with serializable governed
   bindings, fresh policy and authority revalidation, source-manifest and label
   checks, deterministic derived lineage, and a mandatory atomic store contract
