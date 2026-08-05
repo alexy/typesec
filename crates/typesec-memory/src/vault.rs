@@ -21,7 +21,7 @@ use typesec_core::{
 };
 
 use crate::error::MemoryError;
-use crate::index::SemanticIndex;
+use crate::index::{IndexMutation, IndexOutbox, SemanticIndex};
 use crate::label::{Clearance, Label};
 use crate::record::{MemoryContent, MemoryDraft, StoredRecord};
 use crate::space::{MemoryId, MemorySpace};
@@ -38,6 +38,7 @@ pub struct MemoryVault<S: MemoryStore> {
     store: S,
     engine: Option<Arc<dyn PolicyEngine>>,
     index: Option<Arc<dyn SemanticIndex>>,
+    index_outbox: Option<Arc<dyn IndexOutbox>>,
 }
 
 impl<S: MemoryStore> MemoryVault<S> {
@@ -47,6 +48,7 @@ impl<S: MemoryStore> MemoryVault<S> {
             store,
             engine: None,
             index: None,
+            index_outbox: None,
         }
     }
 
@@ -70,12 +72,29 @@ impl<S: MemoryStore> MemoryVault<S> {
         self
     }
 
+    /// Attach an outbox that records failed post-commit index mutations for
+    /// later repair. Outbox entries contain ids only, never memory plaintext.
+    #[must_use]
+    pub fn with_index_outbox(mut self, outbox: Arc<dyn IndexOutbox>) -> Self {
+        self.index_outbox = Some(outbox);
+        self
+    }
+
+    fn queue_index_repair(&self, mutation: IndexMutation) {
+        if let Some(outbox) = &self.index_outbox
+            && let Err(err) = outbox.push(mutation)
+        {
+            tracing::error!(%err, "semantic index repair could not be queued");
+        }
+    }
+
     /// Best-effort index maintenance with a warn on failure.
     fn index_record(&self, id: &MemoryId, label: Label, text: &str) {
         if let Some(index) = &self.index
             && let Err(err) = index.index(id, label, text)
         {
             tracing::warn!(%id, %err, "semantic index update failed");
+            self.queue_index_repair(IndexMutation::Upsert(id.clone()));
         }
     }
 
@@ -85,7 +104,56 @@ impl<S: MemoryStore> MemoryVault<S> {
             && let Err(err) = index.remove(id)
         {
             tracing::warn!(%id, %err, "semantic index removal failed");
+            self.queue_index_repair(IndexMutation::Remove(id.clone()));
         }
+    }
+
+    /// Retry failed semantic-index maintenance through the vault's private
+    /// record rehydration boundary. Returns the number of acknowledged
+    /// mutations. A failed mutation remains pending for a later retry.
+    pub fn repair_index(
+        &self,
+        space: &MemorySpace,
+        cap: &Capability<CanWrite, MemorySpace>,
+        ctx: &RequestContext,
+    ) -> Result<usize, MemoryError> {
+        self.authorize(space, cap, ctx)?;
+        let index = self
+            .index
+            .as_ref()
+            .ok_or(MemoryError::Store(crate::store::StoreError::Unsupported))?;
+        let outbox = self
+            .index_outbox
+            .as_ref()
+            .ok_or(MemoryError::Store(crate::store::StoreError::Unsupported))?;
+        let pending = outbox.pending().map_err(|err| {
+            MemoryError::Store(crate::store::StoreError::Backend(err.to_string()))
+        })?;
+        let mut repaired = 0;
+        for mutation in pending {
+            let result = match &mutation {
+                IndexMutation::Upsert(id) => match self.fetch_in_space(space, id) {
+                    Ok(record) if record.invalid_at.is_none() => {
+                        index.index(id, record.label, &record.content().text)
+                    }
+                    _ => index.remove(id),
+                },
+                IndexMutation::Remove(id) => index.remove(id),
+            };
+            if result.is_ok() {
+                outbox.ack(&mutation).map_err(|err| {
+                    MemoryError::Store(crate::store::StoreError::Backend(err.to_string()))
+                })?;
+                repaired += 1;
+            }
+        }
+        audit(
+            "memory:index_repair",
+            cap.subject(),
+            space,
+            &format!("repaired={repaired}"),
+        );
+        Ok(repaired)
     }
 
     /// Assemble a `StoredRecord` from a draft, resolving its label.

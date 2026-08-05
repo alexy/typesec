@@ -638,6 +638,74 @@ fn semantic_recall_ranks_through_the_label_gate() {
 }
 
 #[test]
+fn failed_index_updates_are_repaired_from_id_only_outbox() {
+    use crate::index::{InMemoryIndexOutbox, IndexError, IndexOutbox, KeywordIndex, SemanticIndex};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct FailFirstIndex {
+        failed: AtomicBool,
+        inner: KeywordIndex,
+    }
+
+    impl SemanticIndex for FailFirstIndex {
+        fn index(&self, id: &MemoryId, label: Label, text: &str) -> Result<(), IndexError> {
+            if !self.failed.swap(true, Ordering::SeqCst) {
+                return Err(IndexError::Backend("transient".to_owned()));
+            }
+            self.inner.index(id, label, text)
+        }
+
+        fn remove(&self, id: &MemoryId) -> Result<(), IndexError> {
+            self.inner.remove(id)
+        }
+
+        fn search(&self, query: &str, limit: usize) -> Result<Vec<MemoryId>, IndexError> {
+            self.inner.search(query, limit)
+        }
+    }
+
+    let space = MemorySpace::new("user:alice", "repair");
+    let outbox = Arc::new(InMemoryIndexOutbox::new());
+    let vault = MemoryVault::new(InMemoryStore::new())
+        .with_index(Arc::new(FailFirstIndex {
+            failed: AtomicBool::new(false),
+            inner: KeywordIndex::new(),
+        }))
+        .with_index_outbox(outbox.clone());
+    let write: Capability<CanWrite, _> = cap("agent:keeper", &space);
+    let read: Capability<CanRead, _> = cap("agent:keeper", &space);
+
+    vault
+        .remember(
+            &space,
+            &write,
+            draft("Venice repairable index", Provenance::Operator),
+        )
+        .unwrap();
+    assert_eq!(outbox.pending().unwrap().len(), 1);
+
+    assert_eq!(
+        vault
+            .repair_index(&space, &write, &RequestContext::default())
+            .unwrap(),
+        1
+    );
+    assert!(outbox.pending().unwrap().is_empty());
+    let (hits, _) = vault
+        .recall_semantic(
+            &space,
+            &read,
+            "venice",
+            10,
+            Label::Internal,
+            &RequestContext::default(),
+        )
+        .unwrap();
+    assert_eq!(hits.len(), 1);
+}
+
+#[test]
 fn consolidation_batches_all_writes_atomically() {
     // A custom store that counts apply_batch calls proves consolidation
     // emits a *single* batch rather than interleaved put/invalidate calls.

@@ -57,3 +57,29 @@ fn plan_is_empty_for_unrelated_or_identical_facts() {
         );
     }
 }
+
+#[test]
+fn cognition_proposal_records_snapshot_and_stays_inert() {
+    let source = MemoryId::from_string("mem-source");
+    let draft = MemoryDraft::new(
+        MemoryKind::Semantic,
+        MemoryContent::text("derived summary"),
+        Provenance::ModelText,
+    );
+    let proposal = CognitionProposal::new(
+        "job-1",
+        "snapshot-42",
+        "sha256:sources",
+        "community-summary",
+        "model-v3",
+        vec![source.clone()],
+        Label::Sensitive,
+    )
+    .with_drafts(vec![draft]);
+
+    assert_eq!(proposal.schema_version, CognitionProposal::SCHEMA_VERSION);
+    assert_eq!(proposal.source_ids, [source]);
+    assert_eq!(proposal.joined_label, Label::Sensitive);
+    assert_eq!(proposal.drafts.len(), 1);
+    assert!(proposal.plan.steps.is_empty());
+}

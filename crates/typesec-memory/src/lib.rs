@@ -67,8 +67,12 @@ pub mod store;
 pub mod vault;
 
 pub use error::MemoryError;
-pub use extract::{Episode, ExtractError, Extractor, MemorySummary, RuleExtractor};
-pub use index::{IndexError, KeywordIndex, SemanticIndex};
+pub use extract::{
+    CognitionProposal, Episode, ExtractError, Extractor, MemorySummary, RuleExtractor,
+};
+pub use index::{
+    InMemoryIndexOutbox, IndexError, IndexMutation, IndexOutbox, KeywordIndex, SemanticIndex,
+};
 pub use label::{Clearance, Label};
 pub use record::{EntityRef, MemoryContent, MemoryDraft, Provenance, StoredRecord};
 pub use space::{MemoryId, MemoryKind, MemorySpace};

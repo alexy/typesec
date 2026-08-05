@@ -13,9 +13,92 @@ pub mod ollama;
 #[cfg(feature = "ollama")]
 pub use ollama::OllamaExtractor;
 
+use crate::label::Label;
 use crate::record::{MemoryContent, MemoryDraft, Provenance};
-use crate::space::MemoryKind;
+use crate::space::{MemoryId, MemoryKind};
 use crate::vault::{ConsolidationPlan, ConsolidationStep};
+use chrono::{DateTime, Utc};
+
+/// Versioned, inert output from an external cognition job.
+///
+/// A proposal carries the input snapshot and sensitivity join needed for a
+/// trusted service to detect stale work and reauthorize application. It has no
+/// store handle and cannot mutate memory; drafts and plans must still enter
+/// through [`crate::MemoryVault::remember`] or
+/// [`crate::MemoryVault::consolidate`].
+#[derive(Debug, Clone)]
+pub struct CognitionProposal {
+    /// Proposal schema version.
+    pub schema_version: u32,
+    /// Idempotent scheduler/job identifier.
+    pub job_id: String,
+    /// Backend-specific snapshot/version read by the job.
+    pub input_snapshot: String,
+    /// Stable digest of the source records and relevant policy inputs.
+    pub source_digest: String,
+    /// Cognition algorithm name.
+    pub algorithm: String,
+    /// Cognition algorithm version or model identity.
+    pub algorithm_version: String,
+    /// Exact records used as evidence.
+    pub source_ids: Vec<MemoryId>,
+    /// Join of every source label as computed by the worker. The vault must
+    /// recompute this before application rather than trusting it.
+    pub joined_label: Label,
+    /// New memories proposed for guarded insertion.
+    pub drafts: Vec<MemoryDraft>,
+    /// Supersede/invalidate operations proposed for guarded consolidation.
+    pub plan: ConsolidationPlan,
+    /// Audit-safe evidence or explanation; must not contain source plaintext.
+    pub evidence: Vec<String>,
+    /// Proposal creation time.
+    pub created_at: DateTime<Utc>,
+}
+
+impl CognitionProposal {
+    /// Current proposal schema.
+    pub const SCHEMA_VERSION: u32 = 1;
+
+    /// Create an inert proposal with no mutations yet.
+    pub fn new(
+        job_id: impl Into<String>,
+        input_snapshot: impl Into<String>,
+        source_digest: impl Into<String>,
+        algorithm: impl Into<String>,
+        algorithm_version: impl Into<String>,
+        source_ids: Vec<MemoryId>,
+        joined_label: Label,
+    ) -> Self {
+        Self {
+            schema_version: Self::SCHEMA_VERSION,
+            job_id: job_id.into(),
+            input_snapshot: input_snapshot.into(),
+            source_digest: source_digest.into(),
+            algorithm: algorithm.into(),
+            algorithm_version: algorithm_version.into(),
+            source_ids,
+            joined_label,
+            drafts: Vec::new(),
+            plan: ConsolidationPlan::new(),
+            evidence: Vec::new(),
+            created_at: Utc::now(),
+        }
+    }
+
+    /// Attach proposed drafts.
+    #[must_use]
+    pub fn with_drafts(mut self, drafts: Vec<MemoryDraft>) -> Self {
+        self.drafts = drafts;
+        self
+    }
+
+    /// Attach a proposed consolidation plan.
+    #[must_use]
+    pub fn with_plan(mut self, plan: ConsolidationPlan) -> Self {
+        self.plan = plan;
+        self
+    }
+}
 
 /// A raw interaction to extract memories from.
 #[derive(Debug, Clone)]

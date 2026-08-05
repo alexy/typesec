@@ -21,6 +21,79 @@ use thiserror::Error;
 use crate::label::Label;
 use crate::space::MemoryId;
 
+/// Repair operation recorded after post-commit semantic-index maintenance
+/// fails. It contains only an id; plaintext is rehydrated inside the vault.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IndexMutation {
+    /// Re-read and index the current record.
+    Upsert(MemoryId),
+    /// Remove an id from the index.
+    Remove(MemoryId),
+}
+
+/// Durable-outbox seam for semantic index repair.
+pub trait IndexOutbox: Send + Sync {
+    /// Append a failed mutation. Implementations should coalesce by record id
+    /// where practical.
+    fn push(&self, mutation: IndexMutation) -> Result<(), IndexError>;
+
+    /// Return pending mutations in delivery order.
+    fn pending(&self) -> Result<Vec<IndexMutation>, IndexError>;
+
+    /// Acknowledge a successfully repaired mutation.
+    fn ack(&self, mutation: &IndexMutation) -> Result<(), IndexError>;
+}
+
+/// Process-local reference outbox. Production services can inject a durable
+/// transactional implementation through `MemoryVault::with_index_outbox`.
+#[derive(Debug, Default)]
+pub struct InMemoryIndexOutbox {
+    pending: std::sync::Mutex<Vec<IndexMutation>>,
+}
+
+impl InMemoryIndexOutbox {
+    /// Create an empty outbox.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl IndexOutbox for InMemoryIndexOutbox {
+    fn push(&self, mutation: IndexMutation) -> Result<(), IndexError> {
+        let mut pending = self
+            .pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        pending.retain(|queued| match (&mutation, queued) {
+            (IndexMutation::Upsert(id), IndexMutation::Upsert(other))
+            | (IndexMutation::Upsert(id), IndexMutation::Remove(other))
+            | (IndexMutation::Remove(id), IndexMutation::Upsert(other))
+            | (IndexMutation::Remove(id), IndexMutation::Remove(other)) => id != other,
+        });
+        pending.push(mutation);
+        Ok(())
+    }
+
+    fn pending(&self) -> Result<Vec<IndexMutation>, IndexError> {
+        Ok(self
+            .pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone())
+    }
+
+    fn ack(&self, mutation: &IndexMutation) -> Result<(), IndexError> {
+        let mut pending = self
+            .pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(position) = pending.iter().position(|queued| queued == mutation) {
+            pending.remove(position);
+        }
+        Ok(())
+    }
+}
+
 /// An index operation failed.
 #[derive(Debug, Error)]
 pub enum IndexError {

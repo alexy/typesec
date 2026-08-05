@@ -14,6 +14,10 @@ by release version, then by the date the logical change landed.
   payload limits, required-claim and action enforcement, and an injectable
   replay authority shared across gateways; replay claims now occur only after
   authenticated decryption succeeds.
+- Added inert, versioned cognition proposals and an injectable semantic-index
+  repair outbox. Failed post-commit index operations queue memory IDs rather
+  than plaintext and can be rehydrated and retried through an authorized vault
+  operation.
 
 ### 2026-07-16
 
