@@ -2,16 +2,20 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
+  <meta name="generator" content="pandoc 3.10.1" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-07-15" />
+  <meta name="dcterms.date" content="2026-08-05" />
   <title>Typesec</title>
   <style>
 
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 
 ul.task-list[class]{list-style: none;}
@@ -136,7 +140,7 @@ height: 0;
 <h1 class="title">Typesec</h1>
 <p class="subtitle">Type-Level Security for Agentic AI</p>
 <p class="author">Alexy Khrabrov</p>
-<p class="date">2026-07-15</p>
+<p class="date">2026-08-05</p>
 </header>
 <nav id="TOC" role="doc-toc">
 <ul>
@@ -806,8 +810,9 @@ Ollama</h2>
 modified Ollama server. The conservative path keeps Typesec in charge of
 reveal:</p>
 <pre class="text"><code>DID envelope arrives
+  -&gt; require authVersion = typesec.did-envelope-auth.v2
   -&gt; DidResolver resolves sender and recipient DID documents
-  -&gt; DidKeyStore verifies the sender signature
+  -&gt; DidKeyStore verifies the complete length-framed envelope transcript
   -&gt; DidKeyStore decrypts for the local recipient DID
   -&gt; DidMessageGateway returns VerifiedDidPrompt
   -&gt; prompt is SecureValue&lt;Secret, String, GenericResource&gt;
@@ -821,12 +826,22 @@ it:</p>
 <div class="sourceCode" id="cb37"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> verified <span class="op">=</span> gateway<span class="op">.</span>open_prompt(<span class="op">&amp;</span>envelope)<span class="op">?;</span></span>
 <span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> infer<span class="op">:</span> Capability<span class="op">&lt;</span>AiCanInfer<span class="op">,</span> _<span class="op">&gt;</span> <span class="op">=</span></span>
-<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>    mint_capability(engine<span class="op">,</span> verified<span class="op">.</span>subject<span class="op">.</span>as_str()<span class="op">,</span> <span class="op">&amp;</span>verified<span class="op">.</span>resource)<span class="op">?;</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>    mint_capability(engine<span class="op">,</span> verified<span class="op">.</span>subject()<span class="op">.</span>as_str()<span class="op">,</span> verified<span class="op">.</span>resource())<span class="op">?;</span></span>
 <span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> read<span class="op">:</span> Capability<span class="op">&lt;</span>CanReadSensitive<span class="op">,</span> _<span class="op">&gt;</span> <span class="op">=</span></span>
-<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>    mint_capability(engine<span class="op">,</span> verified<span class="op">.</span>subject<span class="op">.</span>as_str()<span class="op">,</span> <span class="op">&amp;</span>verified<span class="op">.</span>resource)<span class="op">?;</span></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>    mint_capability(engine<span class="op">,</span> verified<span class="op">.</span>subject()<span class="op">.</span>as_str()<span class="op">,</span> verified<span class="op">.</span>resource())<span class="op">?;</span></span>
 <span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> ollama <span class="op">=</span> <span class="pp">DidOllamaClient::</span>new(<span class="st">&quot;http://localhost:11434&quot;</span><span class="op">,</span> <span class="st">&quot;llama3.2&quot;</span>)<span class="op">;</span></span>
 <span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> response <span class="op">=</span> ollama<span class="op">.</span>chat_verified_prompt(verified<span class="op">,</span> <span class="op">&amp;</span>infer<span class="op">,</span> <span class="op">&amp;</span>read)<span class="op">?;</span></span></code></pre></div>
+<p>The gateway rejects missing, legacy, and unknown authentication
+versions. Version 2 length-frames and authenticates routing, timing,
+policy claims, conversation and reply metadata, key id, nonce, and
+ciphertext. Its verified prompt and TypeDID message types have private
+fields, so downstream code can read authenticated values through
+accessors but cannot forge gateway provenance. After signature
+verification, the DID-message gateway accepts only prompt and reply
+types and the TypeDID gateway accepts only TypeDID messages;
+cross-protocol envelopes are rejected before decryption or replay
+consumption.</p>
 <p>When the Ollama reply needs to travel with the same authority context
 as the prompt, Typesec can bind the assistant message back to the
 prompt:</p>
