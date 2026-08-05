@@ -30,6 +30,10 @@ by release version, then by the date the logical change landed.
   retention, quarantine, and purpose; result limits now apply only after those
   authoritative checks, ranked-record backend failures remain visible, and
   graph-read audits no longer log raw entity values.
+- Clarified cognition evidence semantics: bindings, durable audits, and signed
+  receipts retain the original LakeCat grant-receipt digest, while a separate
+  application-time decision identity represents freshly revalidated
+  authorization and policy evidence.
 - Added a borrow-scoped, non-constructible `VerifiedTypeDidContext` so
   downstream cognition can require identity, purpose, and request digests
   directly from a gateway-verified message while persisting only safe evidence.

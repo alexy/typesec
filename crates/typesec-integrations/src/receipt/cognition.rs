@@ -21,9 +21,10 @@ pub struct CognitionCommitReceipt {
     pub proposal_digest: String,
     /// Digest of the LakeCat-governed input snapshot.
     pub input_snapshot_digest: String,
-    /// Digest of the fresh policy decision used at application time.
+    /// Digest of the application-time decision identity derived from fresh
+    /// authorization and policy evidence.
     pub policy_decision_digest: String,
-    /// Digest of LakeCat's fresh authorization receipt.
+    /// Digest of LakeCat's original issue-time grant receipt.
     pub authorization_receipt_digest: String,
     /// Backend version observed before application.
     pub prior_version: String,

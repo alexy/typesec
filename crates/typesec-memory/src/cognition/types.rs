@@ -27,7 +27,8 @@ pub struct CognitionBinding {
     pub snapshot_digest: String,
     /// Digest of the opaque Sail plan-task token.
     pub plan_task_digest: String,
-    /// Digest of the authorization receipt; never the receipt itself.
+    /// Digest of the original issue-time LakeCat grant receipt; never the
+    /// receipt itself or a fresh application-time authorization result.
     pub authorization_receipt_digest: String,
     /// Exact policy-narrowed fields visible to cognition.
     pub effective_projection: Vec<String>,
@@ -94,13 +95,14 @@ pub struct CognitionAuthorityEvidence {
     pub snapshot_digest: String,
     /// Current opaque plan-task digest.
     pub plan_task_digest: String,
-    /// Current authorization-receipt digest.
+    /// Original issue-time grant receipt, revalidated without substitution.
     pub authorization_receipt_digest: String,
     /// Current policy-narrowed projection.
     pub effective_projection: Vec<String>,
     /// Verified TypeDID request digest.
     pub typedid_request_digest: String,
-    /// Stable policy decision identifier for audit and receipts.
+    /// Stable application-time decision identifier derived from fresh
+    /// authorization and policy evidence.
     pub policy_decision_id: String,
 }
 
@@ -180,9 +182,9 @@ pub struct CognitionAuditEvidence {
     pub typedid_request_digest: String,
     /// Governed scan proof digest.
     pub governed_scan_digest: String,
-    /// Authorization receipt digest.
+    /// Original issue-time LakeCat grant receipt digest.
     pub authorization_receipt_digest: String,
-    /// Fresh policy decision id.
+    /// Application-time decision id derived from fresh authority evidence.
     pub policy_decision_id: String,
     /// Digest of worker evidence; worker strings themselves are not persisted.
     pub evidence_digest: String,
