@@ -24,6 +24,9 @@ by release version, then by the date the logical change landed.
 - Recorded the first QueryGraph-native Marciana cognition implementation:
   Grust proposal planning, LakeCat governed Sail-scan proofs, and qg-rust
   TypeDID identity/purpose composition, with no Cognee dependency.
+- Reconciled the Marciana roadmap with that delivery and defined the remaining
+  production goal: live Sail cognition, durable governed proposal application,
+  atomic Grust mutation/outbox delivery, receipts, and failure-mode tests.
 
 ### 2026-07-16
 

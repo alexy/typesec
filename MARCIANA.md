@@ -269,8 +269,13 @@ MemoryVault
 - [ ] Add transactional store/outbox implementations in QueryGraph.
 - [ ] Add durable job state, leases, cancellation, bounded retry, and
   idempotent application.
-- [ ] Build a Cognee Rust adapter for extraction, temporal enrichment, entity
-  resolution, summaries, communities, and hybrid candidate ranking.
+- [x] Define native Grust cognition contracts for deduplication and
+  reconciliation, with a reference engine and an injectable Sail executor.
+- [x] Bind cognition inputs to LakeCat snapshot, projection, subject, purpose,
+  plan-token digest, and authorization-receipt digest evidence.
+- [ ] Implement the live `grust-sail` cognition executor for extraction,
+  temporal enrichment, entity resolution, summaries, communities, and hybrid
+  candidate ranking. Cognee remains design inspiration only.
 
 ### P1: assertion provenance and conflict
 
@@ -328,11 +333,14 @@ The program is complete only when all of the following hold:
 ## Delivery boundary
 
 This repository now contains the security fixes and reusable seams listed as
-implemented above. It does not contain the external Cognee Rust or Akka/Fluree
-applications, nor the hosted QueryGraph control database. Consequently,
-durable replay, transactional record-plus-outbox delivery, Cognee adapters,
-and Fluree/Grust commit-backed receipts remain cross-repository work. They are
-requirements here, not falsely reported as shipped behavior.
+implemented above. The cross-repository implementation uses Grust storage,
+LakeCat catalog evidence, TypeSec governance, and QueryGraph composition; it
+does not depend on Cognee or reproduce Cognee's store adapters. It does not yet
+contain the live Sail cognition executor, hosted QueryGraph control database,
+or durable proposal-application service. Durable replay, transactional
+record-plus-outbox delivery, and Grust commit-backed receipts therefore remain
+cross-repository work. They are requirements here, not falsely reported as
+shipped behavior.
 
 ## QueryGraph-native implementation update
 
@@ -350,6 +358,43 @@ Cognee dependency:
   cross-checks its subject and purpose against the verified TypeDID request,
   and receives an inert proposal for later vault application.
 
-The next implementation increment is a live `grust-sail` executor and durable
-proposal application workflow. Those remain unchecked above until tested
-against a running Sail service and an authoritative Grust store.
+### Status at handoff
+
+The governed vertical slice is implemented and verified:
+
+- Grust owns cognition requests, governed LakeCat snapshot inputs, reference
+  deduplication/reconciliation, and the `SailCognitionExecutor` boundary.
+- LakeCat owns the secret-free governed scan proof.
+- TypeSec owns verified identity and obligations, inert proposals, vault
+  authorization, label joins, and index-repair seams.
+- QueryGraph cross-checks the LakeCat subject and purpose against the verified
+  TypeDID request before asking Grust to produce a proposal.
+- Cognee is neither linked nor required; Grust remains the authoritative data
+  substrate.
+
+This slice has unit and integration coverage in its owning repositories, but
+it stops before live distributed execution and durable mutation.
+
+### Next execution goal: production cognition completion
+
+The next goal is complete only when the following sequence works against a
+running Sail service and an authoritative Grust store:
+
+1. Implement a `grust-sail` `SailCognitionExecutor` that submits governed
+   extraction, temporal enrichment, entity resolution, summarization,
+   community, deduplication, reconciliation, and hybrid-ranking work.
+2. Carry the LakeCat scan proof and verified TypeDID request through execution
+   without exposing raw plan tokens, authorization receipts, or plaintext in
+   queues and logs.
+3. Persist proposal/job state with leases, bounded retry, cancellation, and
+   idempotency; worker loss must not partially mutate memory.
+4. Apply proposals only through the TypeSec vault after revalidating the
+   source snapshot and digest, authorization, effective projection, and joined
+   source labels.
+5. Commit the memory mutation and ID-only index outbox atomically in Grust,
+   then produce audit evidence and a commit-bound TypeDID receipt.
+6. Add running-service tests for stale proposals, revoked authority, changed
+   snapshots, cross-tenant or purpose mismatch, retry after response loss,
+   worker failure, and outbox recovery.
+7. Mark the corresponding program items complete only after the cross-repo
+   test suite and strict lint checks pass.
