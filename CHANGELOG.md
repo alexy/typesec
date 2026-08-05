@@ -17,7 +17,9 @@ by release version, then by the date the logical change landed.
   directly from a gateway-verified message while persisting only safe evidence.
 - Added signed Marciana cognition commit receipts binding the verified TypeDID
   request, governed snapshot and authorization evidence, proposal and policy
-  digests, affected IDs, backend versions, and durable Grust commit identity.
+  digests, affected IDs, backend versions, and durable Grust commit identity;
+  retry-delivery status stays outside signed claims so response recovery
+  reproduces the identical receipt token.
 - Preserved negotiated policy-visible TypeDID claims in audit-safe verified
   attestations, allowing governed cognition to bind purpose and agent context
   to signed envelope state without retaining payload or signature material.

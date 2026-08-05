@@ -33,8 +33,6 @@ pub struct CognitionCommitReceipt {
     pub affected_ids: Vec<String>,
     /// Durable Grust commit identity.
     pub backend_commit_id: String,
-    /// Whether this response recovered a previously committed application.
-    pub replayed: bool,
     /// Backend commit time; used as the stable receipt issue time.
     pub committed_at: DateTime<Utc>,
     /// Receipt expiry.
@@ -64,7 +62,6 @@ impl CognitionCommitReceipt {
             resulting_version: String::new(),
             affected_ids: Vec::new(),
             backend_commit_id: backend_commit_id.into(),
-            replayed: false,
             committed_at,
             expires_at: committed_at + ttl,
         }

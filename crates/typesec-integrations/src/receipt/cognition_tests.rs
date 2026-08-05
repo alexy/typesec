@@ -27,6 +27,7 @@ fn cognition_receipt_round_trips_all_commit_evidence() {
     let issuer = ReceiptIssuer::new(SigningKey::from_bytes(&[11; 32]));
     let receipt = claims();
     let token = issuer.issue_cognition(&receipt).unwrap();
+    assert_eq!(token, issuer.issue_cognition(&receipt).unwrap());
     let verified = ReceiptVerifier::new(issuer.verifying_key())
         .verify_cognition(&token, receipt.committed_at + TimeDelta::seconds(1))
         .unwrap();
