@@ -23,10 +23,10 @@ pub use did::{
     A2aTypeDidAdapter, AcpTypeDidAdapter, BandSecureEnvelopeAdapter, Did, DidDocument, DidEnvelope,
     DidError, DidKeyStore, DidMessageBody, DidMessageGateway, DidMessageReference, DidOllamaClient,
     DidReplyBinding, DidResolver, DidService, Ed25519DidKey, Ed25519DidKeyStore,
-    HttpTypeDidAdapter, SecureEnvelopeAdapter, StaticDidResolver, StaticTypeDidProfileResolver,
-    TypeDidAttestation, TypeDidConversation, TypeDidGateway, TypeDidMode, TypeDidProfile,
-    TypeDidProfileResolver, TypeDidWrapRequest, VerificationMethod, VerifiedDidPrompt,
-    VerifiedTypeDidMessage,
+    HttpTypeDidAdapter, InMemoryReplayStore, NegotiatedTypeDidProfile, ReplayStore,
+    SecureEnvelopeAdapter, StaticDidResolver, StaticTypeDidProfileResolver, TypeDidAttestation,
+    TypeDidConversation, TypeDidGateway, TypeDidMode, TypeDidProfile, TypeDidProfileResolver,
+    TypeDidWrapRequest, VerificationMethod, VerifiedDidPrompt, VerifiedTypeDidMessage,
 };
 #[cfg(feature = "demo-crypto")]
 pub use did::{DemoDidKeyPair, DemoDidKeyStore};

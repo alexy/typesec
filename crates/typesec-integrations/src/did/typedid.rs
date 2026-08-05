@@ -102,6 +102,24 @@ pub struct TypeDidProfile {
     pub audit: Option<String>,
 }
 
+/// Effective security and policy obligations selected from a compatible local
+/// and remote TypeDID profile pair.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NegotiatedTypeDidProfile {
+    /// Stable profile identifier carried in the signed conversation metadata.
+    pub id: String,
+    /// Strictest payload cap advertised by either peer.
+    pub max_payload_bytes: Option<usize>,
+    /// Union of claims required by either peer.
+    pub required_claims: Vec<String>,
+    /// Actions accepted by both peers.
+    pub policy_actions: Vec<String>,
+    /// Agreed retention posture.
+    pub retention: Option<String>,
+    /// Agreed audit posture.
+    pub audit: Option<String>,
+}
+
 impl TypeDidProfile {
     /// Default local TypeDID profile backed by the built-in Ed25519/X25519
     /// key store.
@@ -154,20 +172,61 @@ impl TypeDidProfile {
     }
 
     /// Select the first local profile compatible with the remote boundary.
-    pub fn negotiate<'a>(
-        local: &'a [Self],
+    pub fn negotiate(
+        local: &[Self],
         remote: &[Self],
         protocol: &str,
         mode: TypeDidMode,
-    ) -> Result<&'a Self, DidError> {
-        local
-            .iter()
-            .find(|candidate| {
-                remote
+    ) -> Result<NegotiatedTypeDidProfile, DidError> {
+        for candidate in local {
+            for other in remote {
+                if !candidate.is_compatible_with(other, protocol, mode) {
+                    continue;
+                }
+                if candidate.retention.is_some()
+                    && other.retention.is_some()
+                    && candidate.retention != other.retention
+                {
+                    continue;
+                }
+                if candidate.audit.is_some()
+                    && other.audit.is_some()
+                    && candidate.audit != other.audit
+                {
+                    continue;
+                }
+                let mut required_claims = candidate.required_claims.clone();
+                for claim in &other.required_claims {
+                    if !required_claims.contains(claim) {
+                        required_claims.push(claim.clone());
+                    }
+                }
+                let policy_actions = candidate
+                    .policy_actions
                     .iter()
-                    .any(|other| candidate.is_compatible_with(other, protocol, mode))
-            })
-            .ok_or(DidError::NoCompatibleTypeDidProfile)
+                    .filter(|action| other.policy_actions.contains(action))
+                    .cloned()
+                    .collect();
+                let max_payload_bytes = match (candidate.max_payload_bytes, other.max_payload_bytes)
+                {
+                    (Some(a), Some(b)) => Some(a.min(b)),
+                    (Some(a), None) | (None, Some(a)) => Some(a),
+                    (None, None) => None,
+                };
+                return Ok(NegotiatedTypeDidProfile {
+                    id: candidate.id.clone(),
+                    max_payload_bytes,
+                    required_claims,
+                    policy_actions,
+                    retention: candidate
+                        .retention
+                        .clone()
+                        .or_else(|| other.retention.clone()),
+                    audit: candidate.audit.clone().or_else(|| other.audit.clone()),
+                });
+            }
+        }
+        Err(DidError::NoCompatibleTypeDidProfile)
     }
 }
 
@@ -232,6 +291,14 @@ pub trait SecureEnvelopeAdapter {
             self.protocol(),
             request.mode,
         )?;
+        if !profile.policy_actions.contains(&request.body.action) {
+            return Err(DidError::ActionNotNegotiated(request.body.action.clone()));
+        }
+        for claim in &profile.required_claims {
+            if !request.body.claims.contains_key(claim) {
+                return Err(DidError::MissingRequiredClaim(claim.clone()));
+            }
+        }
         // Enforce the negotiated payload-size cap (a DoS/amplification guard at
         // the gateway boundary) rather than merely advertising it.
         if let Some(max) = profile.max_payload_bytes
@@ -245,7 +312,7 @@ pub trait SecureEnvelopeAdapter {
         let conversation = TypeDidConversation::new(
             request.conversation_id,
             request.mode,
-            profile.id.clone(),
+            profile.id,
             self.protocol(),
         );
         DidEnvelope::typedid(

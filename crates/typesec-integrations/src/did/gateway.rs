@@ -1,7 +1,6 @@
 //! Envelope-verifying gateways and the verified-message/attestation types.
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use typesec_core::{SecureValue, resource::GenericResource, secure_value::Secret};
@@ -12,6 +11,7 @@ use super::envelope::{DidEnvelope, DidMessageBody, DidMessageReference};
 use super::error::DidError;
 use super::identifier::Did;
 use super::keystore::DidKeyStore;
+use super::replay::{InMemoryReplayStore, ReplayStore};
 use super::typedid::{TypeDidConversation, TypeDidMode};
 
 /// Verified and decrypted TypeDID agent message.
@@ -106,9 +106,7 @@ pub struct DidMessageGateway {
     resolver: Arc<dyn DidResolver>,
     key_store: Arc<dyn DidKeyStore>,
     recipient: Did,
-    /// Signatures of already-opened envelopes mapped to their expiry, for replay
-    /// rejection. Pruned to the active (non-expired) window on each open.
-    seen: Mutex<HashMap<String, u64>>,
+    replay_store: Arc<dyn ReplayStore>,
 }
 
 impl DidMessageGateway {
@@ -122,20 +120,27 @@ impl DidMessageGateway {
             resolver,
             key_store,
             recipient,
-            seen: Mutex::new(HashMap::new()),
+            replay_store: Arc::new(InMemoryReplayStore::new()),
         }
+    }
+
+    /// Use a shared replay authority. Production replicas should inject a
+    /// durable, strongly consistent implementation.
+    #[must_use]
+    pub fn with_replay_store(mut self, replay_store: Arc<dyn ReplayStore>) -> Self {
+        self.replay_store = replay_store;
+        self
     }
 
     /// Reject an envelope already opened within its validity window (replay).
     /// Call only after the signature has verified, so the cache holds only
     /// authentic envelopes.
     fn guard_replay(&self, envelope: &DidEnvelope, now: u64) -> Result<(), DidError> {
-        let mut seen = self.seen.lock().unwrap_or_else(PoisonError::into_inner);
-        seen.retain(|_, expires| *expires >= now);
-        if seen
-            .insert(envelope.signature.clone(), envelope.expires_time)
-            .is_some()
-        {
+        let claimed = self
+            .replay_store
+            .claim(&envelope.signature, envelope.expires_time, now)
+            .map_err(DidError::ReplayStore)?;
+        if !claimed {
             return Err(DidError::Replayed(envelope.id.clone()));
         }
         Ok(())
@@ -179,9 +184,6 @@ impl DidMessageGateway {
             &envelope.signature,
         )?;
 
-        // Signature is authentic: reject a replay of an already-seen envelope.
-        self.guard_replay(envelope, now)?;
-
         // Decryption uses the sender's *key-agreement* key, which may be a
         // different key (X25519) than the authentication key (Ed25519). During
         // key rotation, older in-flight envelopes may have used a previous
@@ -208,6 +210,10 @@ impl DidMessageGateway {
             }
         }
         let plaintext = plaintext.ok_or(DidError::DecryptionFailed)?;
+        // Consume the replay claim only after the authenticated ciphertext has
+        // decrypted successfully. A valid signature over an undecryptable
+        // envelope must not poison a later delivery attempt.
+        self.guard_replay(envelope, now)?;
         let resource = GenericResource::new(&envelope.body.resource, "did-prompt");
 
         Ok(OpenedDidEnvelope {
@@ -244,6 +250,13 @@ impl TypeDidGateway {
         Self {
             inner: DidMessageGateway::new(resolver, key_store, recipient),
         }
+    }
+
+    /// Use a shared replay authority for this TypeDID gateway.
+    #[must_use]
+    pub fn with_replay_store(mut self, replay_store: Arc<dyn ReplayStore>) -> Self {
+        self.inner = self.inner.with_replay_store(replay_store);
+        self
     }
 
     /// Verify, decrypt, and protect a TypeDID message envelope.

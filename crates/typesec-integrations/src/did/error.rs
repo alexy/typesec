@@ -104,4 +104,13 @@ pub enum DidError {
     /// Local and remote TypeDID profiles did not overlap.
     #[error("no compatible TypeDID profile")]
     NoCompatibleTypeDidProfile,
+    /// The requested action is outside the negotiated profile.
+    #[error("TypeDID action is not allowed by the negotiated profile: {0}")]
+    ActionNotNegotiated(String),
+    /// A claim required by the negotiated profile is absent.
+    #[error("TypeDID required claim is missing: {0}")]
+    MissingRequiredClaim(String),
+    /// The configured replay authority failed closed.
+    #[error("TypeDID replay authority failed: {0}")]
+    ReplayStore(String),
 }

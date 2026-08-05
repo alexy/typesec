@@ -1,6 +1,7 @@
 //! DID message bodies, references, and the encrypted envelope type.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use super::crypto::{
     canonical_typedid_conversation, hex_encode, random_nonce, sha256_tagged, unix_time,
@@ -21,6 +22,11 @@ pub struct DidMessageBody {
     pub resource: String,
     /// Payload privacy label, such as `secret`.
     pub privacy: String,
+    /// Verifiable or policy-visible claims required by the negotiated TypeDID
+    /// profile. Values are application-defined; transports must not invent
+    /// missing claims during negotiation.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub claims: BTreeMap<String, String>,
     /// Prompt envelope this message is bound to, for reply envelopes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<DidMessageReference>,
@@ -33,6 +39,7 @@ impl DidMessageBody {
             action: "ai:infer".to_owned(),
             resource: resource.into(),
             privacy: "secret".to_owned(),
+            claims: BTreeMap::new(),
             reply_to: None,
         }
     }
@@ -43,6 +50,7 @@ impl DidMessageBody {
             action: prompt.body.action.clone(),
             resource: prompt.body.resource.clone(),
             privacy: prompt.body.privacy.clone(),
+            claims: prompt.body.claims.clone(),
             reply_to: Some(prompt.prompt_ref.clone()),
         }
     }
@@ -53,6 +61,7 @@ impl DidMessageBody {
             action: "agent:message".to_owned(),
             resource: resource.into(),
             privacy: privacy.into(),
+            claims: BTreeMap::new(),
             reply_to: None,
         }
     }
@@ -63,8 +72,16 @@ impl DidMessageBody {
             action: "agent:delegate".to_owned(),
             resource: resource.into(),
             privacy: privacy.into(),
+            claims: BTreeMap::new(),
             reply_to: None,
         }
+    }
+
+    /// Attach a claim for TypeDID profile-obligation validation.
+    #[must_use]
+    pub fn with_claim(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.claims.insert(name.into(), value.into());
+        self
     }
 }
 
@@ -227,6 +244,7 @@ impl DidEnvelope {
                 action: prompt_body.action.clone(),
                 resource: prompt_body.resource.clone(),
                 privacy: prompt_body.privacy.clone(),
+                claims: prompt_body.claims.clone(),
                 reply_to: Some(prompt_ref),
             },
             None,

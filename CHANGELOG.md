@@ -10,6 +10,10 @@ by release version, then by the date the logical change landed.
 - Closed Marciana's alternate-read policy gap by requiring request context on
   graph recall, semantic recall, and sensitive reveal, so purpose and other
   use-time constraints apply consistently to every content path.
+- Strengthened TypeDID negotiation with effective peer obligations, strictest
+  payload limits, required-claim and action enforcement, and an injectable
+  replay authority shared across gateways; replay claims now occur only after
+  authenticated decryption succeeds.
 
 ### 2026-07-16
 

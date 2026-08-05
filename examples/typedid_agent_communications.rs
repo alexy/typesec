@@ -24,6 +24,12 @@ use typesec_integrations::{
     TypeDidGateway, TypeDidMode, TypeDidProfile, TypeDidWrapRequest,
 };
 
+fn profiled_body(body: DidMessageBody) -> DidMessageBody {
+    body.with_claim("org", "acme")
+        .with_claim("agent_id", "agent:demo")
+        .with_claim("purpose", "demonstration")
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== TypeDID Agent Communications Demo ===\n");
 
@@ -59,7 +65,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             to: reviewer.clone(),
             conversation_id: "task/review-42".to_owned(),
             mode: TypeDidMode::RequestReply,
-            body: DidMessageBody::agent_delegate("room/release-review", "secret"),
+            body: profiled_body(DidMessageBody::agent_delegate(
+                "room/release-review",
+                "secret",
+            )),
             payload: br#"{"jsonrpc":"2.0","method":"message/send","params":{"text":"review the release diff"}}"#,
             local_profiles: &local_profiles,
             remote_profiles: &remote_profiles,
@@ -97,7 +106,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             to: reviewer.clone(),
             conversation_id: "session/editor-7".to_owned(),
             mode: TypeDidMode::Send,
-            body: DidMessageBody::agent_message("room/release-review", "secret"),
+            body: profiled_body(DidMessageBody::agent_message(
+                "room/release-review",
+                "secret",
+            )),
             payload: b"private editor context: staged files and reviewer notes",
             local_profiles: &local_profiles,
             remote_profiles: &remote_profiles,
@@ -122,7 +134,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             to: reviewer,
             conversation_id: "room/release-review".to_owned(),
             mode: TypeDidMode::Send,
-            body: DidMessageBody::agent_message("room/release-review", "secret"),
+            body: profiled_body(DidMessageBody::agent_message(
+                "room/release-review",
+                "secret",
+            )),
             payload: b"room message: coordinate reviewer and docs agents",
             local_profiles: &local_profiles,
             remote_profiles: &remote_profiles,

@@ -6,6 +6,12 @@ use super::super::crypto::unix_time;
 use super::super::*;
 use super::common::*;
 
+fn profiled_body(body: DidMessageBody) -> DidMessageBody {
+    body.with_claim("org", "acme")
+        .with_claim("agent_id", "agent:support")
+        .with_claim("purpose", "support")
+}
+
 #[test]
 fn typedid_profile_negotiates_on_protocol_and_mode() {
     let local = vec![TypeDidProfile::ed25519_x25519_chacha20()];
@@ -17,6 +23,99 @@ fn typedid_profile_negotiates_on_protocol_and_mode() {
     assert!(matches!(
         TypeDidProfile::negotiate(&local, &remote, "smtp", TypeDidMode::Send),
         Err(DidError::NoCompatibleTypeDidProfile)
+    ));
+}
+
+#[test]
+fn typedid_negotiation_uses_strictest_cap_and_combines_obligations() {
+    let mut local = TypeDidProfile::ed25519_x25519_chacha20();
+    local.max_payload_bytes = Some(1024);
+    local.required_claims = vec!["local_claim".to_owned()];
+    let mut remote = TypeDidProfile::ed25519_x25519_chacha20();
+    remote.max_payload_bytes = Some(128);
+    remote.required_claims = vec!["remote_claim".to_owned()];
+
+    let selected =
+        TypeDidProfile::negotiate(&[local], &[remote], "https", TypeDidMode::RequestReply)
+            .expect("compatible profile");
+    assert_eq!(selected.max_payload_bytes, Some(128));
+    assert_eq!(selected.required_claims, ["local_claim", "remote_claim"]);
+    assert!(
+        selected
+            .policy_actions
+            .contains(&"agent:message".to_owned())
+    );
+}
+
+#[test]
+fn typedid_wrap_rejects_missing_claims_and_unnegotiated_actions() {
+    let (alice, agent, resolver, keys) = fixture();
+    let profiles = vec![TypeDidProfile::ed25519_x25519_chacha20()];
+    let adapter = A2aTypeDidAdapter;
+    let missing = adapter.wrap(
+        TypeDidWrapRequest {
+            id: "missing-claims".to_owned(),
+            from: alice.clone(),
+            to: agent.clone(),
+            conversation_id: "task/claims".to_owned(),
+            mode: TypeDidMode::Send,
+            body: DidMessageBody::agent_message("room/test", "internal"),
+            payload: b"payload",
+            local_profiles: &profiles,
+            remote_profiles: &profiles,
+        },
+        &resolver,
+        &keys,
+    );
+    assert!(matches!(missing, Err(DidError::MissingRequiredClaim(_))));
+
+    let mut body = profiled_body(DidMessageBody::agent_message("room/test", "internal"));
+    body.action = "memory:forget".to_owned();
+    let action = adapter.wrap(
+        TypeDidWrapRequest {
+            id: "bad-action".to_owned(),
+            from: alice,
+            to: agent,
+            conversation_id: "task/action".to_owned(),
+            mode: TypeDidMode::Send,
+            body,
+            payload: b"payload",
+            local_profiles: &profiles,
+            remote_profiles: &profiles,
+        },
+        &resolver,
+        &keys,
+    );
+    assert!(matches!(action, Err(DidError::ActionNotNegotiated(_))));
+}
+
+#[test]
+fn shared_replay_store_rejects_replay_across_gateway_instances() {
+    let (alice, agent, resolver, keys) = ed25519_fixture();
+    let envelope = DidEnvelope::prompt(
+        "shared-replay",
+        alice,
+        agent.clone(),
+        DidMessageBody::infer_prompt("prompt/shared"),
+        b"payload",
+        &resolver,
+        &keys,
+    )
+    .expect("envelope");
+    let replay = Arc::new(InMemoryReplayStore::new());
+    let first = DidMessageGateway::new(
+        Arc::new(resolver.clone()),
+        Arc::new(keys.clone()),
+        agent.clone(),
+    )
+    .with_replay_store(replay.clone());
+    let second =
+        DidMessageGateway::new(Arc::new(resolver), Arc::new(keys), agent).with_replay_store(replay);
+
+    first.open_prompt(&envelope).expect("first gateway claims");
+    assert!(matches!(
+        second.open_prompt(&envelope),
+        Err(DidError::Replayed(_))
     ));
 }
 
@@ -35,7 +134,10 @@ fn typedid_adapter_wraps_and_gateway_opens_opaque_payload() {
                 to: agent.clone(),
                 conversation_id: "task/a2a-123".to_owned(),
                 mode: TypeDidMode::RequestReply,
-                body: DidMessageBody::agent_delegate("room/acme-support", "secret"),
+                body: profiled_body(DidMessageBody::agent_delegate(
+                    "room/acme-support",
+                    "secret",
+                )),
                 payload,
                 local_profiles: &profiles,
                 remote_profiles: &profiles,
@@ -90,7 +192,10 @@ fn typedid_wrap_enforces_negotiated_payload_cap() {
             to: agent,
             conversation_id: "task/a2a-456".to_owned(),
             mode: TypeDidMode::RequestReply,
-            body: DidMessageBody::agent_delegate("room/acme-support", "secret"),
+            body: profiled_body(DidMessageBody::agent_delegate(
+                "room/acme-support",
+                "secret",
+            )),
             payload: b"this payload is nine+ bytes",
             local_profiles: &profiles,
             remote_profiles: &profiles,

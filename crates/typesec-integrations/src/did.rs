@@ -22,6 +22,7 @@ mod keystore;
 #[cfg(any(test, feature = "demo-crypto"))]
 mod keystore_demo;
 mod ollama;
+mod replay;
 mod typedid;
 
 pub use document::{DidDocument, DidResolver, DidService, StaticDidResolver, VerificationMethod};
@@ -36,10 +37,11 @@ pub use keystore::{DidKeyStore, Ed25519DidKey, Ed25519DidKeyStore};
 #[cfg(any(test, feature = "demo-crypto"))]
 pub use keystore_demo::{DemoDidKeyPair, DemoDidKeyStore};
 pub use ollama::DidOllamaClient;
+pub use replay::{InMemoryReplayStore, ReplayStore};
 pub use typedid::{
     A2aTypeDidAdapter, AcpTypeDidAdapter, BandSecureEnvelopeAdapter, HttpTypeDidAdapter,
-    SecureEnvelopeAdapter, StaticTypeDidProfileResolver, TypeDidConversation, TypeDidMode,
-    TypeDidProfile, TypeDidProfileResolver, TypeDidWrapRequest,
+    NegotiatedTypeDidProfile, SecureEnvelopeAdapter, StaticTypeDidProfileResolver,
+    TypeDidConversation, TypeDidMode, TypeDidProfile, TypeDidProfileResolver, TypeDidWrapRequest,
 };
 
 #[cfg(test)]
