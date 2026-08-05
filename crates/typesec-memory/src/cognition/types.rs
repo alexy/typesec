@@ -234,6 +234,10 @@ pub struct CognitionCommitOutcome {
     pub resulting_version: String,
     /// Stable affected IDs, identical on retry.
     pub affected_ids: Vec<MemoryId>,
+    /// Authoritative backend commit time, identical on retry.
+    pub committed_at: DateTime<Utc>,
+    /// Exact plaintext-free audit evidence persisted in the same transaction.
+    pub audit: CognitionAuditEvidence,
 }
 
 /// Atomic cognition transaction failure.

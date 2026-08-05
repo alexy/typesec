@@ -185,6 +185,7 @@ impl CognitionCommitStore for TransactionalTestStore {
 
         let prior = state.version;
         let resulting = prior + 1;
+        let audit = commit.audit.clone();
         let outcome = CognitionCommitOutcome {
             status: CognitionCommitStatus::Applied,
             backend_commit_hash: format!(
@@ -194,11 +195,13 @@ impl CognitionCommitStore for TransactionalTestStore {
             prior_version: prior.to_string(),
             resulting_version: resulting.to_string(),
             affected_ids: commit.audit.affected_ids.clone(),
+            committed_at: commit.audit.prepared_at,
+            audit: audit.clone(),
         };
         state.records = next_records;
         state.version = resulting;
         state.outbox.extend(commit.index_outbox);
-        state.audits.push(commit.audit);
+        state.audits.push(audit);
         state.applications.insert(
             commit.idempotency_key,
             StoredApplication {
