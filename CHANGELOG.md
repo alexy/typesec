@@ -7,6 +7,9 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Preserved negotiated policy-visible TypeDID claims in audit-safe verified
+  attestations, allowing governed cognition to bind purpose and agent context
+  to signed envelope state without retaining payload or signature material.
 - Closed Marciana's alternate-read policy gap by requiring request context on
   graph recall, semantic recall, and sensitive reveal, so purpose and other
   use-time constraints apply consistently to every content path.

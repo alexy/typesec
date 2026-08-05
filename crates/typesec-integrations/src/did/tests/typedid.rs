@@ -217,7 +217,8 @@ fn typedid_verified_message_exposes_audit_safe_attestation() {
         "typedid-attestation-1",
         alice.clone(),
         agent.clone(),
-        DidMessageBody::agent_message("lakecat:table:events", "internal"),
+        DidMessageBody::agent_message("lakecat:table:events", "internal")
+            .with_claim("purpose", "research"),
         TypeDidConversation::new(
             "conversation-1",
             TypeDidMode::RequestReply,
@@ -239,6 +240,10 @@ fn typedid_verified_message_exposes_audit_safe_attestation() {
     assert_eq!(attestation.action, "agent:message");
     assert_eq!(attestation.resource, "lakecat:table:events");
     assert_eq!(attestation.privacy, "internal");
+    assert_eq!(
+        attestation.claims.get("purpose").map(String::as_str),
+        Some("research")
+    );
     assert_eq!(attestation.protocol, "a2a");
     assert_eq!(attestation.mode, TypeDidMode::RequestReply);
     let serialized = serde_json::to_string(&attestation).unwrap();

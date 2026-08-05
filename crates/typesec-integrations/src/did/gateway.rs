@@ -1,5 +1,6 @@
 //! Envelope-verifying gateways and the verified-message/attestation types.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -51,6 +52,11 @@ pub struct TypeDidAttestation {
     pub resource: String,
     /// Policy-visible privacy class.
     pub privacy: String,
+    /// Signed, policy-visible claims required by the negotiated profile.
+    /// These may include purpose, organization, and agent identity, but never
+    /// payload plaintext or raw signature material.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub claims: BTreeMap<String, String>,
     /// TypeDID conversation id.
     pub conversation_id: String,
     /// TypeDID transport/protocol family.
@@ -74,6 +80,7 @@ impl VerifiedTypeDidMessage {
             action: self.body.action.clone(),
             resource: self.body.resource.clone(),
             privacy: self.body.privacy.clone(),
+            claims: self.body.claims.clone(),
             conversation_id: self.conversation.conversation_id.clone(),
             protocol: self.conversation.protocol.clone(),
             mode: self.conversation.mode,
