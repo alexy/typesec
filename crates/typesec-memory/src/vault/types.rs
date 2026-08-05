@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::label::{Clearance, Label};
-use crate::record::{EntityRef, MemoryContent, MemoryDraft, Provenance};
+use crate::record::{EntityRef, MemoryContent, MemoryDraft, Provenance, StoredRecord};
 use crate::space::{MemoryId, MemoryKind};
 use crate::store::StoreQuery;
 
@@ -78,6 +78,20 @@ pub struct RecalledMemory {
     pub provenance: Provenance,
     /// When the fact became true.
     pub valid_from: DateTime<Utc>,
+}
+
+impl RecalledMemory {
+    pub(crate) fn from_record(record: &StoredRecord) -> Self {
+        Self {
+            id: record.id.clone(),
+            kind: record.kind,
+            label: record.label,
+            content: record.content().clone(),
+            entities: record.entities.clone(),
+            provenance: record.provenance.clone(),
+            valid_from: record.valid_from,
+        }
+    }
 }
 
 /// A record whose label exceeds the recall ceiling: its existence and

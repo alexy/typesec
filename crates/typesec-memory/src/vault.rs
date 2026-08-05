@@ -298,15 +298,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         let mut redacted = Vec::new();
         for record in records {
             if record.label <= ceiling {
-                hits.push(RecalledMemory {
-                    id: record.id.clone(),
-                    kind: record.kind,
-                    label: record.label,
-                    content: record.content().clone(),
-                    entities: record.entities.clone(),
-                    provenance: record.provenance.clone(),
-                    valid_from: record.valid_from,
-                });
+                hits.push(RecalledMemory::from_record(&record));
             } else {
                 redacted.push(RedactedHit {
                     id: record.id.clone(),
@@ -358,15 +350,7 @@ impl<S: MemoryStore> MemoryVault<S> {
                 continue;
             }
             if record.label <= ceiling {
-                hits.push(RecalledMemory {
-                    id: record.id.clone(),
-                    kind: record.kind,
-                    label: record.label,
-                    content: record.content().clone(),
-                    entities: record.entities.clone(),
-                    provenance: record.provenance.clone(),
-                    valid_from: record.valid_from,
-                });
+                hits.push(RecalledMemory::from_record(&record));
             } else {
                 redacted.push(RedactedHit {
                     id: record.id.clone(),
@@ -420,15 +404,7 @@ impl<S: MemoryStore> MemoryVault<S> {
                 continue;
             }
             if record.label <= ceiling {
-                hits.push(RecalledMemory {
-                    id: record.id.clone(),
-                    kind: record.kind,
-                    label: record.label,
-                    content: record.content().clone(),
-                    entities: record.entities.clone(),
-                    provenance: record.provenance.clone(),
-                    valid_from: record.valid_from,
-                });
+                hits.push(RecalledMemory::from_record(&record));
             } else {
                 redacted.push(RedactedHit {
                     id: record.id.clone(),
@@ -690,7 +666,7 @@ pub(crate) fn build_record_with_id(
 }
 
 /// Emit one structured audit event for a memory operation.
-fn audit(action: &str, subject: &SubjectId, space: &MemorySpace, detail: &str) {
+pub(crate) fn audit(action: &str, subject: &SubjectId, space: &MemorySpace, detail: &str) {
     tracing::info!(
         target: "typesec_memory::audit",
         action,

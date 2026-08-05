@@ -68,10 +68,10 @@ pub mod store;
 pub mod vault;
 
 pub use cognition::{
-    CognitionApplyError, CognitionAuditEvidence, CognitionAuthorityEvidence,
-    CognitionAuthorityVerifier, CognitionBinding, CognitionCommitError, CognitionCommitOutcome,
-    CognitionCommitStatus, CognitionCommitStore, CognitionIdempotencyKey, CognitionSourceManifest,
-    CognitionSourcePrecondition, PreparedCognitionCommit,
+    AuthorizedCognitionInput, CognitionApplyError, CognitionAuditEvidence,
+    CognitionAuthorityEvidence, CognitionAuthorityVerifier, CognitionBinding, CognitionCommitError,
+    CognitionCommitOutcome, CognitionCommitStatus, CognitionCommitStore, CognitionIdempotencyKey,
+    CognitionSourceManifest, CognitionSourcePrecondition, PreparedCognitionCommit,
 };
 pub use error::MemoryError;
 pub use extract::{

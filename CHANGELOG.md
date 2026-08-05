@@ -21,6 +21,10 @@ by release version, then by the date the logical change landed.
   public canonical digest helpers keep proposal and binding identity consistent
   across durable backends, including worker retries whose observational
   proposal creation timestamps differ.
+- Added a non-constructible, non-serializable authorized cognition-input
+  snapshot that derives revealed memories and their source manifest from the
+  same record revisions, closing the recall-to-manifest planning race while
+  reusing one record-to-recall conversion path.
 - Added a borrow-scoped, non-constructible `VerifiedTypeDidContext` so
   downstream cognition can require identity, purpose, and request digests
   directly from a gateway-verified message while persisting only safe evidence.

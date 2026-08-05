@@ -7,10 +7,12 @@
 
 mod apply;
 mod digest;
+mod input;
 mod prepare;
 mod types;
 mod validate;
 
+pub use input::AuthorizedCognitionInput;
 pub use types::{
     CognitionApplyError, CognitionAuditEvidence, CognitionAuthorityEvidence,
     CognitionAuthorityVerifier, CognitionBinding, CognitionCommitError, CognitionCommitOutcome,
