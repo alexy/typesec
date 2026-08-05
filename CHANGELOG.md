@@ -52,6 +52,10 @@ by release version, then by the date the logical change landed.
 - Reconciled the Marciana roadmap with that delivery and defined the remaining
   production goal: live Sail cognition, durable governed proposal application,
   atomic Grust mutation/outbox delivery, receipts, and failure-mode tests.
+- Added the reviewed standalone-project factoring plan for `~/src/marciana`,
+  including ownership and dependency boundaries, behavior-preserving migration
+  sequencing, clean-clone compatibility pins, cross-stack definitions of done,
+  and production-path amendments for retry and authorization evidence.
 
 ### 2026-07-16
 

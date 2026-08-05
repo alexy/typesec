@@ -173,8 +173,10 @@ selected when cognition operates over authorized Iceberg snapshots.
 
 ## Four-verb API boundary
 
-Cognee compatibility belongs at Marciana's public edge. It is a behavioral and
-wire compatibility target, not an internal implementation dependency.
+Cognee may inspire an optional compatibility facade at Marciana's public edge,
+but it is not a product dependency or a completeness criterion. The native
+four-verb contract is authoritative; any Cognee-shaped adapter must lower into
+that contract without importing Cognee runtime or storage behavior.
 
 | Verb | Marciana behavior | Security and durability rule |
 |---|---|---|
@@ -324,16 +326,20 @@ API redesign, schema redesign, and production workflow completion must not be
 combined into one unreviewable change.
 
 1. **Stabilize owning repositories.** Finish and commit the current TypeSec
-   guarded-application and Grust guarded-commit/cognition units. Record the
-   exact compatible revisions and establish a green cross-repository baseline.
+   guarded-application, generic Grust guarded-commit, LakeCat governed-grant,
+   Grust cognition baseline, and qg-rust composition units. Record the exact
+   compatible revisions and establish a green cross-repository baseline. Keep
+   Marciana-specific production code modular so its later move is mechanical.
 2. **Create the repository.** Initialize `~/src/marciana` with its ownership
    ADR, changelog, compatibility matrix, CI, license, and repository guidance.
 3. **Transplant without redesign.** Move `querygraph-memory` with history when
    practical, retain its crate name and storage format, and bring every
    existing test with it.
 4. **Remove sibling-path release coupling.** Depend on released versions or
-   exact Git revisions in committed manifests. Local path patches may support
-   development but must not be required by consumers or CI release builds.
+   remotely reachable exact Git revisions in committed manifests. A local-only
+   commit hash is not an independently buildable pin. Local path patches may
+   support development from untracked developer configuration, but must not be
+   required by consumers, a clean clone, or CI release builds.
 5. **Switch qg-rust.** Point qg-rust at the relocated crate and prove the same
    signed memory routes, response shapes, receipts, database reopen behavior,
    and denial cases before deleting the Grust copy.
@@ -386,6 +392,14 @@ Compatibility must be executable:
 - Persistent backends test create, close, reopen, migrate, and recover.
 - qg-rust runs an integration gate against the released or pinned Marciana
   version it declares.
+- Canonical proposal, binding, grant, authorization, policy, commit, and
+  receipt digest profiles have versioned fixtures. Observational proposal
+  creation time and transport-level replay status do not change mutation or
+  signed-receipt identity.
+- The original LakeCat grant authorization digest remains bound to the
+  proposal, while fresh authorization and policy evidence are independently
+  digested at application time. Tests prevent either role from being silently
+  substituted for the other.
 
 ## Non-regression requirements
 
@@ -413,6 +427,15 @@ Repository extraction and later API work must preserve all of the following:
 11. Existing durable database identifiers and route behavior remain compatible
     until an explicit migration or API-version transition is delivered.
 12. No foundational repository gains a dependency on Marciana.
+13. Durable proposal identity binds every authority and mutation input but is
+    stable across a worker retry that changes only observational creation time.
+    A concurrent or response-loss retry reloads the originally committed
+    outcome and audit evidence before issuing a receipt.
+14. Raw job identifiers, worker identities, lease tokens, failure text,
+    reusable authorization material, and memory plaintext are absent from
+    scheduler, outbox, and log records. A protected proposal may contain
+    derived memory content only in the authoritative encrypted/protected store;
+    it is not a metadata queue payload.
 
 ## Risks and mitigations
 
@@ -481,6 +504,9 @@ The standalone-project extraction is complete only when:
    TypeSec, Grust, LakeCat, Sail, QueryGraph, and client versions.
 8. Documentation clearly identifies one authority for security invariants and
    one authority for active Marciana product behavior.
+9. Production modules remain small and single-purpose, shared canonicalization
+   and transition logic is DRY, and tests live in separate files or integration
+   test targets rather than expanding production modules.
 
 ## Production-cognition definition of done
 
