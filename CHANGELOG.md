@@ -12,7 +12,9 @@ by release version, then by the date the logical change landed.
   checks, deterministic derived lineage, and a mandatory atomic store contract
   for idempotency, memory mutations, ID-only index outbox work, and audit
   evidence. Commit outcomes retain the authoritative commit time and exact
-  committed audit evidence so response recovery can reproduce the same receipt.
+  committed audit evidence so response recovery can reproduce the same receipt;
+  public canonical digest helpers keep proposal and binding identity consistent
+  across durable backends.
 - Added a borrow-scoped, non-constructible `VerifiedTypeDidContext` so
   downstream cognition can require identity, purpose, and request digests
   directly from a gateway-verified message while persisting only safe evidence.

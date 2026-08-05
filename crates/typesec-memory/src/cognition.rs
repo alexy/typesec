@@ -18,5 +18,23 @@ pub use types::{
     CognitionSourcePrecondition, PreparedCognitionCommit,
 };
 
+impl crate::CognitionProposal {
+    /// Domain-separated canonical digest used for durable proposal identity.
+    ///
+    /// Projection order is normalized before hashing, so every backend uses
+    /// the same idempotency digest without reimplementing TypeSec internals.
+    pub fn canonical_digest(&self) -> Result<String, CognitionApplyError> {
+        digest::proposal_digest(self)
+    }
+}
+
+impl CognitionBinding {
+    /// Domain-separated canonical digest of governed authority evidence.
+    pub fn canonical_digest(&self) -> Result<String, CognitionApplyError> {
+        self.validate()?;
+        digest::binding_digest(self)
+    }
+}
+
 #[cfg(test)]
 mod tests;
