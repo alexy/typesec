@@ -20,6 +20,7 @@ use typesec_core::{
     CanDelete, CanRead, CanReadSensitive, CanWrite, Capability, Permission, Resource,
 };
 
+use crate::cognition::CognitionAuthorityVerifier;
 use crate::error::MemoryError;
 use crate::index::{IndexMutation, IndexOutbox, SemanticIndex};
 use crate::label::{Clearance, Label};
@@ -39,6 +40,7 @@ pub struct MemoryVault<S: MemoryStore> {
     engine: Option<Arc<dyn PolicyEngine>>,
     index: Option<Arc<dyn SemanticIndex>>,
     index_outbox: Option<Arc<dyn IndexOutbox>>,
+    cognition_authority: Option<Arc<dyn CognitionAuthorityVerifier>>,
 }
 
 impl<S: MemoryStore> MemoryVault<S> {
@@ -49,6 +51,7 @@ impl<S: MemoryStore> MemoryVault<S> {
             engine: None,
             index: None,
             index_outbox: None,
+            cognition_authority: None,
         }
     }
 
@@ -78,6 +81,25 @@ impl<S: MemoryStore> MemoryVault<S> {
     pub fn with_index_outbox(mut self, outbox: Arc<dyn IndexOutbox>) -> Self {
         self.index_outbox = Some(outbox);
         self
+    }
+
+    /// Attach the trusted application-time adapter that revalidates LakeCat
+    /// governed-scan and verified TypeDID evidence for cognition proposals.
+    #[must_use]
+    pub fn with_cognition_authority(
+        mut self,
+        verifier: Arc<dyn CognitionAuthorityVerifier>,
+    ) -> Self {
+        self.cognition_authority = Some(verifier);
+        self
+    }
+
+    pub(crate) fn cognition_authority(&self) -> Option<&dyn CognitionAuthorityVerifier> {
+        self.cognition_authority.as_deref()
+    }
+
+    pub(crate) fn has_policy(&self) -> bool {
+        self.engine.is_some()
     }
 
     fn queue_index_repair(&self, mutation: IndexMutation) {
@@ -167,35 +189,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         draft: MemoryDraft,
         label_floor: Option<Label>,
     ) -> StoredRecord {
-        let birth = draft.provenance.default_label();
-        let quarantined = draft.provenance.is_untrusted();
-        // A trusted source's declared label is authoritative (it may set
-        // anything, including a lower level for genuinely public facts). An
-        // untrusted source may only *raise* above the floor — fail closed, so
-        // an injection can never talk its way down to Public.
-        let mut label = if quarantined {
-            draft.label.map_or(birth, |l| l.max(birth))
-        } else {
-            draft.label.unwrap_or(birth)
-        };
-        if let Some(floor) = label_floor {
-            label = label.max(floor);
-        }
-        let now = Utc::now();
-        StoredRecord::assemble(
-            MemoryId::next(),
-            space.resource_id().to_string(),
-            draft.kind,
-            label,
-            quarantined,
-            draft.entities,
-            draft.provenance,
-            now,
-            draft.valid_from.unwrap_or(now),
-            draft.expires_at,
-            draft.purposes,
-            draft.content,
-        )
+        build_record_with_id(space, draft, label_floor, MemoryId::next())
     }
 
     /// Borrow the underlying store (read-only; bypasses no gates because the
@@ -206,7 +200,7 @@ impl<S: MemoryStore> MemoryVault<S> {
 
     /// Verify a capability covers `space`, is usable, and — if a policy engine
     /// is configured — that the engine still allows this `action` under `ctx`.
-    fn authorize<P>(
+    pub(crate) fn authorize<P>(
         &self,
         space: &MemorySpace,
         cap: &Capability<P, MemorySpace>,
@@ -647,7 +641,7 @@ impl<S: MemoryStore> MemoryVault<S> {
     }
 
     /// Fetch a record and confirm it belongs to `space`.
-    fn fetch_in_space(
+    pub(crate) fn fetch_in_space(
         &self,
         space: &MemorySpace,
         id: &MemoryId,
@@ -657,6 +651,42 @@ impl<S: MemoryStore> MemoryVault<S> {
             _ => Err(MemoryError::NotFound(id.to_string())),
         }
     }
+}
+
+pub(crate) fn build_record_with_id(
+    space: &MemorySpace,
+    draft: MemoryDraft,
+    label_floor: Option<Label>,
+    id: MemoryId,
+) -> StoredRecord {
+    let birth = draft.provenance.default_label();
+    let quarantined = draft.provenance.is_untrusted();
+    // A trusted source's declared label is authoritative (it may set anything,
+    // including a lower level for genuinely public facts). An untrusted source
+    // may only raise above its birth floor.
+    let mut label = if quarantined {
+        draft.label.map_or(birth, |candidate| candidate.max(birth))
+    } else {
+        draft.label.unwrap_or(birth)
+    };
+    if let Some(floor) = label_floor {
+        label = label.max(floor);
+    }
+    let now = Utc::now();
+    StoredRecord::assemble(
+        id,
+        space.resource_id().to_string(),
+        draft.kind,
+        label,
+        quarantined,
+        draft.entities,
+        draft.provenance,
+        now,
+        draft.valid_from.unwrap_or(now),
+        draft.expires_at,
+        draft.purposes,
+        draft.content,
+    )
 }
 
 /// Emit one structured audit event for a memory operation.

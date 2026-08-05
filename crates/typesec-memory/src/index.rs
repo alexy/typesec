@@ -16,6 +16,7 @@
 //! trait: the conformance suite cannot observe network egress, so backends
 //! own this promise.
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::label::Label;
@@ -23,7 +24,7 @@ use crate::space::MemoryId;
 
 /// Repair operation recorded after post-commit semantic-index maintenance
 /// fails. It contains only an id; plaintext is rehydrated inside the vault.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IndexMutation {
     /// Re-read and index the current record.
     Upsert(MemoryId),

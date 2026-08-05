@@ -18,6 +18,9 @@ use crate::record::{MemoryContent, MemoryDraft, Provenance};
 use crate::space::{MemoryId, MemoryKind};
 use crate::vault::{ConsolidationPlan, ConsolidationStep};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+use crate::cognition::CognitionBinding;
 
 /// Versioned, inert output from an external cognition job.
 ///
@@ -26,7 +29,7 @@ use chrono::{DateTime, Utc};
 /// store handle and cannot mutate memory; drafts and plans must still enter
 /// through [`crate::MemoryVault::remember`] or
 /// [`crate::MemoryVault::consolidate`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitionProposal {
     /// Proposal schema version.
     pub schema_version: u32,
@@ -53,6 +56,12 @@ pub struct CognitionProposal {
     pub evidence: Vec<String>,
     /// Proposal creation time.
     pub created_at: DateTime<Utc>,
+    /// Governed authority and source binding required for trusted application.
+    ///
+    /// Legacy/local proposal producers may leave this absent, but
+    /// `MemoryVault::apply_cognition` always rejects an unbound proposal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding: Option<CognitionBinding>,
 }
 
 impl CognitionProposal {
@@ -82,6 +91,7 @@ impl CognitionProposal {
             plan: ConsolidationPlan::new(),
             evidence: Vec::new(),
             created_at: Utc::now(),
+            binding: None,
         }
     }
 
@@ -96,6 +106,14 @@ impl CognitionProposal {
     #[must_use]
     pub fn with_plan(mut self, plan: ConsolidationPlan) -> Self {
         self.plan = plan;
+        self
+    }
+
+    /// Bind the proposal to verified identity, catalog, authorization, and
+    /// source-manifest evidence.
+    #[must_use]
+    pub fn with_binding(mut self, binding: CognitionBinding) -> Self {
+        self.binding = Some(binding);
         self
     }
 }

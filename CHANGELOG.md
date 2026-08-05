@@ -7,6 +7,11 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Added fail-closed Marciana proposal application with serializable governed
+  bindings, fresh policy and authority revalidation, source-manifest and label
+  checks, deterministic derived lineage, and a mandatory atomic store contract
+  for idempotency, memory mutations, ID-only index outbox work, and audit
+  evidence.
 - Added a borrow-scoped, non-constructible `VerifiedTypeDidContext` so
   downstream cognition can require identity, purpose, and request digests
   directly from a gateway-verified message while persisting only safe evidence.

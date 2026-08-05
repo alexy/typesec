@@ -3,6 +3,7 @@
 use std::marker::PhantomData;
 
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 use crate::label::{Clearance, Label};
 use crate::record::{EntityRef, MemoryContent, MemoryDraft, Provenance};
@@ -147,7 +148,8 @@ pub struct Tombstone {
 
 /// A consolidation step: supersede a set of records with a summary, or just
 /// invalidate them.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)] // Preserve the established by-value replacement API.
 pub enum ConsolidationStep {
     /// Invalidate `superseded` and write `replacement`. The replacement's
     /// label is raised to the join of all superseded labels (a summary of a
@@ -167,7 +169,7 @@ pub enum ConsolidationStep {
 
 /// A batch of consolidation steps applied atomically where the backend
 /// supports transactions (M4 Grust store).
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ConsolidationPlan {
     /// The steps to apply, in order.
     pub steps: Vec<ConsolidationStep>,

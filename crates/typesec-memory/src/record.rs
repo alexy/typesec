@@ -74,6 +74,19 @@ pub enum Provenance {
     Conversation,
     /// Raw, unverified model text — the poisoning vector; born quarantined.
     ModelText,
+    /// A derived artifact applied by the guarded cognition boundary.
+    Cognition {
+        /// Durable cognition job that produced the artifact.
+        job_id: String,
+        /// Exact source records that influenced the artifact.
+        source_ids: Vec<MemoryId>,
+        /// Vault-verified digest of the source manifest.
+        source_digest: String,
+        /// Cognition algorithm family.
+        algorithm: String,
+        /// Cognition algorithm or model version.
+        algorithm_version: String,
+    },
 }
 
 impl Provenance {
@@ -85,7 +98,7 @@ impl Provenance {
         match self {
             Self::Envelope { .. } | Self::Operator => Label::Internal,
             Self::GuardedTool { .. } => Label::Internal,
-            Self::Conversation | Self::ModelText => Label::Internal,
+            Self::Conversation | Self::ModelText | Self::Cognition { .. } => Label::Internal,
         }
     }
 
@@ -99,7 +112,7 @@ impl Provenance {
 
 /// A request to remember something. Temporal and label fields have safe
 /// defaults; provenance is required because it drives security posture.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryDraft {
     pub(crate) kind: MemoryKind,
     pub(crate) content: MemoryContent,

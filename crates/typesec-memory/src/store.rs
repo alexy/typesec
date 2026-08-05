@@ -8,6 +8,7 @@
 //! vault's ceiling check. Storage is storage.
 
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::label::Label;
@@ -127,7 +128,7 @@ impl StoreQuery {
 }
 
 /// One write within an atomic [`apply_batch`](MemoryStore::apply_batch).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StoreBatchOp {
     /// Insert or replace a record.
     Put(Box<StoredRecord>),

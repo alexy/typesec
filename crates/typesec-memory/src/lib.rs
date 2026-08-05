@@ -53,6 +53,7 @@
 
 #[cfg(feature = "agent")]
 pub mod agent;
+pub mod cognition;
 #[cfg(feature = "conformance")]
 pub mod conformance;
 pub mod error;
@@ -66,6 +67,12 @@ pub mod space;
 pub mod store;
 pub mod vault;
 
+pub use cognition::{
+    CognitionApplyError, CognitionAuditEvidence, CognitionAuthorityEvidence,
+    CognitionAuthorityVerifier, CognitionBinding, CognitionCommitError, CognitionCommitOutcome,
+    CognitionCommitStatus, CognitionCommitStore, CognitionIdempotencyKey, CognitionSourceManifest,
+    CognitionSourcePrecondition, PreparedCognitionCommit,
+};
 pub use error::MemoryError;
 pub use extract::{
     CognitionProposal, Episode, ExtractError, Extractor, MemorySummary, RuleExtractor,

@@ -4,6 +4,7 @@ use thiserror::Error;
 use typesec_core::capability::CapabilityUseError;
 
 use crate::store::StoreError;
+use crate::{CognitionApplyError, CognitionCommitError};
 
 /// A memory-vault operation failed.
 #[derive(Debug, Error)]
@@ -46,4 +47,10 @@ pub enum MemoryError {
     /// The backing store failed.
     #[error(transparent)]
     Store(#[from] StoreError),
+    /// A governed cognition proposal failed trusted validation.
+    #[error(transparent)]
+    Cognition(#[from] CognitionApplyError),
+    /// The authoritative cognition transaction failed.
+    #[error(transparent)]
+    CognitionCommit(#[from] CognitionCommitError),
 }
