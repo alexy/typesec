@@ -7,6 +7,9 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Added signed Marciana cognition commit receipts binding the verified TypeDID
+  request, governed snapshot and authorization evidence, proposal and policy
+  digests, affected IDs, backend versions, and durable Grust commit identity.
 - Preserved negotiated policy-visible TypeDID claims in audit-safe verified
   attestations, allowing governed cognition to bind purpose and agent context
   to signed envelope state without retaining payload or signature material.

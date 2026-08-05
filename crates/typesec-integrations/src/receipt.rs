@@ -15,11 +15,15 @@
 
 use chrono::{DateTime, TimeDelta, Utc};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
+
+mod cognition;
+pub use cognition::CognitionCommitReceipt;
 
 /// The signed claims: one allowed decision, bounded in time.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +83,9 @@ impl DecisionReceipt {
 /// Why a receipt token failed verification.
 #[derive(Debug, Error)]
 pub enum ReceiptError {
+    /// Receipt claims are incomplete or internally inconsistent.
+    #[error("invalid receipt claims: {0}")]
+    InvalidClaims(String),
     /// The token is not `base64url(claims).base64url(signature)`.
     #[error("malformed receipt token: {0}")]
     Malformed(String),
@@ -121,8 +128,21 @@ impl ReceiptIssuer {
 
     /// Sign the claims into a `base64url(claims).base64url(signature)` token.
     pub fn issue(&self, receipt: &DecisionReceipt) -> String {
+        self.issue_claims(receipt)
+    }
+
+    /// Sign a commit-bound Marciana cognition receipt.
+    pub fn issue_cognition(
+        &self,
+        receipt: &CognitionCommitReceipt,
+    ) -> Result<String, ReceiptError> {
+        receipt.validate()?;
+        Ok(self.issue_claims(receipt))
+    }
+
+    fn issue_claims(&self, receipt: &impl Serialize) -> String {
         let claims = serde_json::to_vec(receipt)
-            .expect("DecisionReceipt serialization cannot fail: all fields are JSON-safe");
+            .expect("receipt serialization cannot fail: all fields are JSON-safe");
         let signature = self.key.sign(&claims);
         format!(
             "{}.{}",
@@ -148,6 +168,24 @@ impl ReceiptVerifier {
     /// `now` is explicit so callers control the clock (and tests are
     /// deterministic); pass `Utc::now()` in production.
     pub fn verify(&self, token: &str, now: DateTime<Utc>) -> Result<DecisionReceipt, ReceiptError> {
+        let receipt: DecisionReceipt = self.verify_claims(token)?;
+        validate_window(receipt.issued_at, receipt.expires_at, now)?;
+        Ok(receipt)
+    }
+
+    /// Verify a commit-bound Marciana cognition receipt.
+    pub fn verify_cognition(
+        &self,
+        token: &str,
+        now: DateTime<Utc>,
+    ) -> Result<CognitionCommitReceipt, ReceiptError> {
+        let receipt: CognitionCommitReceipt = self.verify_claims(token)?;
+        receipt.validate()?;
+        validate_window(receipt.committed_at, receipt.expires_at, now)?;
+        Ok(receipt)
+    }
+
+    fn verify_claims<T: DeserializeOwned>(&self, token: &str) -> Result<T, ReceiptError> {
         let (claims_b64, signature_b64) = token
             .split_once('.')
             .ok_or_else(|| ReceiptError::Malformed("missing '.' separator".into()))?;
@@ -163,23 +201,26 @@ impl ReceiptVerifier {
             .verify(&claims, &Signature::from_bytes(&signature_bytes))
             .map_err(|_| ReceiptError::BadSignature)?;
         // Only parse after the signature is trusted.
-        let receipt: DecisionReceipt = serde_json::from_slice(&claims)
-            .map_err(|err| ReceiptError::Malformed(format!("claims are not valid JSON: {err}")))?;
-        if receipt.issued_at > now {
-            return Err(ReceiptError::NotYetValid {
-                issued_at: receipt.issued_at,
-                now,
-            });
-        }
-        if receipt.expires_at <= now {
-            return Err(ReceiptError::Expired {
-                expires_at: receipt.expires_at,
-                now,
-            });
-        }
-        Ok(receipt)
+        serde_json::from_slice(&claims)
+            .map_err(|err| ReceiptError::Malformed(format!("claims are not valid JSON: {err}")))
     }
 }
 
+fn validate_window(
+    issued_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+    now: DateTime<Utc>,
+) -> Result<(), ReceiptError> {
+    if issued_at > now {
+        return Err(ReceiptError::NotYetValid { issued_at, now });
+    }
+    if expires_at <= now {
+        return Err(ReceiptError::Expired { expires_at, now });
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod cognition_tests;
 #[cfg(test)]
 mod tests;
