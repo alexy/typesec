@@ -71,7 +71,8 @@ pub use cognition::{
     AuthorizedCognitionInput, CognitionApplyError, CognitionAuditEvidence,
     CognitionAuthorityEvidence, CognitionAuthorityVerifier, CognitionBinding, CognitionCommitError,
     CognitionCommitOutcome, CognitionCommitStatus, CognitionCommitStore, CognitionIdempotencyKey,
-    CognitionSourceManifest, CognitionSourcePrecondition, PreparedCognitionCommit,
+    CognitionRecoveryError, CognitionSourceManifest, CognitionSourcePrecondition,
+    PreparedCognitionCommit,
 };
 pub use error::MemoryError;
 pub use extract::{

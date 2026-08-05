@@ -8,6 +8,7 @@ use crate::space::MemoryId;
 use crate::store::{MemoryStore, StoreError};
 
 use super::PreparedCognitionCommit;
+use super::canonical::is_canonical_text;
 
 /// Immutable authority and input evidence a cognition proposal must echo.
 ///
@@ -55,7 +56,7 @@ impl CognitionBinding {
             ("sourceManifestDigest", self.source_manifest_digest.as_str()),
             ("typedidRequestDigest", self.typedid_request_digest.as_str()),
         ] {
-            if value.trim().is_empty() {
+            if !is_canonical_text(value) {
                 return Err(CognitionApplyError::InvalidBinding(name.to_owned()));
             }
         }
@@ -63,7 +64,7 @@ impl CognitionBinding {
             || self
                 .effective_projection
                 .iter()
-                .any(|field| field.trim().is_empty())
+                .any(|field| !is_canonical_text(field))
         {
             return Err(CognitionApplyError::InvalidBinding(
                 "effectiveProjection".to_owned(),
@@ -195,17 +196,21 @@ pub struct CognitionAuditEvidence {
     pub prepared_at: DateTime<Utc>,
 }
 
-/// Whether this call performed or recovered a commit.
+/// Whether a call performed a mutation or disclosed an immutable prior commit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CognitionCommitStatus {
     /// This call committed the mutation.
     Applied,
-    /// The same idempotency key and proposal digest had already committed.
+    /// The same idempotency key and proposal digest had already committed;
+    /// this status reports historical disclosure, never mutation authority.
     AlreadyApplied,
 }
 
-/// Commit-bound result retained for retry and receipt recovery.
+/// Immutable commit-bound result retained for retry and receipt recovery.
+///
+/// Recovering this value authorizes disclosure of historical commit evidence;
+/// it is not mutation authority and cannot be used to reapply the operation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CognitionCommitOutcome {
@@ -248,16 +253,24 @@ pub enum CognitionCommitError {
 /// token has no debug or serialization surface; implementations use its
 /// borrow-only accessors inside that trusted transaction boundary.
 pub trait CognitionCommitStore: MemoryStore {
-    /// Recover a completed application before re-reading sources it may have
-    /// intentionally invalidated. A reused key with a different proposal
-    /// digest must return [`CognitionCommitError::IdempotencyConflict`].
+    /// Load an immutable completed result before re-reading sources it may
+    /// have intentionally invalidated.
+    ///
+    /// This is a trusted backend seam, not an authorization boundary: it
+    /// neither authorizes disclosure nor grants mutation authority. External
+    /// result access must use
+    /// [`MemoryVault::recover_cognition_outcome`](crate::MemoryVault::recover_cognition_outcome),
+    /// which checks current capability and policy first. A reused key with a
+    /// different proposal digest must return
+    /// [`CognitionCommitError::IdempotencyConflict`].
     fn recover_cognition(
         &self,
         key: &CognitionIdempotencyKey,
         proposal_digest: &str,
     ) -> Result<Option<CognitionCommitOutcome>, CognitionCommitError>;
 
-    /// Commit or recover one idempotent cognition application.
+    /// Commit one vault-prepared application or return its immutable prior
+    /// result; the recovery case never reapplies the mutation.
     fn commit_cognition(
         &self,
         commit: PreparedCognitionCommit,

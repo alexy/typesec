@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use typesec_core::policy::RequestContext;
 use typesec_core::{CanWrite, Capability, Resource};
 
+use super::canonical::is_canonical_text;
 use super::types::{CognitionApplyError, CognitionAuthorityEvidence, CognitionBinding};
 use crate::CognitionProposal;
 use crate::error::MemoryError;
@@ -17,7 +18,7 @@ pub(super) fn required_purpose(context: &RequestContext) -> Result<&str, Cogniti
     context
         .purpose
         .as_deref()
-        .filter(|purpose| !purpose.trim().is_empty())
+        .filter(|purpose| is_canonical_text(purpose))
         .ok_or(CognitionApplyError::MissingPurpose)
 }
 
@@ -29,9 +30,9 @@ pub(super) fn validate_proposal_shape(
             proposal.schema_version,
         ));
     }
-    if proposal.job_id.trim().is_empty() {
+    if !is_canonical_text(&proposal.job_id) {
         return Err(CognitionApplyError::InvalidPlan(
-            "job id is empty".to_owned(),
+            "job id is not canonical".to_owned(),
         ));
     }
     if proposal.algorithm.trim().is_empty() || proposal.algorithm_version.trim().is_empty() {
@@ -107,9 +108,9 @@ pub(super) fn validate_authority(
     {
         return Err(CognitionApplyError::BindingMismatch("effective projection"));
     }
-    if authority.policy_decision_id.trim().is_empty() {
+    if !is_canonical_text(&authority.policy_decision_id) {
         return Err(CognitionApplyError::Authority(
-            "policy decision id is empty".to_owned(),
+            "policy decision id is not canonical".to_owned(),
         ));
     }
     Ok(())
@@ -153,6 +154,11 @@ fn validate_source_ids(source_ids: &[MemoryId]) -> Result<(), CognitionApplyErro
     if source_ids.is_empty() {
         return Err(CognitionApplyError::InvalidSourceSet(
             "at least one source is required".to_owned(),
+        ));
+    }
+    if source_ids.iter().any(|id| !is_canonical_text(id.as_str())) {
+        return Err(CognitionApplyError::InvalidSourceSet(
+            "source ids are not canonical".to_owned(),
         ));
     }
     let unique: HashSet<_> = source_ids.iter().collect();

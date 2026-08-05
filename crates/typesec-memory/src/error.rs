@@ -4,7 +4,7 @@ use thiserror::Error;
 use typesec_core::capability::CapabilityUseError;
 
 use crate::store::StoreError;
-use crate::{CognitionApplyError, CognitionCommitError};
+use crate::{CognitionApplyError, CognitionCommitError, CognitionRecoveryError};
 
 /// A memory-vault operation failed.
 #[derive(Debug, Error)]
@@ -53,4 +53,8 @@ pub enum MemoryError {
     /// The authoritative cognition transaction failed.
     #[error(transparent)]
     CognitionCommit(#[from] CognitionCommitError),
+    /// An immutable completed cognition result could not be disclosed safely;
+    /// this never represents mutation authority.
+    #[error(transparent)]
+    CognitionRecovery(#[from] CognitionRecoveryError),
 }

@@ -7,6 +7,10 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Added policy-authorized, proposal-free recovery of completed cognition
+  outcomes after response loss, with fixed-error anti-oracle behavior and
+  fail-closed validation of committed identity, authority, versions, times,
+  affected records, and audit integrity before receipt evidence is disclosed.
 - Made `PreparedCognitionCommit` a vault-issued, externally nonconstructible
   provenance token without debug or serde escape hatches; trusted transaction
   backends now receive narrow borrow-only field accessors and a TypeSec-owned,

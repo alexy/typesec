@@ -6,15 +6,18 @@
 //! memory mutations.
 
 mod apply;
+mod canonical;
 mod digest;
 mod input;
 mod prepare;
 mod prepared;
+mod recovery;
 mod types;
 mod validate;
 
 pub use input::AuthorizedCognitionInput;
 pub use prepared::PreparedCognitionCommit;
+pub use recovery::CognitionRecoveryError;
 pub use types::{
     CognitionApplyError, CognitionAuditEvidence, CognitionAuthorityEvidence,
     CognitionAuthorityVerifier, CognitionBinding, CognitionCommitError, CognitionCommitOutcome,
