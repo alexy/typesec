@@ -6,6 +6,7 @@
 //! op, re-checks the label ceiling on results, and emits an audit event.
 
 mod types;
+pub(crate) mod visibility;
 
 pub use types::{
     ConsolidationPlan, ConsolidationReport, ConsolidationStep, ForgetSelector, Recall, RecallQuery,
@@ -27,6 +28,7 @@ use crate::label::{Clearance, Label};
 use crate::record::{MemoryContent, MemoryDraft, StoredRecord};
 use crate::space::{MemoryId, MemorySpace};
 use crate::store::MemoryStore;
+use visibility::{RecordVisibility, split_visible};
 
 /// A capability-secured memory store.
 ///
@@ -290,24 +292,22 @@ impl<S: MemoryStore> MemoryVault<S> {
     ) -> Result<(Vec<RecalledMemory>, Vec<RedactedHit>), MemoryError> {
         self.authorize(space, cap, ctx)?;
 
+        let now = Utc::now();
         let purposes = ctx.purpose.iter().cloned().collect();
-        let store_query = query.to_store_query(space.resource_id(), purposes);
+        let mut store_query = query.to_store_query(space.resource_id(), purposes);
+        store_query.valid_at = Some(query.valid_at.unwrap_or(now));
+        // Apply the cap after authoritative retention and purpose checks, so
+        // hidden records cannot consume visible result slots.
+        store_query.limit = None;
         let records = self.store.query(&store_query)?;
-
-        let mut hits = Vec::new();
-        let mut redacted = Vec::new();
-        for record in records {
-            if record.label <= ceiling {
-                hits.push(RecalledMemory::from_record(&record));
-            } else {
-                redacted.push(RedactedHit {
-                    id: record.id.clone(),
-                    kind: record.kind,
-                    label: record.label,
-                    entities: record.entities.clone(),
-                });
-            }
-        }
+        let visibility = RecordVisibility::new(
+            space.resource_id(),
+            ctx.purpose.as_deref(),
+            query.valid_at.unwrap_or(now),
+            now,
+            query.include_quarantined,
+        );
+        let (hits, redacted) = split_visible(records, &visibility, ceiling, query.limit);
 
         audit(
             "memory:read",
@@ -339,33 +339,17 @@ impl<S: MemoryStore> MemoryVault<S> {
     ) -> Result<(Vec<RecalledMemory>, Vec<RedactedHit>), MemoryError> {
         self.authorize(space, cap, ctx)?;
         let ids = self.store.neighborhood(entity, hops)?;
-
-        let mut hits = Vec::new();
-        let mut redacted = Vec::new();
-        for id in ids {
-            let Ok(record) = self.fetch_in_space(space, &id) else {
-                continue; // id from another space or already gone
-            };
-            if record.invalid_at.is_some() || record.quarantined {
-                continue;
-            }
-            if record.label <= ceiling {
-                hits.push(RecalledMemory::from_record(&record));
-            } else {
-                redacted.push(RedactedHit {
-                    id: record.id.clone(),
-                    kind: record.kind,
-                    label: record.label,
-                    entities: record.entities.clone(),
-                });
-            }
-        }
+        let records = self.fetch_candidates(space, ids)?;
+        let now = Utc::now();
+        let visibility =
+            RecordVisibility::new(space.resource_id(), ctx.purpose.as_deref(), now, now, false);
+        let (hits, redacted) = split_visible(records, &visibility, ceiling, None);
         audit(
             "memory:read_graph",
             cap.subject(),
             space,
             &format!(
-                "entity={entity} hops={hops} hits={} redacted={}",
+                "hops={hops} hits={} redacted={}",
                 hits.len(),
                 redacted.len()
             ),
@@ -394,26 +378,11 @@ impl<S: MemoryStore> MemoryVault<S> {
             MemoryError::Store(crate::store::StoreError::Backend(err.to_string()))
         })?;
 
-        let mut hits = Vec::new();
-        let mut redacted = Vec::new();
-        for id in ids {
-            let Ok(record) = self.fetch_in_space(space, &id) else {
-                continue; // other space, or already gone — the index only ranks
-            };
-            if record.invalid_at.is_some() || record.quarantined {
-                continue;
-            }
-            if record.label <= ceiling {
-                hits.push(RecalledMemory::from_record(&record));
-            } else {
-                redacted.push(RedactedHit {
-                    id: record.id.clone(),
-                    kind: record.kind,
-                    label: record.label,
-                    entities: record.entities.clone(),
-                });
-            }
-        }
+        let records = self.fetch_candidates(space, ids)?;
+        let now = Utc::now();
+        let visibility =
+            RecordVisibility::new(space.resource_id(), ctx.purpose.as_deref(), now, now, false);
+        let (hits, redacted) = split_visible(records, &visibility, ceiling, None);
         audit(
             "memory:read_semantic",
             cap.subject(),
@@ -439,6 +408,12 @@ impl<S: MemoryStore> MemoryVault<S> {
     ) -> Result<MemoryContent, MemoryError> {
         self.authorize(space, cap, ctx)?;
         let record = self.fetch_in_space(space, id)?;
+        let now = Utc::now();
+        let visibility =
+            RecordVisibility::new(space.resource_id(), ctx.purpose.as_deref(), now, now, false);
+        if visibility.check(&record).is_err() {
+            return Err(MemoryError::NotFound(id.to_string()));
+        }
         if record.label > Label::Sensitive {
             return Err(MemoryError::AboveCeiling {
                 id: id.to_string(),
@@ -626,6 +601,22 @@ impl<S: MemoryStore> MemoryVault<S> {
             Some(record) if record.space_id == space.resource_id() => Ok(record),
             _ => Err(MemoryError::NotFound(id.to_string())),
         }
+    }
+
+    fn fetch_candidates(
+        &self,
+        space: &MemorySpace,
+        ids: impl IntoIterator<Item = MemoryId>,
+    ) -> Result<Vec<StoredRecord>, MemoryError> {
+        let mut records = Vec::new();
+        for id in ids {
+            match self.fetch_in_space(space, &id) {
+                Ok(record) => records.push(record),
+                Err(MemoryError::NotFound(_)) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(records)
     }
 }
 

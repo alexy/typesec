@@ -25,6 +25,11 @@ by release version, then by the date the logical change landed.
   snapshot that derives revealed memories and their source manifest from the
   same record revisions, closing the recall-to-manifest planning race while
   reusing one record-to-recall conversion path.
+- Unified ordinary, graph, semantic, direct-reveal, and cognition reads behind
+  one fail-closed record-visibility gate for space, temporal validity,
+  retention, quarantine, and purpose; result limits now apply only after those
+  authoritative checks, ranked-record backend failures remain visible, and
+  graph-read audits no longer log raw entity values.
 - Added a borrow-scoped, non-constructible `VerifiedTypeDidContext` so
   downstream cognition can require identity, purpose, and request digests
   directly from a gateway-verified message while persisting only safe evidence.

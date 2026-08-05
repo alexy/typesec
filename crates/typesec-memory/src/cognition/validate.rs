@@ -11,6 +11,7 @@ use crate::record::StoredRecord;
 use crate::space::{MemoryId, MemorySpace};
 use crate::store::MemoryStore;
 use crate::vault::MemoryVault;
+use crate::vault::visibility::RecordVisibility;
 
 pub(super) fn required_purpose(context: &RequestContext) -> Result<&str, CognitionApplyError> {
     context
@@ -122,6 +123,7 @@ pub(super) fn load_sources<S: MemoryStore>(
     now: DateTime<Utc>,
 ) -> Result<Vec<StoredRecord>, MemoryError> {
     validate_source_ids(source_ids)?;
+    let visibility = RecordVisibility::new(space.resource_id(), Some(purpose), now, now, false);
     source_ids
         .iter()
         .map(|id| {
@@ -135,7 +137,7 @@ pub(super) fn load_sources<S: MemoryStore>(
                     .into(),
                     other => other,
                 })?;
-            validate_source(&record, purpose, now)?;
+            validate_source(&record, &visibility)?;
             Ok(record)
         })
         .collect()
@@ -164,27 +166,13 @@ fn validate_source_ids(source_ids: &[MemoryId]) -> Result<(), CognitionApplyErro
 
 fn validate_source(
     record: &StoredRecord,
-    purpose: &str,
-    now: DateTime<Utc>,
+    visibility: &RecordVisibility<'_>,
 ) -> Result<(), CognitionApplyError> {
-    let reason = if record.quarantined {
-        Some("quarantined")
-    } else if !record.is_valid_at(now) {
-        Some("not currently valid")
-    } else if record.is_expired_at(now) {
-        Some("retention expired")
-    } else if !record.purposes.is_empty()
-        && !record.purposes.iter().any(|allowed| allowed == purpose)
-    {
-        Some("purpose is not allowed")
-    } else {
-        None
-    };
-    match reason {
-        Some(reason) => Err(CognitionApplyError::InvalidSource {
+    match visibility.check(record) {
+        Err(rejection) => Err(CognitionApplyError::InvalidSource {
             id: record.id.clone(),
-            reason,
+            reason: rejection.reason(),
         }),
-        None => Ok(()),
+        Ok(()) => Ok(()),
     }
 }

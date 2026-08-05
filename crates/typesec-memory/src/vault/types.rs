@@ -109,6 +109,17 @@ pub struct RedactedHit {
     pub entities: Vec<EntityRef>,
 }
 
+impl RedactedHit {
+    pub(crate) fn from_record(record: &StoredRecord) -> Self {
+        Self {
+            id: record.id.clone(),
+            kind: record.kind,
+            label: record.label,
+            entities: record.entities.clone(),
+        }
+    }
+}
+
 /// The result of a `recall::<L>`, carrying its clearance as a type parameter
 /// so two recalls at different ceilings are different types and cannot be
 /// mixed — the information-flow guarantee at the recall boundary.
