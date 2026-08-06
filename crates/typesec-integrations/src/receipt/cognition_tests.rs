@@ -40,6 +40,29 @@ fn cognition_receipt_round_trips_all_commit_evidence() {
 }
 
 #[test]
+fn cognition_receipt_verification_enforces_the_commit_window() {
+    let issuer = ReceiptIssuer::new(SigningKey::from_bytes(&[11; 32]));
+    let receipt = claims();
+    let token = issuer.issue_cognition(&receipt).unwrap();
+    let verifier = ReceiptVerifier::new(issuer.verifying_key());
+
+    assert_eq!(
+        verifier
+            .verify_cognition(&token, receipt.committed_at)
+            .unwrap(),
+        receipt
+    );
+    assert!(matches!(
+        verifier.verify_cognition(&token, receipt.committed_at - TimeDelta::nanoseconds(1)),
+        Err(ReceiptError::NotYetValid { .. })
+    ));
+    assert!(matches!(
+        verifier.verify_cognition(&token, receipt.expires_at),
+        Err(ReceiptError::Expired { .. })
+    ));
+}
+
+#[test]
 fn cognition_receipt_rejects_missing_or_tampered_evidence() {
     let issuer = ReceiptIssuer::new(SigningKey::from_bytes(&[11; 32]));
     let mut incomplete = claims();
@@ -109,6 +132,26 @@ fn cognition_receipt_requires_bounded_canonical_identities() {
 }
 
 #[test]
+fn cognition_receipt_accepts_each_identity_at_the_inclusive_byte_limit() {
+    let setters: [fn(&mut CognitionCommitReceipt, String); 6] = [
+        |receipt, value| receipt.subject = value,
+        |receipt, value| receipt.resource = value,
+        |receipt, value| receipt.job_id = value,
+        |receipt, value| receipt.backend_commit_id = value,
+        |receipt, value| receipt.prior_version = value,
+        |receipt, value| receipt.resulting_version = value,
+    ];
+    for setter in setters {
+        let mut receipt = claims();
+        setter(
+            &mut receipt,
+            "x".repeat(cognition::validation::MAX_IDENTITY_BYTES),
+        );
+        receipt.validate().unwrap();
+    }
+}
+
+#[test]
 fn cognition_receipt_requires_canonical_lowercase_sha256_evidence() {
     let setters: [fn(&mut CognitionCommitReceipt, String); 5] = [
         |receipt, value| receipt.typedid_request_digest = value,
@@ -120,6 +163,8 @@ fn cognition_receipt_requires_canonical_lowercase_sha256_evidence() {
     for setter in setters {
         for invalid_digest in [
             "sha256:abc".to_owned(),
+            format!("sha512:{}", "a".repeat(64)),
+            format!("sha256:{}", "a".repeat(65)),
             format!("sha256:{}", "A".repeat(64)),
             format!("sha256:{} ", "a".repeat(64)),
         ] {
@@ -155,17 +200,20 @@ fn cognition_receipt_requires_sorted_unique_nonempty_affected_ids() {
 }
 
 #[test]
-fn cognition_receipt_bounds_affected_id_count_and_aggregate_bytes() {
+fn cognition_receipt_accepts_the_exact_affected_id_count_limit() {
     let mut receipt = claims();
     receipt.affected_ids = (0..cognition::validation::MAX_AFFECTED_ID_COUNT)
         .map(|index| format!("id-{index:04}"))
         .collect();
     receipt.validate().unwrap();
+}
 
-    receipt.affected_ids.push(format!(
-        "id-{:04}",
-        cognition::validation::MAX_AFFECTED_ID_COUNT
-    ));
+#[test]
+fn cognition_receipt_bounds_affected_id_count_and_aggregate_bytes() {
+    let mut receipt = claims();
+    receipt.affected_ids = (0..=cognition::validation::MAX_AFFECTED_ID_COUNT)
+        .map(|index| format!("id-{index:04}"))
+        .collect();
     let error = receipt.validate().unwrap_err();
     assert_fixed_error(error, "invalid cognition receipt affected IDs");
 
