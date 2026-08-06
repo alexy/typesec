@@ -146,14 +146,15 @@ exercise the CLI as a policy oracle.</p>
 <p>Marciana adds a security-focused matrix of its own. The audited
 <code>typesec-memory</code> all-features suite includes unit,
 integration, compile-fail, graph-integration, and doctest coverage.
-Compile-fail cases prove that external code cannot rehydrate a stored
-record or recall without the required capability. Runtime cases cover
-space binding, clearance and redaction, <code>Secret</code> sealing,
-purpose filtering, quarantine defaults, label joins, transactional
-consolidation, retention, forgetting, graph neighborhoods, semantic
-ranking, guarded tool routing, and proposal-free response-loss recovery
-with anti-oracle and tamper checks. The versioned conformance corpus is
-run against both <code>InMemoryStore</code> and
+Compile-fail cases prove that external code cannot access a stored
+record’s content field directly or recall without the required
+capability; trusted serde, debug, and raw-store surfaces remain outside
+that claim. Runtime cases cover space binding, clearance and redaction,
+<code>Secret</code> sealing, purpose filtering, quarantine defaults,
+label joins, transactional consolidation, retention, forgetting, graph
+neighborhoods, semantic ranking, guarded tool routing, and proposal-free
+response-loss recovery with anti-oracle and tamper checks. The versioned
+conformance corpus is run against both <code>InMemoryStore</code> and
 <code>GrustMemoryStore</code> in tree.</p>
 <p>The cross-repository v1 proof tests a second boundary:
 <code>querygraph-memory</code> passes the same corpus on persistent

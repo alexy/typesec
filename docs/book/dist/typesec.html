@@ -1156,15 +1156,18 @@ instruction in a system prompt:</p>
 bound to the target space. When constructed with
 <code>with_policy</code>, it also rechecks policy at use time, so a
 still-live proof does not silently ignore a purpose or governance
-change. The model never receives a constructor for capabilities or an
-unguarded handle to stored content.</p>
+change. Production model/application code receives neither a capability
+constructor nor the privileged raw store handle. Backend code is
+different: record serde, <code>StoredRecord</code> debug formatting, and
+<code>MemoryVault::store()</code> can expose protected plaintext and
+therefore remain inside the trusted persistence boundary.</p>
 <h2 data-number="9.2" id="labels-travel-with-content"><span class="header-section-number">9.2</span> Labels travel with content</h2>
 <p>Scope answers whose memory this is. A label answers how sensitive its
 contents are. Every stored record carries a runtime <code>Public</code>,
 <code>Internal</code>, <code>Sensitive</code>, or <code>Secret</code>
-tag. Only the vault may rehydrate the private content field, and the
-typed Rust recall path declares the maximum sensitivity of the
-destination context:</p>
+tag. Only the vault accesses the private content field directly; trusted
+serde and debug formatting can still expose it. The typed Rust recall
+path declares the maximum sensitivity of the destination context:</p>
 <div class="sourceCode" id="cb65"><pre class="sourceCode rust"><code class="sourceCode rust"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> recalled<span class="op">:</span> Recall<span class="op">&lt;</span>Internal<span class="op">&gt;</span> <span class="op">=</span> vault<span class="op">.</span><span class="pp">recall::</span><span class="op">&lt;</span>Internal<span class="op">&gt;</span>(</span>
 <span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>space<span class="op">,</span></span>
 <span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">&amp;</span>read<span class="op">,</span></span>
@@ -1241,20 +1244,34 @@ transient <code>AuthorizedCognitionInput</code>. Application then
 requires the binding and freshly resolved authority to agree, checks the
 exact scope again on authoritative reload, includes it in record,
 binding, proposal, prepared-commit, audit, and receipt digests, and
-attaches it to every derived record. Version 1 proposals remain readable
-only for no-scope input; a scoped proposal requires schema 2, so
-removing the field cannot downgrade it into a local operation. Ordinary
-consolidation likewise preserves a unanimous scope and rejects mixed
-sources instead of laundering them into an unscoped summary.</p>
+attaches it to every derived record. Version 1 remains an inert, unbound
+proposal wire only; attaching either a local or governed binding
+upgrades the proposal to schema 3. Bound schemas 1 and 2 are rejected
+rather than silently reinterpreted because their input field used the
+governed grant digest where the immutable snapshot digest belonged.
+Removing a scope cannot downgrade a bound proposal into the old
+semantics. Ordinary consolidation likewise preserves a unanimous scope
+and rejects mixed sources instead of laundering them into an unscoped
+summary.</p>
 <p>The privacy boundary is the vault API, not arbitrary persistence
 bytes. <code>StoredRecord</code> keeps the field private and a
 compile-fail test prevents normal callers from setting it, but trusted
 stores must deserialize and round-trip the record. A store that accepts
 attacker-controlled serialized <code>StoredRecord</code> bytes can
 therefore forge any private persisted field, including content and
-scope. Such a store is outside this trust model; deployments needing
-hostile storage must authenticate records with a MAC or signature before
-deserialization and before returning them to the vault.</p>
+scope. <code>MemoryStore::put</code>, <code>MemoryStore::get</code>, and
+<code>MemoryVault::store()</code> are therefore privileged
+infrastructure seams, not application APIs; the backend, database, and
+raw handles are part of the confidentiality and integrity TCB.
+Production Marciana ingestion must use <code>remember_governed</code>
+with a configured <code>GovernedSourceVerifier</code> over the exact
+draft digest, never deserialize an arbitrary scoped record and insert it
+directly. Conformance tests establish store behavior, not authenticity.
+Deployments with integrity-hostile storage must authenticate records
+with a TypeSec-owned MAC or signature envelope before deserialization
+and before returning them to the vault. Confidentiality-hostile storage
+additionally requires encryption and key isolation; authentication alone
+does not hide record content.</p>
 <h2 data-number="9.5" id="time-graph-and-retrieval"><span class="header-section-number">9.5</span> Time, graph, and retrieval</h2>
 <p>A memory record distinguishes when it was observed from when it was
 valid. Supersession invalidates an old assertion instead of overwriting
@@ -1316,17 +1333,42 @@ authority-scoped identity, proposal, binding, source, TypeDID,
 governed-scan, authorization, evidence, and affected IDs—including the
 optional governed source scope—must match, while historical preparation
 time and policy-decision evidence remain those committed by the original
-transaction. Signed commit receipts apply the same canonical and bounded
-treatment to the evidence they expose. Their <code>preparedAt</code>
-validity window begins at the trusted TypeSec
-<code>audit.prepared_at</code> produced only after current authorization
-and source validation. It is intentionally not the backend
-<code>CognitionCommitOutcome.committed_at</code>: that later timestamp
-reports when the store committed. An idempotent retry signs the original
-preparation timestamp from the recovered audit, so response loss cannot
-silently extend the receipt lifetime. These are TypeSec security rules;
-they do not introduce a Cognee runtime, store, adapter, or
-wire-compatibility surface.</p>
+transaction.</p>
+<p>Audit and receipt evidence now have explicit, exact schemas. Audit
+schema 1 records the composite governed source scope, governed scan
+grant/proof digest, independent immutable <code>snapshotDigest</code>,
+original authorization-receipt digest,
+<code>authorityRevalidatedAt</code>, and <code>preparedAt</code>. Grant
+and snapshot digests must be canonical and different, preventing a
+valid-looking grant from being copied into both roles. These fields are
+included in the TypeSec-owned prepared-commit digest profile v3.
+Proposal-bearing commit and retry paths match them exactly;
+proposal-free recovery validates their canonical role and phase shape
+while remaining inside the documented trusted-store boundary. The
+revalidation timestamp is historical evidence, not idempotency identity:
+a later authorized retry may revalidate at a new time but must receive
+the original committed audit unchanged.</p>
+<p>Signed cognition receipt schema 1 carries the same distinct evidence
+plus the authoritative backend <code>committedAt</code>. Its constructor
+accepts one complete claims value and validates every required field
+before returning; callers can no longer receive a partial value from
+<code>CognitionCommitReceipt::new</code>. Public claim mutation remains
+possible for wire tooling, so issuers and verifiers validate again at
+their trust boundaries. Validators require
+<code>authorityRevalidatedAt &lt;= preparedAt &lt;= committedAt</code>.
+The <code>preparedAt</code> validity window begins at the trusted
+TypeSec preparation produced only after current authorization and source
+validation. It remains independent of <code>committedAt</code>, which
+only reports when the store committed. An idempotent retry signs the
+original preparation timestamp from the recovered audit, so response
+loss cannot silently extend the receipt lifetime.</p>
+<p><code>CognitionProposal</code> also has a fixed-shape,
+payload-redacted <code>Debug</code> surface: logs receive only schema,
+joined label, mutation/evidence/source counts, and binding presence. Job
+and algorithm strings, source identifiers, digests, drafts, replacement
+drafts, evidence strings, and binding contents are never formatted.
+These are TypeSec security rules; they do not introduce a Cognee
+runtime, store, adapter, or wire-compatibility surface.</p>
 <p>Strict cognition decoding is also a schema boundary, not an
 invitation to discard data. Recursive unknown-field rejection reaches
 shared nested domain types such as memory drafts, content, entities, and
@@ -1772,14 +1814,15 @@ exercise the CLI as a policy oracle.</p>
 <p>Marciana adds a security-focused matrix of its own. The audited
 <code>typesec-memory</code> all-features suite includes unit,
 integration, compile-fail, graph-integration, and doctest coverage.
-Compile-fail cases prove that external code cannot rehydrate a stored
-record or recall without the required capability. Runtime cases cover
-space binding, clearance and redaction, <code>Secret</code> sealing,
-purpose filtering, quarantine defaults, label joins, transactional
-consolidation, retention, forgetting, graph neighborhoods, semantic
-ranking, guarded tool routing, and proposal-free response-loss recovery
-with anti-oracle and tamper checks. The versioned conformance corpus is
-run against both <code>InMemoryStore</code> and
+Compile-fail cases prove that external code cannot access a stored
+record’s content field directly or recall without the required
+capability; trusted serde, debug, and raw-store surfaces remain outside
+that claim. Runtime cases cover space binding, clearance and redaction,
+<code>Secret</code> sealing, purpose filtering, quarantine defaults,
+label joins, transactional consolidation, retention, forgetting, graph
+neighborhoods, semantic ranking, guarded tool routing, and proposal-free
+response-loss recovery with anti-oracle and tamper checks. The versioned
+conformance corpus is run against both <code>InMemoryStore</code> and
 <code>GrustMemoryStore</code> in tree.</p>
 <p>The cross-repository v1 proof tests a second boundary:
 <code>querygraph-memory</code> passes the same corpus on persistent
