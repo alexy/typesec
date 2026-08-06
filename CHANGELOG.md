@@ -7,6 +7,11 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Added capability-gated candidate-ID recall for Marciana and other ranking
+  layers. The vault now deduplicates ranked IDs and applies its normal space,
+  purpose, validity, retention, quarantine, and label visibility checks before
+  returning any content.
+
 - Updated the Marciana project handoff with the reachable reviewed dependency
   pins and passing fresh-clone candidate, while retaining the canonical Sail
   upstream requirement for a release baseline.

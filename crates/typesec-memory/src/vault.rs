@@ -413,6 +413,39 @@ impl<S: MemoryStore> MemoryVault<S> {
         Ok((hits, redacted))
     }
 
+    /// Materialize a caller-ordered list of candidate IDs through the same
+    /// authorization and visibility gate as ordinary recall. Ranking layers
+    /// may select IDs, but only the vault may reveal their content.
+    pub fn recall_ids_at(
+        &self,
+        space: &MemorySpace,
+        cap: &Capability<CanRead, MemorySpace>,
+        ids: impl IntoIterator<Item = MemoryId>,
+        at: DateTime<Utc>,
+        ceiling: Label,
+        ctx: &RequestContext,
+    ) -> Result<(Vec<RecalledMemory>, Vec<RedactedHit>), MemoryError> {
+        self.authorize(space, cap, ctx)?;
+        let ids = deduplicate_candidate_ids(ids);
+        let records = self.fetch_candidates(space, ids)?;
+        let now = Utc::now();
+        let visibility =
+            RecordVisibility::new(space.resource_id(), ctx.purpose.as_deref(), at, now, false);
+        let (hits, redacted) = split_visible(records, &visibility, ceiling, None);
+        audit(
+            "memory:read_candidates",
+            cap.subject(),
+            space,
+            &format!(
+                "ceiling={} hits={} redacted={}",
+                ceiling.name(),
+                hits.len(),
+                redacted.len()
+            ),
+        );
+        Ok((hits, redacted))
+    }
+
     /// Graph recall: find records in the knowledge-graph neighborhood of
     /// `entity` (within `hops`), then apply the clearance ceiling exactly as
     /// [`recall_at`][Self::recall_at] — the graph returns ids, the vault
@@ -720,6 +753,16 @@ impl<S: MemoryStore> MemoryVault<S> {
         }
         Ok(records)
     }
+}
+
+fn deduplicate_candidate_ids(ids: impl IntoIterator<Item = MemoryId>) -> Vec<MemoryId> {
+    let mut unique = Vec::new();
+    for id in ids {
+        if !unique.contains(&id) {
+            unique.push(id);
+        }
+    }
+    unique
 }
 
 pub(crate) fn build_record_with_id(
