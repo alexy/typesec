@@ -110,9 +110,9 @@ pub struct CognitionAuthorityEvidence {
 
 /// Trusted application-time adapter for LakeCat and TypeDID evidence.
 ///
-/// Implementations live at the QueryGraph composition boundary. The vault
-/// supplies only digest-safe binding material and requires returned evidence
-/// to match it exactly.
+/// Implementations live at the standalone Marciana composition boundary;
+/// QueryGraph consumes that integration. The vault supplies only digest-safe
+/// binding material and requires returned evidence to match it exactly.
 pub trait CognitionAuthorityVerifier: Send + Sync {
     /// Resolve current authority, snapshot, projection, and request evidence.
     fn revalidate(

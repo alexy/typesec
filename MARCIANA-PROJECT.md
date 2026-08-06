@@ -8,6 +8,10 @@
 
 **Target upstream:** a first-class sibling project in the QueryGraph stack
 
+The local checkout is initialized. No Marciana upstream or remotely reachable
+release exists yet; the history-preserving transplant and qg-rust consumer
+switch remain outstanding.
+
 ## Document role
 
 This document records the architectural decision establishing Marciana as a
@@ -20,9 +24,8 @@ It does not replace the existing Marciana security design:
 - [`MEMORY.md`](MEMORY.md) remains authoritative for Marciana's security
   invariants, TypeSec vault boundary, realized v1 architecture, and the rule
   that only the vault may rehydrate or mutate protected memory.
-- [`MARCIANA.md`](MARCIANA.md) records the Cognee Rust and Akka/Fluree review,
-  the resulting production-cognition program, and its cross-repository
-  acceptance criteria.
+- [`MARCIANA.md`](MARCIANA.md) is the dated Cognee Rust and Akka/Fluree
+  comparative review and delivery record that motivated the program.
 - This file is the TypeSec-side extraction handoff. The initialized
   `~/src/marciana` repository owns the active product design, roadmap,
   compatibility matrix, and integration release process; this file must not
@@ -30,11 +33,11 @@ It does not replace the existing Marciana security design:
 
 ## Decision
 
-Create `~/src/marciana` as the reusable AI memory and cognition layer in the
-QueryGraph stack.
+The initialized `~/src/marciana` checkout is the reusable AI memory and
+cognition layer in the QueryGraph stack.
 
-Marciana will be a product and composition layer, not a fifth storage or
-security substrate. It will own the public memory lifecycle, cognition
+Marciana is a product and composition layer, not a fifth storage or security
+substrate. It owns the public memory lifecycle, cognition
 orchestration, durable jobs, memory-specific adapters, and native four-verb API
 behavior while depending on the existing projects for their authoritative
 capabilities:
@@ -86,7 +89,7 @@ tier to the QueryGraph stack. It is not a reversal of that design.
 
 ## Project charter
 
-Marciana will own:
+Marciana owns:
 
 - the native `remember`, `recall`, `improve`, and `forget` lifecycle;
 - dataset, memory-space, and session behavior above the TypeSec resource
@@ -110,7 +113,7 @@ Marciana will own:
 - language clients and cross-language wire fixtures; and
 - cross-stack compatibility, security, recovery, and running-service tests.
 
-Marciana will not own:
+Marciana does not own:
 
 - capability issuance, policy evaluation, label lattices, clearance,
   quarantine, retention enforcement, or private content rehydration;
@@ -190,9 +193,12 @@ may not create an alternate authority path.
 
 ## Ledger and persistence boundary
 
-Marciana owns the logical memory ledger: record and assertion schemas, job and
-proposal state, idempotency namespaces, index-outbox entries, audit evidence,
-receipt recovery metadata, and schema migrations.
+Marciana owns the logical memory ledger: record and assertion schemas, durable
+job state, proposal identities and digests, idempotency namespaces,
+index-outbox entries, audit evidence, receipt recovery metadata, and schema
+migrations. Protected proposals remain transient unless a future, explicitly
+designed encrypted-persistence contract proves a need for them; they are never
+metadata queue payloads.
 
 Grust owns the physical commit mechanism. A production Marciana backend must
 use a backend capability that can atomically:
@@ -257,7 +263,8 @@ Move the private `crates/querygraph-memory` application integration, including:
 - vector ranking and embedding privacy enforcement;
 - reference cognition analytics;
 - governed cognition request and engine contracts;
-- the live Sail cognition executor and memory-specific Arrow/SQL code; and
+- the live Sail cognition executor and memory-specific Arrow/SQL code once its
+  owning-repository stabilization is complete; and
 - conformance, multi-tenant, persistence, transactional consolidation, and
   live-service tests.
 
@@ -323,13 +330,18 @@ Each step is a separately verified and changelogged unit. Repository moves,
 API redesign, schema redesign, and production workflow completion must not be
 combined into one unreviewable change.
 
+This is required migration ordering, not the active status tracker. Current
+execution status and compatible pins belong in the standalone Marciana
+repository.
+
 1. **Stabilize owning repositories.** Finish and commit the current TypeSec
    guarded-application, generic Grust guarded-commit, LakeCat governed-grant,
    Grust cognition baseline, and qg-rust composition units. Record the exact
    compatible revisions and establish a green cross-repository baseline. Keep
    Marciana-specific production code modular so its later move is mechanical.
-2. **Create the repository.** Initialize `~/src/marciana` with its ownership
-   ADR, changelog, compatibility matrix, CI, license, and repository guidance.
+2. **Create the repository.** Completed locally: `~/src/marciana` has its
+   ownership ADR, changelog, compatibility matrix, CI, license, and repository
+   guidance. Remote publication remains pending.
 3. **Transplant without redesign.** Move `querygraph-memory` with history when
    practical, retain its crate name and storage format, and bring every
    existing test with it.
@@ -430,10 +442,9 @@ Repository extraction and later API work must preserve all of the following:
     A concurrent or response-loss retry reloads the originally committed
     outcome and audit evidence before issuing a receipt.
 14. Raw job identifiers, worker identities, lease tokens, failure text,
-    reusable authorization material, and memory plaintext are absent from
-    scheduler, outbox, and log records. A protected proposal may contain
-    derived memory content only in the authoritative encrypted/protected store;
-    it is not a metadata queue payload.
+    reusable authorization material, protected proposals, and memory plaintext
+    are absent from scheduler, outbox, and log records. Only proposal identity
+    and canonical digest are durable in scheduler metadata.
 
 ## Risks and mitigations
 
@@ -469,10 +480,10 @@ cross-stack CI at every Marciana release candidate.
 
 ### Competing canonical documents
 
-TypeSec currently owns the canonical security design. When the project is
-created, transfer only product-level API, operations, and roadmap authority.
-Keep TypeSec's invariant contract authoritative and replace duplicated plans
-with links.
+TypeSec owns the canonical security design. Now that Marciana is initialized,
+product-level API, operations, compatibility, and roadmap authority are held
+there. TypeSec's invariant contract remains authoritative, and duplicated plans
+are replaced with links.
 
 ### Freezing known v1 limitations
 
@@ -508,8 +519,9 @@ The standalone-project extraction is complete only when:
 
 ## Production-cognition definition of done
 
-Extraction alone does not complete the broader `MARCIANA.md` goal. Production
-cognition is complete only when the standalone project additionally provides:
+Extraction alone does not complete the production-cognition criteria handed
+off from the historical `MARCIANA.md` review. Production cognition is complete
+only when the standalone project additionally provides:
 
 1. all four high-level verbs, including durable asynchronous `improve`;
 2. running Sail extraction, temporal enrichment, entity resolution,
@@ -528,11 +540,11 @@ cognition is complete only when the standalone project additionally provides:
 
 ## Summary judgment
 
-Marciana should become a first-class QueryGraph-stack project now, before the
-production-cognition program places more application-domain behavior inside
-Grust and qg-rust. The project should collect the four-verb API, cognition,
-jobs, adapters, and memory-service operations while preserving the existing
-trust structure:
+Marciana is established locally as a first-class QueryGraph-stack project so
+the production-cognition program does not place more application-domain
+behavior inside Grust and qg-rust. It owns the four-verb API, cognition, jobs,
+adapters, and memory-service operations while preserving the existing trust
+structure:
 
 > TypeSec supplies the vault and the law; Grust supplies the durable graph and
 > commit machinery; Sail supplies distributed computation; LakeCat supplies

@@ -1,9 +1,9 @@
 # MEMORY — Marciana: capability-secured memory for AI agents
 
 *Design date: 2026-07-04 · Author: Claude (Fable) with Alexy · Consolidated:
-2026-07-14 · Status: canonical cross-stack design; end-to-end v1 implemented
-across TypeSec, Grust, `qg-rust`, and qg-python; post-v1 scale and hosted
-product design is specified in §6 · Codename: **Marciana** (the Biblioteca
+2026-07-14 · Status: canonical TypeSec security design and realized v1 record;
+the standalone Marciana extraction is accepted and owns active product work ·
+Codename: **Marciana** (the Biblioteca
 Marciana — Venice's great library; the memory subsystem gets a Venetian name
 of its own, distinct from the release codename line).*
 
@@ -17,9 +17,11 @@ stored, at scale, on Grust.
 
 ### Document role
 
-This is the canonical design for Marciana across the TypeSec and QueryGraph
-repositories. It owns the invariants, component boundaries, realized v1
-architecture, and future-work contract. The historical filename was
+This is the canonical TypeSec security design for Marciana. It owns the vault
+invariants, trust boundaries, and realized v1 architecture recorded here. The
+standalone Marciana repository owns the active product design, roadmap,
+compatibility matrix, and integration delivery; §6 remains historical design
+and acceptance input, not a competing live roadmap. The historical filename was
 `FABLE-MEMORY-1.md`; this consolidation intentionally replaces it rather than
 maintaining two competing design documents.
 
@@ -31,7 +33,8 @@ consolidation:
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | TypeSec repository guidance and concise implementation status |
 | [`CHANGELOG.md`](CHANGELOG.md) | Release-oriented record of shipped TypeSec behavior |
-| [`MARCIANA-PROJECT.md`](MARCIANA-PROJECT.md) | Proposed standalone Marciana project boundary, dependency direction, extraction plan, and acceptance criteria |
+| [`MARCIANA-PROJECT.md`](MARCIANA-PROJECT.md) | Accepted TypeSec-side handoff for the standalone Marciana boundary and extraction |
+| [`MARCIANA.md`](MARCIANA.md) | Dated Cognee Rust and Akka/Fluree comparative review and delivery record |
 | [`../grust/docs/QUERYGRAPH_MEMORY_GOAL.md`](../grust/docs/QUERYGRAPH_MEMORY_GOAL.md) | Grust-side durable-backend goal, verification commands, and implementation evidence |
 | [`../grust/docs/lancedb-backend-plan.md`](../grust/docs/lancedb-backend-plan.md) | Existing Grust LanceDB backend plan and substrate detail |
 | [`../grust/docs/sail-backend-proposal.md`](../grust/docs/sail-backend-proposal.md) | Existing Sail/Spark backend proposal and operational assumptions |
@@ -42,8 +45,9 @@ consolidation:
 | [`../querygraph/qg-python/examples/pydantic_ai_v2_memory_agents.py`](../querygraph/qg-python/examples/pydantic_ai_v2_memory_agents.py) | Restart-persistence and outsider-denial demonstration |
 
 Those documents may preserve narrower wording or references to the historical
-filename. This document is authoritative for cross-stack design intent; source
-code, tests, and CI remain authoritative for implemented behavior.
+filename. This document is authoritative for TypeSec's Marciana security
+contract; owning source code, tests, and CI remain authoritative for implemented
+behavior.
 
 ---
 
@@ -104,10 +108,11 @@ system to get it right *in*.
 6. **Forgetting is provable.** Deletion writes an audited tombstone and can
    mint a signed deletion receipt (ed25519, offline-verifiable) — the GDPR
    erasure story is a first-class flow, not a `DELETE FROM`.
-7. **Storage is a trait; cognition is pluggable.** typesec owns the security
-   semantics and the reference stores. Embeddings, LLM extraction, graph
-   analytics, and scale live behind traits — with Grust/QueryGraph as the
-   flagship backend, not a hard dependency.
+7. **Storage is a trait; cognition is pluggable.** TypeSec owns the security
+   semantics and reference stores. Grust persistence, Sail compute, and
+   LakeCat proof remain reusable substrates; standalone Marciana owns the
+   memory-specific composition, and QueryGraph consumes it. None is a hard
+   TypeSec dependency.
 
 ## 3. Core model
 
@@ -326,7 +331,8 @@ pub trait MemoryStore: Send + Sync {
   typesec-rbac's `graph` feature).
 - **Vector search is deliberately *not* in the trait's core.** An optional
   `SemanticIndex` trait (embed + ANN) plugs in beside it; the reference impl
-  can use Ollama embeddings, and the scale impl belongs to QueryGraph (§5).
+  can use Ollama embeddings, and the scale implementation belongs to the
+  standalone Marciana project (§5).
   Marciana's guarantees must hold on `query` alone — semantic search is a
   *ranking* upgrade, never an authorization path.
 
@@ -360,10 +366,11 @@ pub trait MemoryStore: Send + Sync {
   carrier for "this peer consented to being remembered" — `remember` for
   peer-derived facts can require the consent capability. (M5, optional.)
 
-## 5. Placement: typesec vs QueryGraph
+## 5. Placement: TypeSec vs standalone Marciana
 
-**Marciana's security core belongs in typesec; its scale/cognition tier
-belongs in QueryGraph.** Concretely:
+**Marciana's security core belongs in TypeSec; its product, scale, and
+cognition tier belongs in the standalone Marciana project as part of the
+QueryGraph stack.** Concretely:
 
 **typesec (this repo) — crate `typesec-memory` (workspace member #11):**
 types, `MemorySpace`, the vault, labels-at-rest, quarantine, `MemoryStore` +
@@ -373,9 +380,10 @@ surfaces, receipts/audit wiring. Rationale: the invariants (one rehydration
 site, capability-gated ops, label joins) are compile-time properties that
 must live next to the sealed traits and compile-fail tests that enforce them.
 
-**QueryGraph stack — suggested crate `querygraph-memory` (or `grust-memory`):**
-everything that is about *scale and intelligence*, implementing typesec's
-traits from the outside:
+**Standalone Marciana project:** everything about the four-verb product,
+scale, cognition, and memory-specific adapters, implementing TypeSec's traits
+from the outside. The current `querygraph-memory` crate is the
+behavior-preserving extraction source, not its permanent repository owner:
 
 - **`SemanticIndex` at scale** — embedding pipelines and ANN over sail
   (DataFusion / Lance / Spark-sized corpora), hybrid BM25+vector+graph
@@ -387,18 +395,20 @@ traits from the outside:
 - **Point-in-time & lineage queries as GQL library functions** — this
   pressure-tests grust's new GQL/transaction features with a real workload,
   which is good for Grust itself.
-- **Multi-tenant memory service** — a hosted QueryGraph product: one Grust
-  cluster, many vaults, typesec policies as the tenancy boundary. This is
-  where "memory as a service, with provable isolation" becomes a product
-  story neither mem0 nor Zep can tell.
+- **Multi-tenant memory service** — a hosted Marciana product consumed by
+  QueryGraph: one Grust cluster, many vaults, TypeSec policies as the tenancy
+  boundary. This is where "memory as a service, with provable isolation"
+  becomes a product story neither mem0 nor Zep can tell.
 
-The seam is clean because it's the seam we already operate: typesec-rbac
-defines the policy contract, grust supplies the graph. Marciana repeats the
-pattern one level up.
+The seam is clean because it is the seam we already operate: TypeSec defines
+the security contract, Grust supplies generic graph persistence, Sail supplies
+generic compute, and LakeCat supplies governed catalog evidence. Marciana
+composes those owners without becoming a second authority or store.
 
-### 5.1 QueryGraph handoff spec (`querygraph-memory`)
+### 5.1 Historical QueryGraph handoff (`querygraph-memory`)
 
-The contract QueryGraph implements against, versioned with `typesec-memory`:
+The current extraction source implements this contract against
+`typesec-memory`; Marciana retains it during the behavior-preserving move:
 
 - **Traits to implement:** `MemoryStore` (required) and `SemanticIndex`
   (optional, for ANN/hybrid ranking). Both are `Send + Sync`, take
@@ -417,7 +427,8 @@ The contract QueryGraph implements against, versioned with `typesec-memory`:
 - **Fixtures:** `typesec-memory` ships (in `tests/`) a corpus of records +
   expected `query`/`neighborhood` results as JSON; `querygraph-memory` runs
   the same corpus. "Marciana-compatible" is thereby checkable.
-- **What QueryGraph adds on top** (not in the trait, layered beside it):
+- **What standalone Marciana owns on top** (not in the trait, layered beside
+  it):
   embedding pipelines feeding `SemanticIndex`, entity resolution and
   community summaries as batch jobs over grust-sail that emit
   `ConsolidationPlan`s back through the vault's front door, point-in-time and
@@ -433,7 +444,7 @@ The contract QueryGraph implements against, versioned with `typesec-memory`:
   holds a runtime handle and `block_on`s inside its `MemoryStore` methods.
   One sanctioned bridge in one crate, not N ad-hoc ones.
 
-### 5.2 QueryGraph work plan (repo surveyed 2026-07-04)
+### 5.2 Historical QueryGraph work plan (repo surveyed 2026-07-04)
 
 A survey of the grust repo sharpened the plan in three ways.
 
@@ -532,8 +543,9 @@ or hosted-product work listed as post-v1 below.
 - hosted multi-tenant service assembly plus product packaging and clients
   beyond the delivered qg-python Pydantic AI v2 demonstration.
 
-Section 6 is the authoritative design and acceptance contract for these
-workstreams; this list only preserves the boundary established during v1.
+Section 6 preserves the historical design and acceptance input for these
+workstreams; the standalone Marciana project owns their current status and
+sequencing. This list only preserves the boundary established during v1.
 
 **V1 completion delivery (done on 2026-07-14):** `querygraph-memory` passes the
 TypeSec conformance corpus against persistent Turso, including reopen,
@@ -549,7 +561,7 @@ bi-temporal predicates and an ANN interface beyond the plain `GraphStore`
 surface. These should be driven by the GQL and LanceDB implementations rather
 than added speculatively.
 
-**Order:** TypeSec prerequisites (done) → QueryGraph reference adapter (done) →
+**Historical order:** TypeSec prerequisites (done) → QueryGraph reference adapter (done) →
 persistent Turso + `qg-rust` + Pydantic AI v2 consumption proof (done) →
 durable anti-replay and schema-migration foundations → GQL temporal/lineage
 pushdown → LanceDB ANN → Sail analytics → hosted service and additional
@@ -647,12 +659,13 @@ V1 intentionally stops at a durable local service proof:
 Those limits define the post-v1 work below. They do not reopen the completed
 v1 contract.
 
-## 6. Post-v1 scale and service design
+## 6. Historical post-v1 scale and service design
 
-The work in this section is additive scale, query, and operations engineering.
-None of it is required to describe v1 as complete. Each workstream must retain
-the TypeSec security boundary rather than moving authorization into a faster
-backend.
+This section records the design and acceptance input that led to the standalone
+Marciana project. Its non-regression rules remain binding on TypeSec
+integrations, but active sequencing and status now live in Marciana. None of
+this work is required to describe v1 as complete, and no implementation may
+move authorization into a faster backend.
 
 ### 6.1 Non-regression invariants
 
@@ -825,15 +838,23 @@ migration report must state that explicitly.
 
 ### 6.4 Distributed Sail cognition
 
-**Current baseline.** Deduplication, contradiction detection, decay, and
+**V1 baseline (2026-07-14).** Deduplication, contradiction detection, decay, and
 importance scoring run as deterministic reference functions. Their only output
 is a `ConsolidationPlan`, and the vault applies that plan transactionally. This
 is the correct control boundary but not a distributed implementation.
 `grust-sail` already stages Arrow IPC into Spark Connect, runs Spark SQL,
 returns Arrow IPC, stores Delta graph tables, performs graph mutations, and
-executes broad read pushdown. Its mutation capability remains
-`OrderedNonAtomic`; `querygraph-memory` has no Sail cognition runner, durable
-job model, or distributed plan DTO.
+executes broad read pushdown. At that baseline its mutation capability was
+`OrderedNonAtomic`, and `querygraph-memory` had no Sail cognition runner,
+durable job model, or distributed plan DTO.
+
+**Handoff status (2026-08-05).** TypeSec's guarded cognition and
+proposal-free recovery protocol has landed. Grust's generic live-Sail
+execution, durable scheduling, ID-only outbox, and guarded-commit substrate is
+being finalized in its owning repository. It has not yet been transplanted
+into Marciana or consumed from there by qg-rust. The local Sail correction for
+Delta `MERGE` non-null constraints is not yet a remotely reachable supported
+revision.
 
 **Target design.** Define versioned Arrow schemas for authorized cognition
 input and proposal output, plus a serializable distributed DTO corresponding
@@ -860,13 +881,24 @@ CognitionProposal {
 }
 ```
 
-The proposal is inert. qg-rust reauthorizes the initiating subject, verifies
-that source records still match the snapshot/digest, joins labels again, and
-submits the plan through `MemoryVault::consolidate`. Stale proposals are
-rejected or replanned; Spark never writes the memory graph directly. A durable
-scheduler records job state, cancellation, bounded retries, receipts, metrics,
-and idempotent application. Turso remains the authoritative transactional
-commit path.
+The proposal is inert. Standalone Marciana owns composition and orchestration;
+`MemoryVault::apply_cognition` is the TypeSec reauthorization and application
+boundary; Grust owns generic guarded persistence. qg-rust remains a consumer
+during and after extraction. Stale proposals are rejected or replanned, and
+Spark never writes the memory graph directly. Durable scheduling records only
+job and proposal identity, cancellation, bounded retries, metrics, and
+idempotent outcomes; protected proposal content remains transient.
+
+**Response-loss recovery.** TypeSec now exposes an authorized historical-result
+path for a commit whose reply was lost. `MemoryVault` requires a current
+`CanWrite` capability, configured policy, and complete purpose context before
+looking up the exact space, job, and canonical proposal digest. It discloses
+only a validated immutable `AlreadyApplied` outcome and audit: it does not
+reconstruct a protected proposal, rerun mutation authority, or reapply the
+operation. Absence, digest conflict, corrupt evidence, and backend failure all
+collapse to the same unavailable result so the lookup cannot become a
+cross-subject or adapter-error oracle. Marciana owns orchestration and receipt
+projection around this TypeSec boundary.
 
 **Acceptance criteria:**
 
@@ -1077,6 +1109,10 @@ tests pass.
 
 ### 6.8 Delivery sequence
 
+This phase table is the historical sequencing proposal. The standalone
+Marciana repository owns its current decomposition, compatibility pins, and
+execution status.
+
 | Phase | Outcome | Depends on | Exit gate |
 |---|---|---|---|
 | F1 — contracts | Signed-envelope v2, `ReplayStore`, durable memory ids, assertion-node schema, quarantine promotion/propagation, component version table | v1 | Cross-language, restart/concurrency id, declassification, and resumable migration tests |
@@ -1089,9 +1125,9 @@ F1 replay work and assertion-schema design can proceed in parallel. Hosted
 operations cannot be called complete by merely deploying v1 behind a load
 balancer; F5 requires every listed operational and isolation gate.
 
-### 6.9 Post-v1 definition of done
+### 6.9 Historical post-v1 definition of done
 
-The future program is complete only when all five workstreams are implemented,
+The program described here is complete only when all five workstreams are implemented,
 their cross-repo contracts are versioned, the local deterministic path remains
 available, the full security/conformance corpus runs against the hosted path,
 and the companion runbooks describe actual operations. Until then, individual
@@ -1192,8 +1228,11 @@ Resolved for v1:
 
 ---
 
-*Summary judgment: yes — build it, and build it here. Marciana turns
-typesec's thesis ("authorization decisions become compile-time-visible
+*Summary judgment, updated after the standalone-project decision: build the
+trust kernel in TypeSec and the product/composition layer in Marciana. Marciana
+turns TypeSec's thesis ("authorization decisions become compile-time-visible
 authority") loose on the one asset every agent framework is racing to
-accumulate and none of them knows how to protect. typesec supplies the vault
-and the law; Grust supplies the palace; QueryGraph gets the telescope.*
+accumulate and none of them knows how to protect. TypeSec supplies the vault
+and the law; Grust supplies guarded persistence; Sail supplies compute;
+LakeCat supplies governed proof; Marciana supplies the memory product; and
+QueryGraph gets the telescope.*

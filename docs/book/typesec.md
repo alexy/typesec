@@ -1192,10 +1192,11 @@ Lido applies the existing Typesec model to that problem. The subsystem is named
 **Marciana**, after Venice's Biblioteca Marciana: a library understood not as a
 pile of text, but as an institution for provenance, custody, classification,
 access, and stewardship. Its security core lives in the `typesec-memory` crate.
-The durable QueryGraph adapter lives on Grust, the authenticated service lives
-in `qg-rust`, and the agent ergonomics live in qg-python. That division keeps
-authority, persistence, transport, and framework integration in their proper
-homes.
+The realized v1 adapter lives in Grust and the authenticated edge in qg-rust.
+The accepted extraction moves the memory-specific adapter and reusable service
+assembly into standalone Marciana; qg-rust and qg-python remain consumers.
+That division keeps authority, persistence, product composition, transport,
+and framework integration in their proper homes.
 
 ## Memory is a resource
 
@@ -1311,11 +1312,12 @@ separate destructive path.
 
 The in-tree `InMemoryStore` makes the contract easy to test and embed. The
 feature-gated `GrustMemoryStore` adds entity relationships and neighborhood
-recall. QueryGraph's `querygraph-memory` adapter carries the same `MemoryStore`
-contract to persistent Turso/libSQL-backed Grust universal tables. In every
-case, the graph or semantic index returns candidate record identifiers; the
-vault decides whether content can be revealed. Retrieval can narrow and rank a
-candidate set, but it cannot widen authority.
+recall. The v1 `querygraph-memory` adapter, currently located in Grust and used
+as the behavior-preserving Marciana extraction source, carries the same
+`MemoryStore` contract to persistent Turso/libSQL-backed Grust universal
+tables. In every case, the graph or semantic index returns candidate record
+identifiers; the vault decides whether content can be revealed. Retrieval can
+narrow and rank a candidate set, but it cannot widen authority.
 
 The `SemanticIndex` seam follows the same rule. Typesec ships a deterministic
 `KeywordIndex`, while QueryGraph v1 proves an in-process `VectorIndex` with a
@@ -1328,9 +1330,16 @@ Reference cognition is similarly constrained. Extractors and analytics produce
 `MemoryDraft`s and `ConsolidationPlan`s; they do not mutate the store directly.
 The deterministic `RuleExtractor` and local-model `OllamaExtractor` demonstrate
 that raw model output remains an untrusted proposal until authorized code sends
-it through `remember` or `consolidate`. QueryGraph's reference analytics are
-also **plan producers only**. Distributed Sail cognition is post-v1 work and
-must preserve that inert-plan boundary.
+it through `remember` or `consolidate`. The v1 adapter's reference analytics
+are also **plan producers only**. Distributed cognition must preserve that inert
+proposal boundary: `MemoryVault::apply_cognition` freshly authorizes and
+validates the proposal before handing an opaque prepared commit to the trusted
+store transaction. If the transaction committed but its reply was lost,
+`recover_cognition_outcome` accepts only the exact job and proposal digest,
+checks a current `CanWrite` capability and policy before lookup, and discloses
+validated historical evidence without reconstructing a proposal, rerunning
+mutation authority, or applying a second write. Lookup absence, conflicts,
+corruption, and adapter failures deliberately share one unavailable result.
 
 ## The guarded agent surface
 
@@ -1897,14 +1906,15 @@ WorkOS, Arcade, JWT, and capability-composition path. Python smoke tests in
 `tests/python/test_cli_policy.py` exercise the CLI as a policy oracle.
 
 Marciana adds a security-focused matrix of its own. The audited
-`typesec-memory` all-features suite contains 49 unit tests plus compile-fail,
+`typesec-memory` all-features suite includes unit, integration, compile-fail,
 graph-integration, and doctest coverage. Compile-fail cases prove that external
 code cannot rehydrate a stored record or recall without the required
 capability. Runtime cases cover space binding, clearance and redaction,
 `Secret` sealing, purpose filtering, quarantine defaults, label joins,
 transactional consolidation, retention, forgetting, graph neighborhoods,
-semantic ranking, and guarded tool routing. The versioned conformance corpus is
-run against both `InMemoryStore` and `GrustMemoryStore` in tree.
+semantic ranking, guarded tool routing, and proposal-free response-loss
+recovery with anti-oracle and tamper checks. The versioned conformance corpus
+is run against both `InMemoryStore` and `GrustMemoryStore` in tree.
 
 The cross-repository v1 proof tests a second boundary: `querygraph-memory`
 passes the same corpus on persistent Turso/Grust storage; qg-rust tests exact
@@ -2156,49 +2166,35 @@ opaque value that can be transformed before explicit reveal or declassification.
 # Roadmap
 
 Lido closes the Marciana v1 milestone rather than moving it forward as an
-ever-receding roadmap item. The next memory work is a staged scale program with
-non-regression rules: every backend still goes through the vault, every
-optimization returns candidate ids rather than content, every cognitive worker
-returns an inert plan, and no hosted layer weakens capability, purpose,
-clearance, quarantine, or deletion semantics.
+ever-receding roadmap item. The non-regression rules remain: every backend
+still goes through the vault, every optimization returns candidate ids rather
+than content, every cognitive worker returns an inert proposal, and no hosted
+layer weakens capability, purpose, clearance, quarantine, or deletion
+semantics.
 
 ## Marciana after v1
 
-The first phase is contract hardening. Replace process-local `MemoryId::next()`
-with durable, collision-safe identifiers; define a signed-envelope v2 with a
-persistent replay store and mutation idempotency; introduce explicit assertion
-identity so repeated same-endpoint relationships retain distinct lineage; add
-an audited `CanDeclassify` promotion operation with mandatory quarantine
-propagation; and version the component and migration contracts. A decision about
-authority stronger than `CanReadSensitive` is required before any path may
-reveal `Secret`; until then, `Secret` stays sealed.
+Marciana is now an accepted standalone project in the QueryGraph stack, with
+its extraction in progress. That project owns the native `remember`, `recall`,
+`improve`, and `forget` product; durable jobs and recovery; memory-specific
+Grust, Sail, and LakeCat adapters; wire compatibility; and service operations.
+Its design and compatibility registry are the active roadmap.
 
-The second phase moves more query work into the durable backend without changing
-semantics. Turso/Grust can push temporal, label, provenance, entity, and
-assertion-lineage predicates only after an equivalence corpus proves the same
-answers and failure posture as the shared matcher. Durable replay claims must be
-tested across restart and concurrent replicas, not only within one server.
+The local Marciana checkout is initialized, but the history-preserving
+`querygraph-memory` transplant and qg-rust switch are not complete. Grust's
+generic cognition, live-Sail, job, outbox, and guarded-commit substrate is being
+finalized in its owning repository. A local Sail fix for Delta `MERGE` non-null
+constraints is not yet a remotely reachable supported pin. These distinctions
+prevent an in-progress local stack from being presented as a Marciana release.
 
-The third phase adds persistent semantic retrieval. A tenant-scoped LanceDB ANN
-index can replace the in-process `VectorIndex` as a rebuildable ranking sidecar,
-but the memory store remains authoritative and the vault still applies space,
-purpose, validity, quarantine, and clearance. Deletion and retention must prune
-or reconcile both stores, and content above the configured embedding ceiling
-must never leave the trusted embedder boundary.
-
-The fourth phase distributes cognition through Sail. Extraction, deduplication,
-contradiction detection, entity resolution, community summaries, and
-consolidation may run as data-parallel jobs, but workers receive bounded inputs
-and return signed or hash-bound proposals. Only an authorized vault applies a
-fresh plan. Stale policy, worker retry, partial failure, and idempotent reapply
-are part of the acceptance suite.
-
-The fifth phase is the hosted product, not merely v1 behind a load balancer. It
-requires a tenant control plane, physical isolation profiles, quotas, durable
-anti-replay and idempotency, online migrations, backup and point-in-time restore,
-deletion propagation, observability, rolling upgrades, incident drills, and
-explicit SLOs. The full TypeSec and backend conformance corpus must run against
-that path before it is called complete.
+TypeSec retains the security protocol: capabilities and current policy gate
+every operation; the vault is the only protected-content and mutation
+authority; workers emit inert proposals; prepared commits cross a narrow
+trusted-store boundary; and response-loss recovery discloses immutable evidence
+without becoming mutation authority. New Marciana capabilities that belong to
+this trust kernel are implemented and verified here, then consumed through a
+released version or exact compatible revision. Cognee remains design
+inspiration only, not a runtime, store, adapter, or API compatibility target.
 
 ## Broader TypeSec work
 
@@ -2247,11 +2243,13 @@ tests and documentation
 ```
 
 The design is not finished, but its boundaries are now concrete. TypeSec owns
-the law: typed authority, labels, purpose, quarantine, and evidence. Grust and
-QueryGraph own durable storage, retrieval, and scale behind those laws. qg-rust
-owns the authenticated service edge, and agent frameworks receive ergonomic
-capabilities without receiving private identity material or a bypass around the
-vault.
+the law: typed authority, labels, purpose, quarantine, and evidence. Grust owns
+generic graph and guarded-commit persistence, Sail owns distributed compute,
+and LakeCat owns governed source proof. Marciana owns the memory product,
+cognition, and memory-specific adapters. QueryGraph consumes Marciana; qg-rust
+is the current authenticated edge pending router extraction. Agent frameworks
+receive ergonomic capabilities without receiving private identity material or
+a bypass around the vault.
 
 That is the arc from Torcello to Lido. Torcello made authorization impossible to
 forget when an agent calls a tool. Lido applies the same rule to what the agent

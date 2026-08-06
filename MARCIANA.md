@@ -1,17 +1,19 @@
 # Marciana after Cognee Rust and Akka + Fluree
 
-**Status:** implementation review, target architecture, and delivery record  
+**Status:** dated implementation review and delivery record; active work moved
+to the standalone Marciana project
+
 **Reviewed:** 2026-08-05  
 **Scope:** TypeSec Marciana, TypeDID, Cognee Rust, and the Akka SDK + Fluree
 `semantic-memory` port
 
-This document records the review requested on 2026-08-05 and turns its useful
-findings into a concrete Marciana and TypeDID program. It complements
-`MEMORY.md`: `MEMORY.md` remains the canonical product design and QueryGraph
-handoff; this file records the comparative review, the resulting corrections,
-and the implementation boundary. `MARCIANA-PROJECT.md` records the proposed
-extraction of Marciana's product, cognition, and composition tier into a
-first-class sibling project in the QueryGraph stack.
+This document records the review requested on 2026-08-05 and the corrections
+it motivated. It complements `MEMORY.md`, which owns TypeSec's Marciana
+security contract and realized v1 record. This file is historical comparative
+evidence, not the active roadmap. `MARCIANA-PROJECT.md` is the accepted
+TypeSec-side handoff for extracting Marciana's product, cognition, and
+composition tier into its initialized first-class sibling project in the
+QueryGraph stack.
 
 ## Sources reviewed
 
@@ -30,17 +32,18 @@ information-flow boundary; neither should be adopted as that boundary.
 
 ## Executive judgment
 
-Marciana should remain the authorization, information-flow, provenance, and
-rehydration control plane. Cognee-class systems should plug in as untrusted
-cognition and ranking engines. Fluree- or Grust-class systems should plug in as
-transactional stores. TypeDID should carry cryptographic identity, request
-binding, negotiated obligations, delegation, and receipts across service
-boundaries.
+TypeSec's Marciana vault remains the authorization, information-flow, and
+rehydration authority. The standalone Marciana project composes native memory
+and cognition over TypeSec, Grust, Sail, and LakeCat. TypeDID carries
+cryptographic identity, request binding, negotiated obligations, delegation,
+and receipts across service boundaries. Cognee, Akka, and Fluree are
+comparative design input only, not runtimes, stores, adapters, or compatibility
+targets.
 
 The load-bearing rule is:
 
 > Cognition proposes, indexes rank, stores persist, TypeDID identifies, and
-> only the capability-gated Marciana vault reveals or mutates memory.
+> only the capability-gated TypeSec vault reveals or mutates memory.
 
 ## Comparative review
 
@@ -91,8 +94,9 @@ Its current HTTP surface is a prototype, not a safe production boundary:
   while the durable `RememberWorkflow` is a separate path.
 
 The lesson is not to put Fluree directly on the trust boundary. The lesson is
-to place a TypeDID-verified, capability-minting Marciana gateway in front of a
-durable workflow and unified transactional store.
+to place a TypeDID-verified Marciana service that requests and validates
+TypeSec capabilities in front of a durable workflow and Grust's guarded commit
+boundary.
 
 ## Findings and implemented corrections
 
@@ -212,12 +216,12 @@ TypeDID gateway
     | verified attestation + encrypted payload
     v
 Marciana application service
-    - mint/validate scoped capability
+    - request/validate scoped TypeSec capability
     - bind purpose and clearance through RequestContext
     - assign idempotent operation id
     |
     +--> durable cognition workflow
-    |      - Cognee/LLM/extractor reads authorized snapshot
+    |      - Marciana-native worker reads authorized snapshot
     |      - emits inert CognitionProposal
     |      - no direct memory mutation
     |
@@ -228,89 +232,46 @@ MemoryVault
     - recompute label joins
     - apply transactional store batch + index-outbox event
     |
-    +--> Grust/Fluree-class authoritative store
+    +--> Grust guarded commit and durable backend
     +--> semantic/hybrid index (ranking only)
     +--> audit log and signed TypeDID reply receipt
 ```
 
-## Marciana implementation program
+## Historical implementation program
 
-### P0: security closure
+The review originally organized the work as a live P0/P1/P2 checklist. That
+checklist is now frozen into three durable conclusions instead of being
+maintained as a second roadmap.
 
-- [x] Bind request context on graph recall.
-- [x] Bind request context on semantic recall.
-- [x] Bind request context on sensitive reveal.
-- [x] Test purpose denial on alternate paths.
-- [ ] Consolidate all record-returning paths behind one internal validator.
-- [ ] Require context on consolidation, forget, reaping, and index repair when
-  deployment policy uses contextual write/delete constraints.
+First, TypeSec owns and has implemented the security protocol: all
+content-returning paths share one visibility gate; request context and current
+policy reach alternate reads; TypeDID v2 signs the complete request envelope;
+cognition receives a vault-authorized source bundle, produces an inert bound
+proposal, and can mutate only through an opaque vault-prepared commit. A lost
+commit reply can be recovered by exact job and proposal digest only after a
+current capability and policy check, with fixed anti-oracle failures and no
+proposal reconstruction or second mutation.
 
-### P0: TypeDID request proof
+Second, the QueryGraph stack owns reusable substrate rather than Marciana
+product semantics. LakeCat issues governed snapshot and authorization evidence;
+Grust supplies guarded graph commits and durable backends; Sail supplies generic
+distributed compute; QueryGraph applications consume the product. Each owner
+canonicalizes its own evidence once, and adapters translate without duplicating
+policy, digest, transition, or recovery rules.
 
-- [x] Make negotiated obligations explicit.
-- [x] Enforce strictest payload limit.
-- [x] Enforce required claims and action intersection.
-- [x] Inject a shared replay authority.
-- [x] Claim replay only after authenticated decryption.
-- [ ] Define the domain-separated TypeDID HTTP v2 canonical payload covering
-  version, sender/key, recipient, environment audience, tenant selection,
-  method, canonical path/query, body digest, conversation, nonce/JTI,
-  issued/expiry times, and optional idempotency key.
-- [ ] Implement a durable QueryGraph `ReplayStore` and cross-restart,
-  concurrent-claim, and cross-replica tests.
-- [ ] Implement a separate mutation idempotency store and receipt recovery
-  path; never advertise a claim-then-mutate sequence as exactly-once.
+Third, the remaining product program moved to the standalone Marciana project:
+the native `remember`, `recall`, `improve`, and `forget` service; durable worker
+orchestration; memory-specific Grust, Sail, and LakeCat adapters; assertion
+provenance and conflict semantics; cross-language wire fixtures; operations;
+and compatibility releases. Cognee remains useful design input only. It is not
+a runtime, storage layer, adapter dependency, API target, or definition of
+completeness.
 
-### P1: durable cognition and indexing
+## Historical acceptance criteria
 
-- [x] Define inert, versioned cognition proposals.
-- [x] Define an id-only index repair outbox.
-- [x] Retry repair through the vault rehydration boundary.
-- [ ] Add proposal application that verifies source snapshot/digest and
-  recomputes the label join before applying a plan.
-- [ ] Add transactional store/outbox implementations in QueryGraph.
-- [ ] Add durable job state, leases, cancellation, bounded retry, and
-  idempotent application.
-- [x] Define native Grust cognition contracts for deduplication and
-  reconciliation, with a reference engine and an injectable Sail executor.
-- [x] Bind cognition inputs to LakeCat snapshot, projection, subject, purpose,
-  plan-token digest, and authorization-receipt digest evidence.
-- [ ] Implement the live `grust-sail` cognition executor for extraction,
-  temporal enrichment, entity resolution, summaries, communities, and hybrid
-  candidate ranking. Cognee remains design inspiration only.
-
-### P1: assertion provenance and conflict
-
-- [ ] Add canonical assertion facets: subject, predicate, object, predicate
-  cardinality, assertion layer, confidence, source digest, observed/valid
-  times, and derivation lineage.
-- [ ] Model corroborating evidence without duplicating the assertion.
-- [ ] Preserve cross-layer disagreements and serve the policy winner while
-  flagging the loser.
-- [ ] Represent genuine no-winner authored conflicts as contested; never
-  resolve an authored tie by recency.
-- [ ] Keep retraction, deletion, negation, and re-extraction/resurrection as
-  distinct operations.
-- [ ] Feed every derived summary or assertion back through label join,
-  quarantine, capability checks, and audit.
-
-### P2: receipts and interoperability
-
-- [ ] Define TypeDID actions `memory.remember`, `memory.recall`,
-  `memory.reveal`, `memory.forget`, and `memory.consolidate`.
-- [ ] Bind memory space, tenant, purpose, clearance ceiling, request digest,
-  audience, nonce, expiry, and idempotency key into the signed request.
-- [ ] Return reply-bound receipts containing operation ID, request/input
-  digest, prior and resulting version, affected IDs, policy decision ID,
-  backend commit hash, and deletion/consolidation evidence.
-- [ ] Support attenuated delegation for one space, purpose, clearance, and
-  time window.
-- [ ] Publish Rust/Python/JavaScript canonicalization fixtures and malformed
-  envelope corpora.
-
-## Acceptance criteria
-
-The program is complete only when all of the following hold:
+These criteria remain design input for Marciana's active compatibility and
+integration gates; their current status is maintained in the standalone
+project.
 
 1. No Marciana content-returning path can omit request purpose or other
    contextual policy inputs.
@@ -332,71 +293,25 @@ The program is complete only when all of the following hold:
 10. Destructive operations are tenant- and space-scoped, capability-gated,
     audited, and receipt-producing; no production `forgetAll` surface exists.
 
-## Delivery boundary
+## Handoff status on 2026-08-05
 
-This repository now contains the security fixes and reusable seams listed as
-implemented above. The cross-repository implementation uses Grust storage,
-LakeCat catalog evidence, TypeSec governance, and QueryGraph composition; it
-does not depend on Cognee or reproduce Cognee's store adapters. It does not yet
-contain the live Sail cognition executor, hosted QueryGraph control database,
-or durable proposal-application service. Durable replay, transactional
-record-plus-outbox delivery, and Grust commit-backed receipts therefore remain
-cross-repository work. They are requirements here, not falsely reported as
-shipped behavior.
+TypeSec's bound proposals, opaque prepared commits, complete TypeDID v2 request
+binding, and policy-gated proposal-free recovery are implemented. LakeCat owns
+and persists the governed scan proof and original authorization evidence.
+qg-rust contains the initial verified TypeDID/LakeCat composition slice, but it
+remains a consumer and temporary integration edge rather than the owner of the
+memory product.
 
-## QueryGraph-native implementation update
+Grust's generic live-Sail execution, durable job, ID-only outbox, guarded
+commit, and read-only receipt-recovery substrate is being finalized in its
+owning repository. It is not yet a Marciana release. The standalone
+`~/src/marciana` checkout is initialized with its ownership and compatibility
+rules, but `querygraph-memory` has not yet been transplanted and qg-rust has not
+switched to it. A Sail correction for Delta `MERGE` non-null constraints exists
+only as a local commit and is not a remotely reachable supported pin.
 
-The first cross-repository implementation landed on 2026-08-05 without a
-Cognee dependency:
-
-- TypeSec defines the inert `CognitionProposal`, guarded vault, TypeDID
-  obligations, and repairable index boundary.
-- Grust `querygraph-memory` binds native cognition to LakeCat/Iceberg snapshot
-  evidence and provides reference plus injectable Sail execution contracts.
-- LakeCat exports a secret-free `GovernedScanProof` containing the authorized
-  principal, purpose, snapshot, narrowed projection, and hashes—not plaintext
-  copies—of the Sail plan token and authorization receipt.
-- qg-rust converts that LakeCat proof into the Grust cognition source,
-  cross-checks its subject and purpose against the verified TypeDID request,
-  and receives an inert proposal for later vault application.
-
-### Status at handoff
-
-The governed vertical slice is implemented and verified:
-
-- Grust owns cognition requests, governed LakeCat snapshot inputs, reference
-  deduplication/reconciliation, and the `SailCognitionExecutor` boundary.
-- LakeCat owns the secret-free governed scan proof.
-- TypeSec owns verified identity and obligations, inert proposals, vault
-  authorization, label joins, and index-repair seams.
-- QueryGraph cross-checks the LakeCat subject and purpose against the verified
-  TypeDID request before asking Grust to produce a proposal.
-- Cognee is neither linked nor required; Grust remains the authoritative data
-  substrate.
-
-This slice has unit and integration coverage in its owning repositories, but
-it stops before live distributed execution and durable mutation.
-
-### Next execution goal: production cognition completion
-
-The next goal is complete only when the following sequence works against a
-running Sail service and an authoritative Grust store:
-
-1. Implement a `grust-sail` `SailCognitionExecutor` that submits governed
-   extraction, temporal enrichment, entity resolution, summarization,
-   community, deduplication, reconciliation, and hybrid-ranking work.
-2. Carry the LakeCat scan proof and verified TypeDID request through execution
-   without exposing raw plan tokens, authorization receipts, or plaintext in
-   queues and logs.
-3. Persist proposal/job state with leases, bounded retry, cancellation, and
-   idempotency; worker loss must not partially mutate memory.
-4. Apply proposals only through the TypeSec vault after revalidating the
-   source snapshot and digest, authorization, effective projection, and joined
-   source labels.
-5. Commit the memory mutation and ID-only index outbox atomically in Grust,
-   then produce audit evidence and a commit-bound TypeDID receipt.
-6. Add running-service tests for stale proposals, revoked authority, changed
-   snapshots, cross-tenant or purpose mismatch, retry after response loss,
-   worker failure, and outbox recovery.
-7. Mark the corresponding program items complete only after the cross-repo
-   test suite and strict lint checks pass.
+The active implementation sequence, compatibility matrix, and acceptance
+status now belong exclusively to the standalone Marciana repository. This
+historical review does not maintain a second execution checklist. Cognee,
+Akka, and Fluree remain inspiration only and are absent from the runtime and
+storage dependency graph.

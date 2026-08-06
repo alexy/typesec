@@ -7,6 +7,12 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Recast the Marciana design, comparative review, and book roadmap as the
+  TypeSec security contract and standalone-project handoff, and documented
+  policy-gated proposal-free cognition recovery without duplicating the active
+  Marciana product roadmap. The handoff now distinguishes implemented TypeSec
+  and LakeCat contracts, the Grust substrate being finalized, and the
+  not-yet-transplanted Marciana and qg-rust integration.
 - Added policy-authorized, proposal-free recovery of completed cognition
   outcomes after response loss, with fixed-error anti-oracle behavior and
   fail-closed validation of committed identity, authority, versions, times,
