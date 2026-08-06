@@ -10,11 +10,13 @@
 
 The local checkout is initialized. The history-preserving transplant is now
 complete in `~/src/marciana` as merge commit `3fee1f9`, with the workspace
-configuration and local verification committed as `4950a58`. qg-rust now
-resolves the standalone crate in local commit `f25863b`. Marciana now has the
-public upstream `https://github.com/querygraph/marciana` with the preserved
-history on `main`; reachable Grust, TypeSec, LakeCat, and Sail dependency pins
-and the clean-clone gate remain outstanding.
+configuration and local verification committed as `4950a58`. qg-rust resolves
+the standalone crate through exact reachable Git revisions in `c5ecf76`.
+Marciana has the public upstream `https://github.com/querygraph/marciana`;
+its review candidate `67ea623` pins reachable Grust, TypeSec, and LakeCat
+revisions, and fresh Marciana and qg-rust clones pass their full suites without
+sibling paths. The generic Sail correction is also reachable for review but
+must still land in canonical upstream before a release baseline is claimed.
 
 ## Document role
 

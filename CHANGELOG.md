@@ -7,6 +7,10 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Updated the Marciana project handoff with the reachable reviewed dependency
+  pins and passing fresh-clone candidate, while retaining the canonical Sail
+  upstream requirement for a release baseline.
+
 - Recorded completion of the history-preserving `querygraph-memory` transplant
   into standalone `~/src/marciana`; the remaining work is reachable dependency
   pinning and the clean-clone release gate.
