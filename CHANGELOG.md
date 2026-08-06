@@ -12,6 +12,8 @@ by release version, then by the date the logical change landed.
   pinning and the clean-clone release gate.
 - Recorded the local qg-rust cutover to standalone Marciana (`f25863b`) and its
   green 100-test cognition/application suite; reachable pins remain pending.
+- Recorded the public `querygraph/marciana` upstream and its initial preserved
+  history; cross-stack reachable dependency pins remain a separate gate.
 
 - Added a shared typed cognition effect and first-class durable no-change
   decisions. Bound proposal schema v4, audit schema v3, receipt schema v3, and
