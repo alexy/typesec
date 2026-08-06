@@ -115,7 +115,11 @@ pub(super) fn validate_prepared_expansion(
     output_count: usize,
 ) -> Result<(), CognitionApplyError> {
     let source_id_bytes = checked_id_bytes(proposal.source_ids.iter())
-        .ok_or(CognitionApplyError::LimitExceeded("lineage bytes"))?;
+        .ok_or(CognitionApplyError::LimitExceeded("source id bytes"))?;
+    enforce(
+        source_id_bytes <= MAX_COGNITION_SOURCE_BYTES,
+        "source id bytes",
+    )?;
     validate_lineage_dimensions(proposal.source_ids.len(), source_id_bytes, output_count)?;
 
     let target_id_bytes =

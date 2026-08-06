@@ -21,8 +21,8 @@ fn lineage_reference_count_is_inclusive_and_preflighted() {
 #[test]
 fn lineage_id_bytes_are_inclusive_and_preflighted() {
     let fixture = Fixture::new();
-    let exact_ids = ids_with_total_bytes(1_025, MAX_COGNITION_SOURCE_BYTES);
-    let mut exact = proposal_with_shape(&fixture, exact_ids, 1);
+    let exact_ids = ids_with_total_bytes(1_025, MAX_COGNITION_SOURCE_BYTES / 2);
+    let mut exact = proposal_with_shape(&fixture, exact_ids, 2);
     assert!(exact.canonical_digest().is_ok());
 
     exact.source_ids[0] = MemoryId::from_string(format!("{}x", exact.source_ids[0].as_str()));
@@ -31,6 +31,25 @@ fn lineage_id_bytes_are_inclusive_and_preflighted() {
         Err(CognitionApplyError::LimitExceeded("lineage bytes"))
     ));
     assert_rejected_before_adapters(&fixture, &exact, "lineage bytes");
+}
+
+#[test]
+fn invalidation_only_source_id_bytes_are_inclusive_and_preflighted() {
+    let fixture = Fixture::new();
+    let exact_ids = ids_with_total_bytes(1_025, MAX_COGNITION_SOURCE_BYTES);
+    let invalidated = exact_ids[0].clone();
+    let mut exact = proposal_with_shape(&fixture, exact_ids, 0);
+    exact.plan = ConsolidationPlan::new().then(ConsolidationStep::Invalidate {
+        ids: vec![invalidated],
+    });
+    assert!(exact.canonical_digest().is_ok());
+
+    exact.source_ids[1] = MemoryId::from_string(format!("{}x", exact.source_ids[1].as_str()));
+    assert!(matches!(
+        exact.canonical_digest(),
+        Err(CognitionApplyError::LimitExceeded("source id bytes"))
+    ));
+    assert_rejected_before_adapters(&fixture, &exact, "source id bytes");
 }
 
 #[test]

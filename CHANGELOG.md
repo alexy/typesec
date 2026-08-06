@@ -7,6 +7,11 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Bounded aggregate cognition source-ID bytes before authority or store access,
+  including invalidation-only proposals with no derived outputs.
+- Clarified exact current-audit validation for newly applied cognition versus
+  immutable historical evidence on idempotent recovery, and documented the
+  versioned migration required by recursive strict cognition decoding.
 - Documented the enforced cognition trust boundary in the TypeSec book,
   including bounded raw proposal ingress, strict nested schemas, fresh native
   intent and authority binding, opaque idempotency scope, fixed expansion
