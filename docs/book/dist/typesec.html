@@ -841,7 +841,14 @@ accessors but cannot forge gateway provenance. After signature
 verification, the DID-message gateway accepts only prompt and reply
 types and the TypeDID gateway accepts only TypeDID messages;
 cross-protocol envelopes are rejected before decryption or replay
-consumption.</p>
+consumption. <code>VerifiedTypeDidContext::claims()</code> borrows the
+complete signed claim map without allocating, so downstream boundaries
+can enforce count and byte budgets and allowlist trusted names before
+choosing whether to construct a cloned audit attestation. The existing
+<code>claim(name)</code> accessor remains the narrow path for a single
+value. Both expose authenticated assertions, not automatic
+authorization; application-defined claims still require the appropriate
+trust source and policy validation.</p>
 <p>When the Ollama reply needs to travel with the same authority context
 as the prompt, Typesec can bind the assistant message back to the
 prompt:</p>
