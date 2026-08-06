@@ -52,11 +52,11 @@ name = "memory_consolidation"
 path = "../../examples/memory_consolidation.rs"
 
 [dependencies]
-typesec-core = { version = "0.13.0", path = "../typesec-core" }
-typesec-rbac = { version = "0.13.0", path = "../typesec-rbac" }
-typesec-odrl = { version = "0.13.0", path = "../typesec-odrl" }
-typesec-agent = { version = "0.13.0", path = "../typesec-agent" }
-typesec-memory = { version = "0.13.0", path = "../typesec-memory", features = ["agent"] }
+typesec-core = { version = "0.13.1", path = "../typesec-core" }
+typesec-rbac = { version = "0.13.1", path = "../typesec-rbac" }
+typesec-odrl = { version = "0.13.1", path = "../typesec-odrl" }
+typesec-agent = { version = "0.13.1", path = "../typesec-agent" }
+typesec-memory = { version = "0.13.1", path = "../typesec-memory", features = ["agent"] }
 tokio = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
@@ -74,4 +74,4 @@ tracing-subscriber = { workspace = true }
 grust-graph = { workspace = true, features = ["memory"] }
 grust-cypher = { workspace = true }
 grust-sail = { workspace = true }
-typesec-integrations = { version = "0.13.0", path = "../typesec-integrations" }
+typesec-integrations = { version = "0.13.1", path = "../typesec-integrations" }

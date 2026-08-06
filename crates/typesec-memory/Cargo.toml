@@ -27,14 +27,14 @@ agent = ["dep:typesec-agent"]
 conformance = []
 
 [dependencies]
-typesec-core = { version = "0.13.0", path = "../typesec-core" }
+typesec-core = { version = "0.13.1", path = "../typesec-core" }
 # Only for the `graph-memory` store; kept optional so the core stays lean and
 # wasm-buildable.
 grust-graph = { workspace = true, optional = true }
 # Only for the `receipts` feature.
-typesec-integrations = { version = "0.13.0", path = "../typesec-integrations", optional = true }
+typesec-integrations = { version = "0.13.1", path = "../typesec-integrations", optional = true }
 # Only for the `agent` feature.
-typesec-agent = { version = "0.13.0", path = "../typesec-agent", optional = true }
+typesec-agent = { version = "0.13.1", path = "../typesec-agent", optional = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -43,9 +43,9 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-typesec-rbac = { version = "0.13.0", path = "../typesec-rbac" }
-typesec-odrl = { version = "0.13.0", path = "../typesec-odrl" }
-typesec-integrations = { version = "0.13.0", path = "../typesec-integrations" }
+typesec-rbac = { version = "0.13.1", path = "../typesec-rbac" }
+typesec-odrl = { version = "0.13.1", path = "../typesec-odrl" }
+typesec-integrations = { version = "0.13.1", path = "../typesec-integrations" }
 ed25519-dalek = { workspace = true }
 chrono = { workspace = true }
 trybuild = "1"

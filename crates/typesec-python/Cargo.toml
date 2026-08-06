@@ -15,10 +15,10 @@ crate-type = ["cdylib"]
 extension-module = ["pyo3/extension-module"]
 
 [dependencies]
-typesec-core = { version = "0.13.0", path = "../typesec-core" }
-typesec-rbac = { version = "0.13.0", path = "../typesec-rbac" }
-typesec-odrl = { version = "0.13.0", path = "../typesec-odrl" }
-typesec-agent = { version = "0.13.0", path = "../typesec-agent" }
-typesec-memory = { version = "0.13.0", path = "../typesec-memory", features = ["agent"] }
+typesec-core = { version = "0.13.1", path = "../typesec-core" }
+typesec-rbac = { version = "0.13.1", path = "../typesec-rbac" }
+typesec-odrl = { version = "0.13.1", path = "../typesec-odrl" }
+typesec-agent = { version = "0.13.1", path = "../typesec-agent" }
+typesec-memory = { version = "0.13.1", path = "../typesec-memory", features = ["agent"] }
 pyo3 = { workspace = true }
 serde_json = { workspace = true }
