@@ -8,9 +8,11 @@
 
 **Target upstream:** a first-class sibling project in the QueryGraph stack
 
-The local checkout is initialized. No Marciana upstream or remotely reachable
-release exists yet; the history-preserving transplant and qg-rust consumer
-switch remain outstanding.
+The local checkout is initialized. The history-preserving transplant is now
+complete in `~/src/marciana` as merge commit `3fee1f9`, with the workspace
+configuration and local verification committed as `4950a58`. No Marciana
+upstream or remotely reachable release exists yet; the qg-rust consumer switch
+and reachable dependency pins remain outstanding.
 
 ## Document role
 
@@ -343,9 +345,9 @@ repository.
 2. **Create the repository.** Completed locally: `~/src/marciana` has its
    ownership ADR, changelog, compatibility matrix, CI, license, and repository
    guidance. Remote publication remains pending.
-3. **Transplant without redesign.** Move `querygraph-memory` with history when
-   practical, retain its crate name and storage format, and bring every
-   existing test with it.
+3. **Transplant without redesign.** Completed locally: `querygraph-memory` was
+   moved with preserved history, retained its crate name and storage format,
+   and all tests pass against the current sibling checkouts.
 4. **Remove sibling-path release coupling.** Depend on released versions or
    remotely reachable exact Git revisions in committed manifests. A local-only
    commit hash is not an independently buildable pin. Local path patches may

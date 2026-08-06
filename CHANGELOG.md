@@ -7,6 +7,10 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Recorded completion of the history-preserving `querygraph-memory` transplant
+  into standalone `~/src/marciana`; the remaining work is reachable dependency
+  pinning and the qg-rust consumer cutover.
+
 - Added a shared typed cognition effect and first-class durable no-change
   decisions. Bound proposal schema v4, audit schema v3, receipt schema v3, and
   prepared-commit digest profile v5 now distinguish `Mutated` from `NoChange`;
