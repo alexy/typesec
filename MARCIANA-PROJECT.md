@@ -10,9 +10,10 @@
 
 The local checkout is initialized. The history-preserving transplant is now
 complete in `~/src/marciana` as merge commit `3fee1f9`, with the workspace
-configuration and local verification committed as `4950a58`. No Marciana
-upstream or remotely reachable release exists yet; the qg-rust consumer switch
-and reachable dependency pins remain outstanding.
+configuration and local verification committed as `4950a58`. qg-rust now
+resolves the standalone crate in local commit `f25863b`; no Marciana upstream
+or remotely reachable release exists yet, so reachable dependency pins and the
+clean-clone gate remain outstanding.
 
 ## Document role
 
@@ -353,9 +354,9 @@ repository.
    commit hash is not an independently buildable pin. Local path patches may
    support development from untracked developer configuration, but must not be
    required by consumers, a clean clone, or CI release builds.
-5. **Switch qg-rust.** Point qg-rust at the relocated crate and prove the same
-   signed memory routes, response shapes, receipts, database reopen behavior,
-   and denial cases before deleting the Grust copy.
+5. **Switch qg-rust.** Completed locally: qg-rust points at the relocated crate
+   and its 100-test cognition/application suite passes; signed route and
+   database compatibility remain part of the clean-clone release gate.
 6. **Extract an embeddable router.** Move reusable memory service assembly and
    cognition composition into Marciana. qg-rust should merge the router at the
    existing paths so clients do not change.
