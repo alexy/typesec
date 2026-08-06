@@ -8,6 +8,7 @@ landmark**, assigned in list order.
 
 | Version | Codename | Notes |
 |---|---|---|
+| 0.13.1 | Arsenale | Patch release of the Marciana cognition and capability-memory APIs, aligned with Grust 0.12.1 and published for registry consumers. |
 | 0.13.0 | Lido | The Marciana release: capability-secured agent memory with clearance-typed recall, provenance quarantine, purpose and retention policy, audited forgetting, Grust-backed temporal memory, guarded Rust/Python/WASM/MCP surfaces, a shared backend conformance contract, and the durable QueryGraph service proof. Post-v1 scale and hosted-service limits remain explicit. |
 | 0.12.0 | Torcello | The agent-interoperability release: wire-level deny-by-default tool-call guard for OpenAI/Anthropic/LangChain/Pydantic-AI/MCP across Rust, Python, and WASM/JS (`typesec-wasm`, member #10); `mcp-gate` + streaming-aware `proxy` gateways; signed receipts, arg schemas, OTel sink, decision log + `replay`, `#[typesec_tool]`, capability attenuation, conversation typestate. Tracks Grust 0.12 (Lobster). |
 | 0.11.0 | Burano  | Workspace quality/DRY/test review; glob unification (behavior change); Grust 0.11 graph-type validation. |
