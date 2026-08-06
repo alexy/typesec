@@ -14,9 +14,9 @@ use crate::{
 const RECORD_DOMAIN: &[u8] = b"typesec.marciana.source-record.v1\0";
 const MANIFEST_DOMAIN: &[u8] = b"typesec.marciana.source-manifest.v1\0";
 const BINDING_DOMAIN: &[u8] = b"typesec.marciana.binding.v1\0";
-const PROPOSAL_DOMAIN: &[u8] = b"typesec.marciana.proposal.v1\0";
+const PROPOSAL_DOMAIN: &[u8] = b"typesec.marciana.proposal.v2\0";
 const EVIDENCE_DOMAIN: &[u8] = b"typesec.marciana.evidence.v1\0";
-const PREPARED_COMMIT_DOMAIN: &[u8] = b"typesec.marciana.prepared-commit.v3\0";
+const PREPARED_COMMIT_DOMAIN: &[u8] = b"typesec.marciana.prepared-commit.v4\0";
 const AUTHORITY_SCOPE_DOMAIN: &[u8] = b"typesec.marciana.authority-scope.v1\0";
 
 fn tagged_serialized_digest<T: Serialize + ?Sized>(

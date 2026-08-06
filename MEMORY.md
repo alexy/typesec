@@ -852,8 +852,12 @@ executes broad read pushdown. At that baseline its mutation capability was
 `OrderedNonAtomic`, and `querygraph-memory` had no Sail cognition runner,
 durable job model, or distributed plan DTO.
 
-**Handoff status (2026-08-05).** TypeSec's guarded cognition and
-proposal-free recovery protocol has landed. Grust's generic live-Sail
+**Handoff status (2026-08-05).** TypeSec's guarded cognition,
+proposal-free recovery, and explicit `Mutated`/`NoChange` outcome protocol has
+landed. A no-change result is not inferred from an empty ID list: it traverses
+the complete binding, fresh-authority, source-reload, precondition, and
+preparation path, then commits durable job/audit/outcome evidence with no
+memory operation or index outbox row. Grust's generic live-Sail
 execution, durable scheduling, ID-only outbox, and guarded-commit substrate is
 being finalized in its owning repository. It has not yet been transplanted
 into Marciana or consumed from there by qg-rust. The local Sail correction for
@@ -879,7 +883,7 @@ contradictions, decay, and importance. They emit a versioned proposal bundle:
 
 ```text
 CognitionProposal {
-  job_id, input_snapshot, algorithm, algorithm_version,
+  job_id, effect, input_snapshot, algorithm, algorithm_version,
   source_ids, source_digest, proposed_plan, joined_label,
   evidence, created_at
 }
@@ -887,11 +891,23 @@ CognitionProposal {
 
 The proposal is inert. Standalone Marciana owns composition and orchestration;
 `MemoryVault::apply_cognition` is the TypeSec reauthorization and application
-boundary; Grust owns generic guarded persistence. qg-rust remains a consumer
-during and after extraction. Stale proposals are rejected or replanned, and
-Spark never writes the memory graph directly. Durable scheduling records only
-job and proposal identity, cancellation, bounded retries, metrics, and
-idempotent outcomes; protected proposal content remains transient.
+boundary; Grust owns generic guarded persistence. Proposal schema 4 binds the
+effect into canonical identity. Audit and signed receipt schema 2 carry the
+same effect, and prepared-commit digest profile 4 binds it into backend
+execution. `Mutated` requires nonempty canonical affected IDs and a memory
+version transition; `NoChange` requires empty affected IDs and an unchanged
+memory version, but both produce one durable, recoverable decision. qg-rust
+remains a consumer during and after extraction. Stale proposals are rejected
+or replanned, and Spark never writes the memory graph directly. Durable
+scheduling records only job and proposal identity, cancellation, bounded
+retries, metrics, and idempotent outcomes; protected proposal content remains
+transient.
+
+Schema 4 is the first supported executable proposal wire. Schema 1 is only the
+in-memory state of an unbound Rust builder, not a serialized compatibility
+format. Every wire must carry `effect`, and JSON ingress rejects missing-effect
+documents plus every bound schema 1, 2, or 3 proposal rather than guessing or
+promoting old semantics.
 
 **Response-loss recovery.** TypeSec now exposes an authorized historical-result
 path for a commit whose reply was lost. `MemoryVault` requires a current
@@ -916,6 +932,8 @@ projection around this TypeSec boundary.
 - job retry is idempotent by `job_id` and source digest;
 - worker loss produces no partial memory mutation;
 - stale-source and policy-revocation tests reject application of the proposal;
+- explicit no-change results persist one recoverable audit/job/outcome while
+  producing no record mutation or index outbox row;
 - Arrow/Spark plans avoid collecting the full corpus into the driver; and
 - applied proposals emit auditable lineage from every source record to every
   replacement;

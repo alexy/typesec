@@ -3,6 +3,7 @@
 use crate::index::IndexMutation;
 use crate::store::StoreBatchOp;
 
+use super::CognitionEffect;
 use super::types::{
     CognitionApplyError, CognitionAuditEvidence, CognitionIdempotencyKey,
     CognitionSourcePrecondition,
@@ -104,6 +105,11 @@ impl PreparedCognitionCommit {
         &self.proposal_digest
     }
 
+    /// Return the explicit authoritative memory effect of this transaction.
+    pub fn effect(&self) -> CognitionEffect {
+        self.audit.effect
+    }
+
     /// Borrow the exact source revisions an atomic backend must compare.
     pub fn source_preconditions(&self) -> &[CognitionSourcePrecondition] {
         &self.source_preconditions
@@ -113,12 +119,16 @@ impl PreparedCognitionCommit {
     ///
     /// Put operations may contain protected memory plaintext. Backends must not
     /// log or generically serialize them and should retain them only as required
-    /// by the authoritative transaction.
+    /// by the authoritative transaction. This slice is empty exactly when
+    /// [`Self::effect`] is [`CognitionEffect::NoChange`].
     pub fn operations(&self) -> &[StoreBatchOp] {
         &self.operations
     }
 
     /// Borrow the ID-only semantic-index outbox work.
+    ///
+    /// This slice is empty exactly when [`Self::effect`] is
+    /// [`CognitionEffect::NoChange`].
     pub fn index_outbox(&self) -> &[IndexMutation] {
         &self.index_outbox
     }

@@ -7,6 +7,7 @@ fn claims() -> CognitionCommitReceipt {
 
 fn complete_claims() -> CognitionCommitReceiptClaims {
     CognitionCommitReceiptClaims {
+        effect: CognitionEffect::Mutated,
         subject: "did:key:agent".into(),
         resource: "memory/did:key:agent/research".into(),
         job_id: "job-42".into(),
@@ -40,5 +41,6 @@ fn assert_fixed_error(error: ReceiptError, message: &str) {
 
 mod bounds;
 mod construction;
+mod no_change;
 mod round_trip;
 mod validation;

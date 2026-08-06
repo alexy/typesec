@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 
+use super::CognitionEffect;
 use super::PreparedCognitionCommit;
 use super::identity::{CognitionCommitIdentity, deterministic_output_id};
 use super::limits::{
@@ -50,8 +51,7 @@ pub(super) fn prepare_commit(
     let parts = builder.finish();
     validate_affected_id_budget(&parts.affected_ids)?;
     if parts.affected_ids != identity.expected_affected_ids
-        || parts.operations.len() != parts.affected_ids.len()
-        || parts.index_outbox.len() != parts.affected_ids.len()
+        || !prepared_effect_is_exact(proposal.effect, &parts)
         || parts.affected_ids.len() > MAX_COGNITION_MUTATIONS
     {
         return Err(CognitionApplyError::InvalidPlan(
@@ -67,6 +67,7 @@ pub(super) fn prepare_commit(
         parts.index_outbox,
         CognitionAuditEvidence {
             schema_version: CognitionAuditEvidence::SCHEMA_VERSION,
+            effect: proposal.effect,
             operation_id: proposal.job_id.clone(),
             subject: binding.subject.clone(),
             space_id: binding.space_id.clone(),
@@ -86,6 +87,21 @@ pub(super) fn prepare_commit(
             prepared_at: now,
         },
     ))
+}
+
+fn prepared_effect_is_exact(effect: CognitionEffect, parts: &CommitParts) -> bool {
+    match effect {
+        CognitionEffect::Mutated => {
+            !parts.affected_ids.is_empty()
+                && parts.operations.len() == parts.affected_ids.len()
+                && parts.index_outbox.len() == parts.affected_ids.len()
+        }
+        CognitionEffect::NoChange => {
+            parts.affected_ids.is_empty()
+                && parts.operations.is_empty()
+                && parts.index_outbox.is_empty()
+        }
+    }
 }
 
 struct CommitBuilder<'a> {

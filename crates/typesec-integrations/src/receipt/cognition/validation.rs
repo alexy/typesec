@@ -4,6 +4,7 @@ use chrono::{DateTime, TimeDelta, Utc};
 
 use super::CognitionCommitReceipt;
 use crate::receipt::ReceiptError;
+use typesec_core::CognitionEffect;
 
 pub(in crate::receipt) const MAX_IDENTITY_BYTES: usize = 4 * 1024;
 pub(in crate::receipt) const MAX_AFFECTED_ID_COUNT: usize = 4_096;
@@ -35,8 +36,7 @@ pub(super) fn validate(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptEr
     }
     validate_identities(receipt)?;
     validate_digests(receipt)?;
-    validate_versions(receipt)?;
-    validate_affected_ids(&receipt.affected_ids)?;
+    validate_effect(receipt)?;
     if receipt.authority_revalidated_at > receipt.prepared_at
         || receipt.committed_at < receipt.prepared_at
         || receipt.expires_at <= receipt.prepared_at
@@ -86,16 +86,25 @@ fn validate_digests(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptError
     }
 }
 
-fn validate_versions(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptError> {
-    if receipt.prior_version == receipt.resulting_version {
-        Err(invalid(INVALID_VERSIONS))
-    } else {
-        Ok(())
+fn validate_effect(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptError> {
+    match receipt.effect {
+        CognitionEffect::Mutated if receipt.prior_version == receipt.resulting_version => {
+            return Err(invalid(INVALID_VERSIONS));
+        }
+        CognitionEffect::NoChange if receipt.prior_version != receipt.resulting_version => {
+            return Err(invalid(INVALID_VERSIONS));
+        }
+        CognitionEffect::Mutated | CognitionEffect::NoChange => {}
     }
+    validate_affected_ids(&receipt.affected_ids, receipt.effect)
 }
 
-fn validate_affected_ids(ids: &[String]) -> Result<(), ReceiptError> {
-    if ids.is_empty() || ids.len() > MAX_AFFECTED_ID_COUNT {
+fn validate_affected_ids(ids: &[String], effect: CognitionEffect) -> Result<(), ReceiptError> {
+    let valid_cardinality = match effect {
+        CognitionEffect::Mutated => !ids.is_empty(),
+        CognitionEffect::NoChange => ids.is_empty(),
+    };
+    if !valid_cardinality || ids.len() > MAX_AFFECTED_ID_COUNT {
         return Err(invalid(INVALID_AFFECTED_IDS));
     }
     let total_bytes = ids.iter().try_fold(0usize, |total, id| {

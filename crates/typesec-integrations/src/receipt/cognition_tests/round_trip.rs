@@ -29,7 +29,7 @@ fn cognition_receipt_round_trips_composite_governed_source_scope() {
 }
 
 #[test]
-fn local_v1_receipt_may_omit_the_optional_governed_scope() {
+fn local_v2_receipt_may_omit_the_optional_governed_scope() {
     let receipt = claims();
     let mut encoded = serde_json::to_value(receipt).unwrap();
     encoded
@@ -49,7 +49,7 @@ fn wire_distinguishes_revalidation_preparation_commit_and_expiry() {
         encoded
             .get("schemaVersion")
             .and_then(|value| value.as_u64()),
-        Some(1)
+        Some(2)
     );
     assert_eq!(
         encoded

@@ -40,6 +40,7 @@
 #![warn(missing_docs, clippy::all)]
 
 pub mod capability;
+pub mod cognition;
 pub mod combinator;
 pub mod glob;
 pub mod lattice;
@@ -57,6 +58,7 @@ pub use capability::{
     Capability, CapabilityId, CapabilityRevocationList, CapabilityUseError, DEFAULT_CAPABILITY_TTL,
     RevocationEpoch,
 };
+pub use cognition::CognitionEffect;
 pub use combinator::{CombineStrategy, ComposedEngine, PolicyEngineBuilder};
 pub use glob::{GlobPattern, is_glob_pattern};
 pub use lattice::{Implies, LatticeEngine};

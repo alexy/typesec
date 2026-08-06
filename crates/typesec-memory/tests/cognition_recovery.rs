@@ -1,3 +1,5 @@
+#[path = "cognition_recovery/no_change.rs"]
+mod no_change;
 #[path = "cognition_recovery/support.rs"]
 mod support;
 
@@ -8,8 +10,8 @@ use chrono::TimeDelta;
 use typesec_core::policy::{MintOptions, RequestContext, mint_capability_for_id};
 use typesec_core::{CanWrite, CapabilityRevocationList, CapabilityUseError, Resource};
 use typesec_memory::{
-    CognitionCommitOutcome, CognitionCommitStatus, CognitionRecoveryError, MemoryError, MemoryId,
-    MemorySpace, MemoryVault,
+    CognitionCommitOutcome, CognitionCommitStatus, CognitionEffect, CognitionRecoveryError,
+    MemoryError, MemoryId, MemorySpace, MemoryVault,
 };
 
 use support::{Fixture, JOB_ID, OTHER_SUBJECT, capability, digest};
@@ -192,6 +194,16 @@ fn tampered_recovered_evidence_fails_closed() {
         ("purpose", |value| value.audit.purpose = "support".into()),
         ("binding digest", |value| {
             value.audit.binding_digest = "bad".into()
+        }),
+        ("outcome effect", |value| {
+            value.effect = CognitionEffect::NoChange;
+        }),
+        ("audit effect", |value| {
+            value.audit.effect = CognitionEffect::NoChange;
+        }),
+        ("matching no-change effects", |value| {
+            value.effect = CognitionEffect::NoChange;
+            value.audit.effect = CognitionEffect::NoChange;
         }),
         ("audit schema", |value| value.audit.schema_version += 1),
         ("snapshot syntax", |value| {

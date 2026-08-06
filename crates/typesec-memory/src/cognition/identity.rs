@@ -8,7 +8,8 @@ use typesec_core::Resource;
 use super::digest::{binding_digest, evidence_digest, proposal_digest};
 use super::limits::proposal_output_count;
 use super::{
-    CognitionApplyError, CognitionAuditEvidence, CognitionBinding, CognitionIdempotencyKey,
+    CognitionApplyError, CognitionAuditEvidence, CognitionBinding, CognitionEffect,
+    CognitionIdempotencyKey,
 };
 use crate::{CognitionProposal, ConsolidationStep, GovernedSourceScope, MemoryId, MemorySpace};
 
@@ -21,6 +22,7 @@ pub(super) struct CognitionCommitIdentity {
     pub(super) binding_digest: String,
     pub(super) evidence_digest: String,
     pub(super) expected_affected_ids: Vec<MemoryId>,
+    effect: CognitionEffect,
     job_id: String,
     subject: String,
     space_id: String,
@@ -48,6 +50,7 @@ impl CognitionCommitIdentity {
         )?;
         Ok(Self {
             expected_affected_ids: expected_affected_ids(space, proposal, &proposal_digest)?,
+            effect: proposal.effect,
             proposal_digest,
             binding_digest: binding_digest(binding)?,
             evidence_digest: evidence_digest(&proposal.evidence)?,
@@ -67,6 +70,7 @@ impl CognitionCommitIdentity {
 
     pub(super) fn matches_audit(&self, audit: &CognitionAuditEvidence) -> bool {
         audit.schema_version == CognitionAuditEvidence::SCHEMA_VERSION
+            && audit.effect == self.effect
             && audit.operation_id == self.job_id
             && audit.subject == self.subject
             && audit.space_id == self.space_id

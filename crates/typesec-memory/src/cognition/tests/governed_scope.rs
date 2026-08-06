@@ -98,21 +98,23 @@ fn schema_v1_cannot_downgrade_a_bound_proposal() {
         assert!(matches!(
             proposal.canonical_digest().unwrap_err(),
             CognitionApplyError::InvalidBinding(message)
-                if message == "bound proposals require schemaVersion 3"
+                if message == "bound proposals require schemaVersion 4"
         ));
     }
 }
 
 #[test]
-fn ambiguous_governed_schema_v2_is_rejected_instead_of_reinterpreted() {
+fn prior_governed_schemas_are_rejected_instead_of_reinterpreted() {
     let fixture = Fixture::new_with_scope(Some(scope('a')));
-    let mut proposal = fixture.proposal();
-    proposal.schema_version = 2;
+    for schema in [2, 3] {
+        let mut proposal = fixture.proposal();
+        proposal.schema_version = schema;
 
-    assert!(matches!(
-        proposal.canonical_digest().unwrap_err(),
-        CognitionApplyError::UnsupportedSchema(2)
-    ));
+        assert!(matches!(
+            proposal.canonical_digest().unwrap_err(),
+            CognitionApplyError::UnsupportedSchema(found) if found == schema
+        ));
+    }
 }
 
 #[test]
@@ -131,7 +133,7 @@ fn local_and_governed_bound_proposals_share_one_current_schema() {
 }
 
 #[test]
-fn unbound_proposals_keep_v1_and_cannot_claim_v3_without_a_binding() {
+fn unbound_proposals_keep_v1_and_cannot_claim_v4_without_a_binding() {
     let mut proposal = CognitionProposal::new(
         "job-unbound",
         digest("snapshot"),
@@ -150,7 +152,7 @@ fn unbound_proposals_keep_v1_and_cannot_claim_v3_without_a_binding() {
     assert!(matches!(
         proposal.canonical_digest().unwrap_err(),
         CognitionApplyError::InvalidBinding(message)
-            if message == "schemaVersion 3 requires a binding"
+            if message == "schemaVersion 4 requires a binding"
     ));
 }
 

@@ -4,7 +4,7 @@ type OutcomeMutation = fn(&mut CognitionCommitOutcome);
 
 #[test]
 fn preflight_rejects_tampered_commit_outcomes() {
-    let mutations: [(&str, OutcomeMutation); 12] = [
+    let mutations: [(&str, OutcomeMutation); 15] = [
         ("status", |outcome| {
             outcome.status = CognitionCommitStatus::Applied;
         }),
@@ -19,6 +19,16 @@ fn preflight_rejects_tampered_commit_outcomes() {
         }),
         ("binding audit digest", |outcome| {
             outcome.audit.binding_digest = digest("wrong binding");
+        }),
+        ("outcome effect", |outcome| {
+            outcome.effect = CognitionEffect::NoChange;
+        }),
+        ("audit effect", |outcome| {
+            outcome.audit.effect = CognitionEffect::NoChange;
+        }),
+        ("matching no-change effects", |outcome| {
+            outcome.effect = CognitionEffect::NoChange;
+            outcome.audit.effect = CognitionEffect::NoChange;
         }),
         ("outcome affected IDs", |outcome| {
             outcome.affected_ids.clear();
@@ -69,7 +79,7 @@ fn preflight_rejects_tampered_commit_outcomes() {
 
 #[test]
 fn post_commit_rejects_tampered_commit_outcomes() {
-    let mutations: [(&str, OutcomeMutation); 13] = [
+    let mutations: [(&str, OutcomeMutation); 16] = [
         ("subject", |outcome| {
             outcome.audit.subject = "did:key:wrong-subject".into();
         }),
@@ -81,6 +91,16 @@ fn post_commit_rejects_tampered_commit_outcomes() {
         }),
         ("binding audit digest", |outcome| {
             outcome.audit.binding_digest = digest("wrong binding");
+        }),
+        ("outcome effect", |outcome| {
+            outcome.effect = CognitionEffect::NoChange;
+        }),
+        ("audit effect", |outcome| {
+            outcome.audit.effect = CognitionEffect::NoChange;
+        }),
+        ("matching no-change effects", |outcome| {
+            outcome.effect = CognitionEffect::NoChange;
+            outcome.audit.effect = CognitionEffect::NoChange;
         }),
         ("outcome affected IDs", |outcome| {
             outcome.affected_ids.clear();

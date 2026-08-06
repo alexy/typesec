@@ -13,7 +13,7 @@ fn digest_is_canonical_repeatable_and_plaintext_opaque() {
     assert!(is_canonical_sha256(&digest));
     assert_eq!(
         digest,
-        "sha256:f37df2f5eb170a2df36b145de702a2c4672e83202b31b60c4be4a56b7104c8ad"
+        "sha256:88f1060a04a33319ba4f4734bad088ea394bfd0713c701975f3ac6e9d840b6b3"
     );
     assert_eq!(digest, commit.canonical_digest().unwrap());
     assert_ne!(digest, commit.proposal_digest());
@@ -21,6 +21,7 @@ fn digest_is_canonical_repeatable_and_plaintext_opaque() {
     assert!(!digest.contains("derived summary"));
 
     assert_eq!(commit.idempotency_key().job_id(), "job-42");
+    assert_eq!(commit.effect(), CognitionEffect::Mutated);
     assert_eq!(commit.proposal_digest(), commit.audit().proposal_digest);
     assert_eq!(commit.source_preconditions().len(), 1);
     assert!(!commit.operations().is_empty());
@@ -104,7 +105,7 @@ fn digest_binds_distinct_grant_snapshot_and_revalidation_evidence() {
 }
 
 #[test]
-fn streaming_hashing_preserves_existing_canonical_digest_bytes() {
+fn streaming_hashing_matches_the_versioned_canonical_profiles() {
     let fixture = prepared_fixture(prepared_at());
 
     let mut canonical_binding = fixture.binding.clone();
@@ -124,7 +125,7 @@ fn streaming_hashing_preserves_existing_canonical_digest_bytes() {
         .sort();
     assert_eq!(
         fixture.proposal.canonical_digest().unwrap(),
-        legacy_digest(b"typesec.marciana.proposal.v1\0", &canonical_proposal)
+        legacy_digest(b"typesec.marciana.proposal.v2\0", &canonical_proposal)
     );
 
     assert_eq!(fixture.manifest.sources.len(), fixture.sources.len());

@@ -19,6 +19,8 @@ fn committed_audit_carries_versioned_grant_snapshot_and_phase_evidence() {
         outcome.audit.schema_version,
         CognitionAuditEvidence::SCHEMA_VERSION
     );
+    assert_eq!(outcome.effect, CognitionEffect::Mutated);
+    assert_eq!(outcome.audit.effect, CognitionEffect::Mutated);
     assert_eq!(
         outcome.audit.governed_scan_digest,
         fixture.binding.governed_scan_digest

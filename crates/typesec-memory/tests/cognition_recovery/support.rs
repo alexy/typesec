@@ -9,10 +9,10 @@ use typesec_core::{CanRead, CanWrite, Capability, Resource};
 use typesec_memory::{
     CognitionAuthorityError, CognitionAuthorityEvidence, CognitionAuthorityVerifier,
     CognitionBinding, CognitionCommitError, CognitionCommitOutcome, CognitionCommitStatus,
-    CognitionCommitStore, CognitionIdempotencyKey, CognitionProposal, CognitionSourcePrecondition,
-    ConsolidationPlan, ConsolidationStep, Label, MemoryError, MemoryId, MemoryKind, MemorySpace,
-    MemoryStore, MemoryVault, PreparedCognitionCommit, StoreBatchOp, StoreError, StoreQuery,
-    StoredRecord,
+    CognitionCommitStore, CognitionEffect, CognitionIdempotencyKey, CognitionProposal,
+    CognitionSourcePrecondition, ConsolidationPlan, ConsolidationStep, Label, MemoryError,
+    MemoryId, MemoryKind, MemorySpace, MemoryStore, MemoryVault, PreparedCognitionCommit,
+    StoreBatchOp, StoreError, StoreQuery, StoredRecord,
 };
 use typesec_odrl::OdrlEngine;
 
@@ -152,9 +152,13 @@ impl CognitionCommitStore for RecoveryStore {
         let ordinal = state.commit_calls;
         let outcome = CognitionCommitOutcome {
             status: CognitionCommitStatus::Applied,
+            effect: commit.effect(),
             backend_commit_hash: digest(&format!("backend commit {ordinal}")),
             prior_version: digest(&format!("version {}", ordinal - 1)),
-            resulting_version: digest(&format!("version {ordinal}")),
+            resulting_version: match commit.effect() {
+                CognitionEffect::Mutated => digest(&format!("version {ordinal}")),
+                CognitionEffect::NoChange => digest(&format!("version {}", ordinal - 1)),
+            },
             affected_ids: audit.affected_ids.clone(),
             committed_at: audit.prepared_at + TimeDelta::milliseconds(1),
             audit,
@@ -253,6 +257,14 @@ pub(super) struct Fixture {
 
 impl Fixture {
     pub(super) fn new() -> Self {
+        Self::new_with_effect(CognitionEffect::Mutated)
+    }
+
+    pub(super) fn new_no_change() -> Self {
+        Self::new_with_effect(CognitionEffect::NoChange)
+    }
+
+    fn new_with_effect(effect: CognitionEffect) -> Self {
         let store = RecoveryStore::default();
         let space = MemorySpace::new("tenant:acme", "research");
         let context = RequestContext::new().with_purpose(PURPOSE);
@@ -269,7 +281,7 @@ impl Fixture {
         let binding = binding(&space, manifest.digest);
         let authority = Arc::new(CountingAuthority::default());
         authority.set(authority_for(&binding));
-        let proposal = proposal(source.id, binding);
+        let proposal = proposal(source.id, binding, effect);
         let proposal_digest = proposal.canonical_digest().expect("proposal digest");
         let apply_vault = MemoryVault::new(store.clone())
             .with_policy(policy.clone())
@@ -335,8 +347,12 @@ fn binding(space: &MemorySpace, source_manifest_digest: String) -> CognitionBind
     }
 }
 
-fn proposal(source: MemoryId, binding: CognitionBinding) -> CognitionProposal {
-    CognitionProposal::new(
+fn proposal(
+    source: MemoryId,
+    binding: CognitionBinding,
+    effect: CognitionEffect,
+) -> CognitionProposal {
+    let proposal = CognitionProposal::new(
         JOB_ID,
         binding.snapshot_digest.clone(),
         binding.source_manifest_digest.clone(),
@@ -344,9 +360,14 @@ fn proposal(source: MemoryId, binding: CognitionBinding) -> CognitionProposal {
         "1",
         vec![source.clone()],
         Label::Internal,
-    )
-    .with_plan(ConsolidationPlan::new().then(ConsolidationStep::Invalidate { ids: vec![source] }))
-    .with_binding(binding)
+    );
+    let proposal = match effect {
+        CognitionEffect::Mutated => proposal.with_plan(
+            ConsolidationPlan::new().then(ConsolidationStep::Invalidate { ids: vec![source] }),
+        ),
+        CognitionEffect::NoChange => proposal.with_effect(CognitionEffect::NoChange),
+    };
+    proposal.with_binding(binding)
 }
 
 fn policy_for(space: &MemorySpace) -> OdrlEngine {

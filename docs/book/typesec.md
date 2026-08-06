@@ -1337,14 +1337,17 @@ carry one exact expected scope and expose that scope on the transient
 `AuthorizedCognitionInput`. Application then requires the binding and freshly
 resolved authority to agree, checks the exact scope again on authoritative
 reload, includes it in record, binding, proposal, prepared-commit, audit, and
-receipt digests, and attaches it to every derived record. Version 1 remains an
-inert, unbound proposal wire only; attaching either a local or governed binding
-upgrades the proposal to schema 3. Bound schemas 1 and 2 are rejected rather
-than silently reinterpreted because their input field used the governed grant
-digest where the immutable snapshot digest belonged. Removing a scope cannot
-downgrade a bound proposal into the old semantics. Ordinary consolidation
-likewise preserves a unanimous scope and rejects mixed sources instead of
-laundering them into an unscoped summary.
+receipt digests, and attaches it to every derived record. Version 1 exists only
+as the transient in-memory state of an unbound Rust builder; it is not a
+supported serialized wire. Attaching either a local or governed binding
+upgrades the proposal to schema 4, the first executable wire epoch. Every
+serialized proposal must carry `effect`. Bound schemas 1 and 2 are rejected
+rather than silently reinterpreted because their input field used the governed
+grant digest where the immutable snapshot digest belonged. Bound schema 3 is
+also rejected because it did not bind an explicit cognition effect. Removing a
+scope cannot downgrade a bound proposal into old semantics. Ordinary
+consolidation likewise preserves a unanimous scope and rejects mixed sources
+instead of laundering them into an unscoped summary.
 
 The privacy boundary is the vault API, not arbitrary persistence bytes.
 `StoredRecord` keeps the field private and a compile-fail test prevents normal
@@ -1395,7 +1398,14 @@ it through `remember` or `consolidate`. The v1 adapter's reference analytics
 are also **plan producers only**. Distributed cognition must preserve that inert
 proposal boundary: `MemoryVault::apply_cognition` freshly authorizes and
 validates the proposal before handing an opaque prepared commit to the trusted
-store transaction. If the transaction committed but its reply was lost,
+store transaction. The proposal carries the shared typed effect explicitly:
+`Mutated` means an actual record change, while `NoChange` means the full
+governed evaluation completed without one. A no-change decision still traverses
+binding validation, current policy and authority, authoritative source reload,
+manifest comparison, source preconditions, and vault preparation. Its atomic
+backend transaction persists the job, audit, and immutable outcome with zero
+record operations and zero index-outbox rows. If the transaction committed but
+its reply was lost,
 `recover_cognition_outcome` accepts only the exact job and proposal digest,
 checks a current `CanWrite` capability and policy before lookup, and discloses
 validated historical evidence without reconstructing a proposal, rerunning
@@ -1418,27 +1428,39 @@ historical commit: its canonical shape, authority-scoped identity, proposal,
 binding, source, TypeDID, governed-scan, authorization, evidence, and affected
 IDs—including the optional governed source scope—must match, while historical
 preparation time and policy-decision evidence remain those committed by the
-original transaction.
+original transaction. Both statuses are orthogonal to effect. `Mutated`
+requires nonempty canonical affected IDs and distinct prior/resulting memory
+versions. `NoChange` requires empty affected IDs and equal memory versions.
+Outcome and audit effects must match, so neither empty IDs nor version equality
+is treated as the discriminator.
 
-Audit and receipt evidence now have explicit, exact schemas. Audit schema 1
+Audit and receipt evidence now have explicit, exact schemas. Audit schema 2
 records the composite governed source scope, governed scan grant/proof digest,
 independent immutable `snapshotDigest`, original authorization-receipt digest,
-`authorityRevalidatedAt`, and `preparedAt`. Grant and snapshot digests must be
-canonical and different, preventing a valid-looking grant from being copied
-into both roles. These fields are included in the TypeSec-owned prepared-commit
-digest profile v3. Proposal-bearing commit and retry paths match them exactly;
-proposal-free recovery validates their canonical role and phase shape while
-remaining inside the documented trusted-store boundary.
+`authorityRevalidatedAt`, `preparedAt`, and the explicit effect. Grant and
+snapshot digests must be canonical and different, preventing a valid-looking
+grant from being copied into both roles. These fields are included in the
+TypeSec-owned prepared-commit digest profile v4. Proposal-bearing commit and
+retry paths match them exactly; proposal-free recovery validates their
+canonical role, effect, and phase shape while remaining inside the documented
+trusted-store boundary.
 The revalidation timestamp is historical evidence, not idempotency identity:
 a later authorized retry may revalidate at a new time but must receive the
 original committed audit unchanged.
 
-Signed cognition receipt schema 1 carries the same distinct evidence plus the
-authoritative backend `committedAt`. Its constructor accepts one complete
-claims value and validates every required field before returning; callers can
-no longer receive a partial value from `CognitionCommitReceipt::new`. Public
-claim mutation remains possible for wire tooling, so issuers and verifiers
-validate again at their trust boundaries. Validators require
+Proposal v4, audit/receipt v2, and prepared-commit profile v4 form the first
+supported executable cognition epoch. Pre-effect proposal, audit, receipt, and
+prepared-commit bytes are rejected and replanned from current authorized input;
+they are never promoted by defaulting an absent effect.
+
+Signed cognition receipt schema 2 carries the same distinct evidence and
+effect plus the authoritative backend `committedAt`. The shared
+`CognitionEffect` enum prevents the memory and receipt crates from inventing
+parallel wire vocabularies. Its constructor accepts one complete claims value
+and validates every required field before returning; callers can no longer
+receive a partial value from `CognitionCommitReceipt::new`. Public claim
+mutation remains possible for wire tooling, so issuers and verifiers validate
+again at their trust boundaries. Validators require
 `authorityRevalidatedAt <= preparedAt <= committedAt`. The `preparedAt`
 validity window begins at the trusted TypeSec preparation produced
 only after current authorization and source validation. It remains independent
@@ -1447,7 +1469,7 @@ retry signs the original preparation timestamp from the recovered audit, so
 response loss cannot silently extend the receipt lifetime.
 
 `CognitionProposal` also has a fixed-shape, payload-redacted `Debug` surface:
-logs receive only schema, joined label, mutation/evidence/source
+logs receive only schema, effect, joined label, mutation/evidence/source
 counts, and binding presence. Job and algorithm strings, source identifiers,
 digests, drafts, replacement drafts, evidence strings, and binding contents are
 never formatted.

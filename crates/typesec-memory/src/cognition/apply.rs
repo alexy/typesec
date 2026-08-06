@@ -73,11 +73,14 @@ impl<S: MemoryStore> MemoryVault<S> {
 }
 
 impl<S: CognitionCommitStore> MemoryVault<S> {
-    /// Revalidate and atomically apply one inert cognition proposal.
+    /// Revalidate and atomically commit one inert cognition proposal.
     ///
     /// The configured policy and authority verifier are mandatory. The backing
     /// store must implement an actual transaction through
-    /// [`CognitionCommitStore`]; there is no sequential fallback.
+    /// [`CognitionCommitStore`]; there is no sequential fallback. Explicit
+    /// no-change decisions traverse the same authority, source-reload, and
+    /// preparation path before committing durable evidence without record or
+    /// outbox mutations.
     pub fn apply_cognition(
         &self,
         space: &MemorySpace,

@@ -190,7 +190,8 @@ bypass label joins or authorization.
 
 Implemented in commit `d039f9f`:
 
-- `CognitionProposal` records schema version, idempotent job ID, input
+- `CognitionProposal` records schema version, explicit `Mutated` or `NoChange`
+  effect, idempotent job ID, input
   snapshot, source digest, algorithm and model version, exact source IDs,
   worker-computed label join, drafts, consolidation plan, audit-safe evidence,
   and creation time; and
@@ -199,7 +200,7 @@ Implemented in commit `d039f9f`:
 The trusted application service must still reauthorize the initiating
 subject, confirm that source IDs and digest match the current snapshot,
 recompute the label join, reject stale or revoked work, and apply mutations
-through `MemoryVault`.
+or commit an explicit no-change decision through `MemoryVault`.
 
 ### 6. Governed rows need a vault-owned source binding
 
@@ -218,10 +219,12 @@ memory came from an authorized snapshot. TypeSec now owns a separate canonical
 - bindings, fresh authority, proposals, preconditions, prepared commits,
   audits, signed receipts, and derived records retain the exact optional scope;
   and
-- schema v1 remains inert and unbound only, while every local or governed bound
-  proposal uses schema v3 to separate the scan grant from the immutable input
-  snapshot; ambiguous bound v1/v2 inputs are rejected, preventing either
-  downgrade or digest-role substitution.
+- schema v1 exists only as a transient, unbound in-memory construction state;
+  it is not a supported serialized wire. Every accepted local or governed
+  proposal uses schema v4 to separate the scan grant from the immutable input
+  snapshot and bind an explicit effect. Missing-effect wires and bound v1/v2/v3
+  proposals all fail closed rather than being defaulted, downgraded, or
+  reinterpreted.
 
 Opaque provider evidence is never persisted. The trusted-store qualification
 is explicit: private Rust fields stop ordinary API forgery, but a backend that
@@ -234,13 +237,25 @@ rather than treating serde visibility as a cryptographic boundary;
 confidentiality-hostile storage additionally requires encryption and key
 isolation.
 
-Audit schema v1 and signed receipt schema v1 now carry the composite source
+Audit schema v2 and signed receipt schema v2 now carry the composite source
 scope, separate grant and snapshot digests, original authorization evidence,
 `authorityRevalidatedAt`, `preparedAt`, and authoritative `committedAt` (on the
-outcome and receipt). Receipt construction is complete and validated in one
-step, while expiry remains preparation-anchored. Proposal `Debug` is redacted
-to schema, label, counts, and binding presence so drafts, replacements,
-evidence, and identity strings cannot reach ordinary logs.
+outcome and receipt), plus the shared typed effect. `Mutated` retains nonempty
+canonical affected IDs and a real memory-version transition. `NoChange` still
+requires binding, fresh authority, authoritative source reload, source
+preconditions, and vault preparation, then atomically persists job, audit, and
+outcome evidence with equal memory versions, zero affected IDs, zero record
+operations, and zero outbox rows. Prepared-commit digest profile v4 binds this
+distinction for deterministic recovery. Receipt construction is complete and
+validated in one step, while expiry remains preparation-anchored. Proposal
+`Debug` is redacted to schema, effect, label, counts, and binding presence so
+drafts, replacements, evidence, and identity strings cannot reach ordinary
+logs.
+
+This v4/v2/v4 combination is the first supported executable cognition epoch.
+There is no compatibility promotion for pre-effect proposal, audit, receipt,
+or prepared-commit bytes; durable systems must reject and explicitly replan
+them from currently authorized inputs.
 
 ## Target architecture
 

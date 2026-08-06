@@ -74,6 +74,7 @@ struct TestState {
     commit_outcome_mutation: Option<fn(&mut CognitionCommitOutcome)>,
     recovery_calls: usize,
     get_calls: usize,
+    last_prepared_shape: Option<(CognitionEffect, usize, usize, usize)>,
 }
 
 #[derive(Clone)]
@@ -173,6 +174,12 @@ impl CognitionCommitStore for TransactionalTestStore {
             recovered.status = CognitionCommitStatus::AlreadyApplied;
             return Ok(recovered);
         }
+        state.last_prepared_shape = Some((
+            commit.effect(),
+            commit.source_preconditions().len(),
+            commit.operations().len(),
+            commit.index_outbox().len(),
+        ));
         if std::mem::take(&mut state.fail_precondition_once) {
             return Err(CognitionCommitError::StaleSource(
                 commit.source_preconditions()[0].id.clone(),
@@ -216,10 +223,14 @@ impl CognitionCommitStore for TransactionalTestStore {
         }
 
         let prior = state.version;
-        let resulting = prior + 1;
+        let resulting = match commit.effect() {
+            CognitionEffect::Mutated => prior + 1,
+            CognitionEffect::NoChange => prior,
+        };
         let audit = commit.audit().clone();
         let mut outcome = CognitionCommitOutcome {
             status: CognitionCommitStatus::Applied,
+            effect: commit.effect(),
             backend_commit_hash: format!(
                 "test-commit-{resulting}-{}",
                 &commit.proposal_digest()[7..19]
@@ -364,6 +375,20 @@ impl Fixture {
         )
         .with_binding(self.binding.clone())
     }
+
+    fn no_change_proposal(&self) -> CognitionProposal {
+        CognitionProposal::new(
+            "job-42",
+            self.binding.snapshot_digest.clone(),
+            self.binding.source_manifest_digest.clone(),
+            "marciana.summarize.sail",
+            "1",
+            vec![self.source.clone()],
+            Label::Sensitive,
+        )
+        .with_effect(CognitionEffect::NoChange)
+        .with_binding(self.binding.clone())
+    }
 }
 
 fn mint<P: typesec_core::Permission>(
@@ -427,6 +452,8 @@ mod authorized_source_limits;
 mod governed_scope;
 mod hardening;
 mod limits_hardening;
+mod no_change;
 mod outcome_hardening;
 mod prepared_commit;
 mod prepared_expansion_limits;
+mod schema_epoch;

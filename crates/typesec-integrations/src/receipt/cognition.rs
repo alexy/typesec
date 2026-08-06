@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, TimeDelta, Utc};
 use serde::{Deserialize, Serialize};
+pub use typesec_core::CognitionEffect;
 
 use super::ReceiptError;
 
@@ -15,6 +16,8 @@ pub(super) mod validation;
 pub struct CognitionCommitReceipt {
     /// Explicit durable receipt wire schema.
     pub schema_version: u32,
+    /// Explicit memory effect of the committed cognition decision.
+    pub effect: CognitionEffect,
     /// Verified TypeDID subject that authorized application.
     pub subject: String,
     /// TypeSec memory-space resource.
@@ -38,11 +41,11 @@ pub struct CognitionCommitReceipt {
     pub policy_decision_digest: String,
     /// Digest of LakeCat's original issue-time grant receipt.
     pub authorization_receipt_digest: String,
-    /// Opaque backend version observed before application.
+    /// Opaque memory version observed before the decision.
     pub prior_version: String,
-    /// Opaque backend version produced by application.
+    /// Opaque memory version after the decision.
     pub resulting_version: String,
-    /// IDs invalidated or created by the application.
+    /// IDs invalidated or created; empty only for no-change.
     pub affected_ids: Vec<String>,
     /// Durable Grust commit identity.
     pub backend_commit_id: String,
@@ -62,7 +65,7 @@ pub struct CognitionCommitReceipt {
 
 impl CognitionCommitReceipt {
     /// Current durable cognition receipt wire schema.
-    pub const SCHEMA_VERSION: u32 = 1;
+    pub const SCHEMA_VERSION: u32 = 2;
 
     /// Construct claims whose validity begins at trusted vault preparation.
     ///
@@ -73,6 +76,7 @@ impl CognitionCommitReceipt {
         let expires_at = validation::checked_expiry(claims.prepared_at, ttl)?;
         let receipt = Self {
             schema_version: Self::SCHEMA_VERSION,
+            effect: claims.effect,
             subject: claims.subject,
             resource: claims.resource,
             job_id: claims.job_id,

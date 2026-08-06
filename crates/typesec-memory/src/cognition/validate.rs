@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use typesec_core::policy::RequestContext;
 use typesec_core::{CanWrite, Capability, Resource};
 
+use super::CognitionEffect;
 use super::canonical::{is_canonical_sha256, is_canonical_text};
 use super::limits::{CognitionSourceBudget, MAX_COGNITION_SOURCE_COUNT, validate_proposal_budget};
 use super::types::{CognitionApplyError, CognitionAuthorityEvidence, CognitionBinding};
@@ -54,12 +55,12 @@ fn validate_proposal(
     let has_binding = proposal.binding.is_some();
     if proposal.schema_version == CognitionProposal::MIN_SCHEMA_VERSION && has_binding {
         return Err(CognitionApplyError::InvalidBinding(
-            "bound proposals require schemaVersion 3".to_owned(),
+            "bound proposals require schemaVersion 4".to_owned(),
         ));
     }
     if proposal.schema_version == CognitionProposal::SCHEMA_VERSION && !has_binding {
         return Err(CognitionApplyError::InvalidBinding(
-            "schemaVersion 3 requires a binding".to_owned(),
+            "schemaVersion 4 requires a binding".to_owned(),
         ));
     }
     if !is_canonical_text(&proposal.job_id) {
@@ -83,7 +84,7 @@ fn validate_proposal(
         }
     }
     validate_source_ids(&proposal.source_ids)?;
-    validate_mutation_plan(proposal, require_mutation)
+    validate_effect(proposal, require_mutation || has_binding)
 }
 
 pub(super) fn validate_request_binding(
@@ -245,9 +246,9 @@ fn validate_source_ids(source_ids: &[MemoryId]) -> Result<(), CognitionApplyErro
     Ok(())
 }
 
-fn validate_mutation_plan(
+fn validate_effect(
     proposal: &CognitionProposal,
-    require_mutation: bool,
+    require_complete_effect: bool,
 ) -> Result<(), CognitionApplyError> {
     let source_set: HashSet<_> = proposal.source_ids.iter().collect();
     let mut invalidated = HashSet::new();
@@ -280,13 +281,16 @@ fn validate_mutation_plan(
         .iter()
         .filter(|step| matches!(step, ConsolidationStep::Supersede { .. }))
         .count();
-    if require_mutation && proposal.drafts.is_empty() && replacements == 0 && invalidated.is_empty()
-    {
-        return Err(CognitionApplyError::InvalidPlan(
-            "proposal has no mutations".to_owned(),
-        ));
+    let has_mutations = !proposal.drafts.is_empty() || replacements > 0 || !invalidated.is_empty();
+    match proposal.effect {
+        CognitionEffect::Mutated if require_complete_effect && !has_mutations => Err(
+            CognitionApplyError::InvalidPlan("mutated proposal has no mutations".to_owned()),
+        ),
+        CognitionEffect::NoChange if has_mutations => Err(CognitionApplyError::InvalidPlan(
+            "no-change proposal contains mutations".to_owned(),
+        )),
+        CognitionEffect::Mutated | CognitionEffect::NoChange => Ok(()),
     }
-    Ok(())
 }
 
 fn validate_source(

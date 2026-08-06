@@ -9,6 +9,7 @@ impl fmt::Debug for CognitionProposal {
         formatter
             .debug_struct("CognitionProposal")
             .field("schema_version", &self.schema_version)
+            .field("effect", &self.effect)
             .field("source_id_count", &self.source_ids.len())
             .field("joined_label", &self.joined_label)
             .field("draft_count", &self.drafts.len())

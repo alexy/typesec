@@ -3,7 +3,7 @@
 //! This module owns backend-neutral authority bindings and the no-fallback
 //! transaction seam. Cognition engines remain untrusted proposal producers;
 //! only [`crate::MemoryVault::apply_cognition`] can turn their output into
-//! memory mutations.
+//! an authoritative mutation or no-change decision.
 
 mod apply;
 mod canonical;
@@ -33,19 +33,27 @@ pub use types::{
     CognitionCommitOutcome, CognitionCommitStatus, CognitionCommitStore, CognitionIdempotencyKey,
     CognitionSourceManifest, CognitionSourcePrecondition,
 };
+pub use typesec_core::CognitionEffect;
 
 impl crate::CognitionProposal {
     /// Decode one untrusted JSON proposal behind the fixed raw-body budget.
     ///
-    /// Direct serde deserialization remains available for already-bounded,
-    /// trusted persistence formats. Network and model-produced bytes must use
-    /// this entry point so an oversized document is rejected before parsing.
+    /// Only the current bound proposal epoch is accepted. Direct serde
+    /// deserialization remains available for already-bounded, trusted
+    /// persistence formats, but it is not an executable ingress boundary.
+    /// Network and model-produced bytes must use this entry point so stale
+    /// schemas and oversized documents fail before application.
     pub fn from_json_slice(bytes: &[u8]) -> Result<Self, CognitionApplyError> {
         if bytes.len() > MAX_COGNITION_PROPOSAL_BYTES {
             return Err(CognitionApplyError::LimitExceeded("proposal bytes"));
         }
         let proposal: Self = serde_json::from_slice(bytes)
             .map_err(|_| CognitionApplyError::Serialization("invalid proposal JSON".to_owned()))?;
+        if proposal.schema_version != Self::SCHEMA_VERSION {
+            return Err(CognitionApplyError::UnsupportedSchema(
+                proposal.schema_version,
+            ));
+        }
         validate::validate_proposal_shape(&proposal)?;
         if let Some(binding) = &proposal.binding {
             binding.validate()?;
@@ -56,7 +64,7 @@ impl crate::CognitionProposal {
     /// Domain-separated canonical digest used for durable proposal identity.
     ///
     /// Projection order is normalized and observational `created_at` metadata
-    /// is excluded, so a later worker retry of the same governed mutation has
+    /// is excluded, so a later worker retry of the same governed decision has
     /// the same identity without reimplementing TypeSec internals.
     pub fn canonical_digest(&self) -> Result<String, CognitionApplyError> {
         validate::validate_proposal_shape(self)?;

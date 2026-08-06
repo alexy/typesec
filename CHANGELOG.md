@@ -7,15 +7,24 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
-- Added exact v1 cognition audit and receipt schemas with independent governed
-  grant and immutable snapshot digests, authority-revalidation, preparation,
-  and authoritative commit times, complete validated receipt construction,
-  and recovery checks bound to the expanded prepared-commit v3 digest profile.
-  Receipt expiry remains anchored to `prepared_at`, independently of
-  `committed_at`.
+- Added a shared typed cognition effect and first-class durable no-change
+  decisions. Bound proposal schema v4, audit/receipt schema v2, and
+  prepared-commit digest profile v4 now distinguish `Mutated` from `NoChange`;
+  no-change still performs fresh authority and source preparation before one
+  atomic job/audit/outcome commit with unchanged memory version, no affected
+  IDs, no record operations, and no index outbox rows. This is the first
+  supported executable proposal epoch: every serialized proposal must carry
+  `effect`, transient unbound v1 builders are rejected at JSON ingress, and
+  bound v1/v2/v3 proposals fail closed.
+- Added exact versioned cognition audit and receipt evidence with independent
+  governed grant and immutable snapshot digests, authority-revalidation,
+  preparation, and authoritative commit times, complete validated receipt
+  construction, and prepared-commit-bound recovery checks. Receipt expiry
+  remains anchored to `prepared_at`, independently of `committed_at`.
 - Corrected governed proposal input identity to use the immutable snapshot
-  digest, upgraded every bound proposal to schema v3, and made ambiguous bound
-  schemas v1 and v2 fail closed instead of reinterpreting persisted jobs.
+  digest, retained schema v1 only as an in-memory unbound construction state,
+  and made prior bound schemas fail closed instead of reinterpreting persisted
+  jobs.
 - Replaced plaintext-bearing `CognitionProposal` debug output with redacted
   counts and documented `MemoryStore`, raw backend handles, and record serde as
   trusted persistence seams. Production governed Marciana ingestion is

@@ -74,6 +74,7 @@ fn cognition_proposal_debug_redacts_all_plaintext_payloads() {
         assert!(!rendered.contains(secret), "debug leaked {secret}");
     }
     for summary in [
+        "effect: Mutated",
         "source_id_count: 1",
         "draft_count: 1",
         "plan_step_count: 1",

@@ -5,6 +5,7 @@ use super::identity::CognitionCommitIdentity;
 use super::limits::{MAX_COGNITION_MUTATIONS, affected_ids_within_byte_budget};
 use super::{
     CognitionAuditEvidence, CognitionCommitError, CognitionCommitOutcome, CognitionCommitStatus,
+    CognitionEffect,
 };
 use crate::MemoryId;
 
@@ -37,15 +38,27 @@ pub(super) fn validate_commit_outcome(
 }
 
 pub(super) fn validate_shape(outcome: &CognitionCommitOutcome) -> bool {
-    canonical_affected_ids(&outcome.affected_ids)
+    outcome.effect == outcome.audit.effect
+        && effect_shape_is_exact(outcome)
+        && canonical_affected_ids(&outcome.affected_ids)
         && canonical_affected_ids(&outcome.audit.affected_ids)
         && outcome.affected_ids == outcome.audit.affected_ids
         && is_canonical_text(&outcome.backend_commit_hash)
         && is_canonical_text(&outcome.prior_version)
         && is_canonical_text(&outcome.resulting_version)
-        && outcome.prior_version != outcome.resulting_version
         && canonical_audit(&outcome.audit)
         && outcome.committed_at >= outcome.audit.prepared_at
+}
+
+fn effect_shape_is_exact(outcome: &CognitionCommitOutcome) -> bool {
+    match outcome.effect {
+        CognitionEffect::Mutated => {
+            !outcome.affected_ids.is_empty() && outcome.prior_version != outcome.resulting_version
+        }
+        CognitionEffect::NoChange => {
+            outcome.affected_ids.is_empty() && outcome.prior_version == outcome.resulting_version
+        }
+    }
 }
 
 fn canonical_audit(audit: &CognitionAuditEvidence) -> bool {
@@ -76,8 +89,7 @@ fn canonical_audit(audit: &CognitionAuditEvidence) -> bool {
 }
 
 fn canonical_affected_ids(ids: &[MemoryId]) -> bool {
-    !ids.is_empty()
-        && ids.len() <= MAX_COGNITION_MUTATIONS
+    ids.len() <= MAX_COGNITION_MUTATIONS
         && affected_ids_within_byte_budget(ids)
         && ids.iter().all(|id| is_canonical_text(id.as_str()))
         && ids.windows(2).all(|pair| pair[0] < pair[1])

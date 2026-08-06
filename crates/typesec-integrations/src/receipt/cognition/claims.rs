@@ -1,10 +1,13 @@
 //! Complete inputs for constructing cognition receipt claims.
 
 use chrono::{DateTime, Utc};
+use typesec_core::CognitionEffect;
 
 /// Evidence that must be present before a cognition receipt can be created.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CognitionCommitReceiptClaims {
+    /// Explicit memory effect of the committed cognition decision.
+    pub effect: CognitionEffect,
     /// Verified TypeDID subject that authorized application.
     pub subject: String,
     /// TypeSec memory-space resource.
@@ -27,11 +30,11 @@ pub struct CognitionCommitReceiptClaims {
     pub policy_decision_digest: String,
     /// Digest of the original issue-time authorization receipt.
     pub authorization_receipt_digest: String,
-    /// Opaque backend version observed before application.
+    /// Opaque memory version observed before the decision.
     pub prior_version: String,
-    /// Opaque backend version produced by application.
+    /// Opaque memory version after the decision.
     pub resulting_version: String,
-    /// IDs invalidated or created by the application.
+    /// IDs invalidated or created; empty only for no-change.
     pub affected_ids: Vec<String>,
     /// Durable backend commit identity.
     pub backend_commit_id: String,

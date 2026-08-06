@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use typesec_core::CognitionEffect;
 use typesec_core::policy::RequestContext;
 
 use crate::governed::GovernedSourceScope;
@@ -256,12 +257,14 @@ impl CognitionIdempotencyKey {
     }
 }
 
-/// Plaintext-free durable evidence committed beside a cognition mutation.
+/// Plaintext-free durable evidence committed beside a cognition decision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CognitionAuditEvidence {
     /// Explicit schema version for durable and cross-process decoding.
     pub schema_version: u32,
+    /// Explicit memory effect committed by the authoritative transaction.
+    pub effect: CognitionEffect,
     /// Durable operation/job id.
     pub operation_id: String,
     /// Verified subject.
@@ -291,7 +294,7 @@ pub struct CognitionAuditEvidence {
     pub policy_decision_id: String,
     /// Digest of worker evidence; worker strings themselves are not persisted.
     pub evidence_digest: String,
-    /// IDs affected by the prepared mutation.
+    /// IDs affected by the prepared effect; empty only for no-change.
     pub affected_ids: Vec<MemoryId>,
     /// Time the trusted authority adapter completed application-time
     /// revalidation.
@@ -302,14 +305,14 @@ pub struct CognitionAuditEvidence {
 
 impl CognitionAuditEvidence {
     /// Current durable audit wire schema.
-    pub const SCHEMA_VERSION: u32 = 1;
+    pub const SCHEMA_VERSION: u32 = 2;
 }
 
-/// Whether a call performed a mutation or disclosed an immutable prior commit.
+/// Whether a call committed a decision or disclosed an immutable prior commit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CognitionCommitStatus {
-    /// This call committed the mutation.
+    /// This call committed the authoritative decision.
     Applied,
     /// The same idempotency key and proposal digest had already committed;
     /// this status reports historical disclosure, never mutation authority.
@@ -325,13 +328,15 @@ pub enum CognitionCommitStatus {
 pub struct CognitionCommitOutcome {
     /// Applied versus recovered status.
     pub status: CognitionCommitStatus,
+    /// Explicit memory effect of the committed decision.
+    pub effect: CognitionEffect,
     /// Backend commit hash or immutable commit id.
     pub backend_commit_hash: String,
-    /// Authoritative version before the mutation.
+    /// Authoritative memory version before the decision.
     pub prior_version: String,
-    /// Authoritative version after the mutation.
+    /// Authoritative memory version after the decision.
     pub resulting_version: String,
-    /// Stable affected IDs, identical on retry.
+    /// Stable affected IDs, identical on retry and empty only for no-change.
     pub affected_ids: Vec<MemoryId>,
     /// Authoritative backend commit time, identical on retry.
     pub committed_at: DateTime<Utc>,
@@ -359,11 +364,13 @@ pub enum CognitionCommitError {
 /// Authoritative store extension for cognition application.
 ///
 /// There is deliberately no default implementation. A backend must compare
-/// every source precondition, claim the idempotency key, apply all operations,
-/// insert the ID-only outbox rows, and persist audit evidence in one atomic
-/// transaction, or it does not support production cognition. The prepared
-/// token has no debug or serialization surface; implementations use its
-/// borrow-only accessors inside that trusted transaction boundary.
+/// every source precondition and claim the idempotency key in one atomic
+/// transaction. A [`CognitionEffect::Mutated`] token must apply all operations,
+/// insert the exact ID-only outbox rows, and persist audit and outcome evidence.
+/// A [`CognitionEffect::NoChange`] token has zero operations and outbox rows but
+/// must still persist the job, audit, and immutable outcome atomically. The
+/// prepared token has no debug or serialization surface; implementations use
+/// its borrow-only accessors inside that trusted transaction boundary.
 pub trait CognitionCommitStore: MemoryStore {
     /// Load an immutable completed result before re-reading sources it may
     /// have intentionally invalidated.
@@ -433,7 +440,7 @@ pub enum CognitionApplyError {
     /// Selected records did not all match the binding's exact source scope.
     #[error("cognition sources do not match the required governed scope")]
     SourceScopeMismatch,
-    /// The proposed mutation is empty or references invalid targets.
+    /// The proposed effect and mutation plan disagree or targets are invalid.
     #[error("invalid cognition plan: {0}")]
     InvalidPlan(String),
     /// A fixed cognition safety budget was exceeded.

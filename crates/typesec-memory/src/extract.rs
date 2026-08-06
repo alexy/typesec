@@ -20,6 +20,7 @@ use crate::space::{MemoryId, MemoryKind};
 use crate::vault::{ConsolidationPlan, ConsolidationStep};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use typesec_core::CognitionEffect;
 
 use crate::cognition::CognitionBinding;
 
@@ -27,9 +28,8 @@ use crate::cognition::CognitionBinding;
 ///
 /// A proposal carries the input snapshot and sensitivity join needed for a
 /// trusted service to detect stale work and reauthorize application. It has no
-/// store handle and cannot mutate memory; drafts and plans must still enter
-/// through [`crate::MemoryVault::remember`] or
-/// [`crate::MemoryVault::consolidate`].
+/// store handle and cannot mutate memory; a bound proposal must still enter
+/// through [`crate::MemoryVault::apply_cognition`].
 /// Its manual `Debug` implementation emits only schema, label, counts, and
 /// binding presence; it never formats proposal strings or plaintext payloads.
 #[derive(Clone, Serialize, Deserialize)]
@@ -37,6 +37,11 @@ use crate::cognition::CognitionBinding;
 pub struct CognitionProposal {
     /// Proposal schema version.
     pub schema_version: u32,
+    /// Explicit authoritative effect requested by this proposal.
+    ///
+    /// A no-change proposal must contain no drafts or consolidation steps;
+    /// the effect remains part of canonical proposal identity.
+    pub effect: CognitionEffect,
     /// Idempotent scheduler/job identifier.
     pub job_id: String,
     /// Canonical digest of the immutable input snapshot read by the job.
@@ -72,10 +77,14 @@ impl CognitionProposal {
     /// Highest supported proposal schema. Governed bindings use this version.
     ///
     /// Bound versions 1 and 2 are intentionally not accepted because they
-    /// ambiguously used a governed grant digest as the input snapshot identity.
-    pub const SCHEMA_VERSION: u32 = 3;
+    /// ambiguously used a governed grant digest as the input snapshot identity;
+    /// bound version 3 did not carry an explicit effect.
+    pub const SCHEMA_VERSION: u32 = 4;
 
-    /// Oldest accepted schema. Version 1 is inert and unbound only.
+    /// Transient schema used only while constructing an unbound proposal.
+    ///
+    /// Version 1 is not a supported serialized or executable epoch. Binding
+    /// upgrades the proposal to [`Self::SCHEMA_VERSION`] before trusted ingress.
     pub const MIN_SCHEMA_VERSION: u32 = 1;
 
     /// Create an inert proposal with no mutations yet.
@@ -90,6 +99,7 @@ impl CognitionProposal {
     ) -> Self {
         Self {
             schema_version: Self::MIN_SCHEMA_VERSION,
+            effect: CognitionEffect::Mutated,
             job_id: job_id.into(),
             input_snapshot: input_snapshot.into(),
             source_digest: source_digest.into(),
@@ -119,9 +129,20 @@ impl CognitionProposal {
         self
     }
 
+    /// Declare the authoritative effect expected from guarded application.
+    ///
+    /// [`CognitionEffect::NoChange`] is accepted only when both drafts and the
+    /// consolidation plan are empty. Mutating proposals must retain
+    /// [`CognitionEffect::Mutated`].
+    #[must_use]
+    pub fn with_effect(mut self, effect: CognitionEffect) -> Self {
+        self.effect = effect;
+        self
+    }
+
     /// Bind the proposal to verified identity, catalog, authorization, and
-    /// source-manifest evidence. Every bound proposal uses schema version 3;
-    /// unbound inert proposals retain the version 1 wire shape.
+    /// source-manifest evidence. Every bound proposal uses schema version 4;
+    /// unbound builders retain transient schema version 1 only in memory.
     #[must_use]
     pub fn with_binding(mut self, binding: CognitionBinding) -> Self {
         if self.schema_version == Self::MIN_SCHEMA_VERSION {

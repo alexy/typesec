@@ -10,6 +10,7 @@ description = "Core trait library for type-level security enforcement"
 [dependencies]
 chrono = { workspace = true }
 glob = { workspace = true }
+serde = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 zeroize = { workspace = true }
@@ -18,6 +19,7 @@ zeroize = { workspace = true }
 criterion = { workspace = true }
 futures = { workspace = true }
 proptest = { workspace = true }
+serde_json = { workspace = true }
 trybuild = "1"
 
 [[bench]]
