@@ -7,6 +7,9 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Added allocation-free borrowed access to gateway-verified TypeDID claims so
+  downstream boundaries can enforce budgets and allowlists before cloning an
+  audit attestation.
 - Bounded aggregate cognition source-ID bytes before authority or store access,
   including invalidation-only proposals with no derived outputs.
 - Clarified exact current-audit validation for newly applied cognition versus

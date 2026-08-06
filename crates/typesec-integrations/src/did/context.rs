@@ -1,5 +1,7 @@
 //! Non-forgeable, borrow-scoped access to verified TypeDID policy context.
 
+use std::collections::BTreeMap;
+
 use super::{Did, TypeDidAttestation, VerifiedTypeDidMessage};
 
 /// Policy context available only from a gateway-verified TypeDID message.
@@ -7,6 +9,14 @@ use super::{Did, TypeDidAttestation, VerifiedTypeDidMessage};
 /// Unlike [`TypeDidAttestation`], this type is not serializable and has no
 /// public constructor. Application code can therefore require fresh verified
 /// gateway state while persisting the attestation separately as audit evidence.
+///
+/// ```compile_fail,E0451
+/// use typesec_integrations::VerifiedTypeDidContext;
+///
+/// let _forged = VerifiedTypeDidContext {
+///     message: unimplemented!(),
+/// };
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct VerifiedTypeDidContext<'a> {
     message: &'a VerifiedTypeDidMessage,
@@ -25,9 +35,19 @@ impl VerifiedTypeDidContext<'_> {
         self.message.subject()
     }
 
+    /// Borrow every signed policy-visible claim without allocating or cloning.
+    ///
+    /// The map remains owned by the gateway-verified message and cannot outlive
+    /// it. Callers should bound and allowlist claims before using them as policy
+    /// inputs; signature verification authenticates an assertion but does not
+    /// make every application-defined claim authoritative.
+    pub fn claims(&self) -> &BTreeMap<String, String> {
+        &self.message.body().claims
+    }
+
     /// A signed policy-visible claim from the verified envelope.
     pub fn claim(&self, name: &str) -> Option<&str> {
-        self.message.body().claims.get(name).map(String::as_str)
+        self.claims().get(name).map(String::as_str)
     }
 
     /// Signed purpose claim, when supplied by the negotiated profile.
