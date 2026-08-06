@@ -1,7 +1,7 @@
 use super::*;
 use chrono::{TimeDelta, TimeZone, Utc};
 
-fn claims() -> CognitionCommitReceipt {
+fn receipt() -> CognitionCommitReceipt {
     CognitionCommitReceipt::new(complete_claims(), TimeDelta::minutes(5)).unwrap()
 }
 
@@ -25,6 +25,7 @@ fn complete_claims() -> CognitionCommitReceiptClaims {
         authority_revalidated_at: Utc.with_ymd_and_hms(2026, 8, 5, 11, 59, 0).unwrap(),
         prepared_at: Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 0).unwrap(),
         committed_at: Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 2).unwrap(),
+        issued_at: Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 3).unwrap(),
     }
 }
 
@@ -41,6 +42,9 @@ fn assert_fixed_error(error: ReceiptError, message: &str) {
 
 mod bounds;
 mod construction;
+mod golden;
+mod issuance;
 mod no_change;
 mod round_trip;
 mod validation;
+mod wire;

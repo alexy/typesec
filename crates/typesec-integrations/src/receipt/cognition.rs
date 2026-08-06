@@ -1,73 +1,77 @@
 //! Commit-bound receipt claims for governed Marciana cognition.
 
 use chrono::{DateTime, TimeDelta, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 pub use typesec_core::CognitionEffect;
 
 use super::ReceiptError;
 
+mod accessors;
 mod claims;
 pub use claims::CognitionCommitReceiptClaims;
 pub(super) mod validation;
+mod wire;
 
 /// Offline-verifiable evidence for one committed cognition application.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CognitionCommitReceipt {
     /// Explicit durable receipt wire schema.
-    pub schema_version: u32,
+    schema_version: u32,
     /// Explicit memory effect of the committed cognition decision.
-    pub effect: CognitionEffect,
+    effect: CognitionEffect,
     /// Verified TypeDID subject that authorized application.
-    pub subject: String,
+    subject: String,
     /// TypeSec memory-space resource.
-    pub resource: String,
+    resource: String,
     /// Durable cognition job identifier.
-    pub job_id: String,
+    job_id: String,
     /// Exact TypeSec-verified external source scope, when cognition consumed
     /// governed rather than explicitly local records.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub governed_source_scope: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    governed_source_scope: Option<String>,
     /// Digest of the verified TypeDID request envelope.
-    pub typedid_request_digest: String,
+    typedid_request_digest: String,
     /// Digest of the exact inert proposal.
-    pub proposal_digest: String,
+    proposal_digest: String,
     /// Digest of the governed scan grant or proof.
-    pub governed_scan_digest: String,
+    governed_scan_digest: String,
     /// Digest of the immutable catalog snapshot consumed by cognition.
-    pub input_snapshot_digest: String,
+    input_snapshot_digest: String,
     /// Digest of the application-time decision identity derived from fresh
     /// authorization and policy evidence.
-    pub policy_decision_digest: String,
+    policy_decision_digest: String,
     /// Digest of LakeCat's original issue-time grant receipt.
-    pub authorization_receipt_digest: String,
+    authorization_receipt_digest: String,
     /// Opaque memory version observed before the decision.
-    pub prior_version: String,
+    prior_version: String,
     /// Opaque memory version after the decision.
-    pub resulting_version: String,
+    resulting_version: String,
     /// IDs invalidated or created; empty only for no-change.
-    pub affected_ids: Vec<String>,
+    affected_ids: Vec<String>,
     /// Durable Grust commit identity.
-    pub backend_commit_id: String,
-    /// Time the trusted authority adapter completed application-time
-    /// revalidation.
-    pub authority_revalidated_at: DateTime<Utc>,
+    backend_commit_id: String,
+    /// Time TypeSec completed application-time authority revalidation.
+    authority_revalidated_at: DateTime<Utc>,
     /// Trusted TypeSec preparation time after authorization.
     ///
-    /// Receipt validity begins here. This is deliberately distinct from the
-    /// backend commit time reported by the cognition outcome.
-    pub prepared_at: DateTime<Utc>,
+    /// Receipt expiry is anchored here. This is deliberately distinct from
+    /// both the backend commit time and the first-issuance time.
+    prepared_at: DateTime<Utc>,
     /// Authoritative commit time returned by the transaction backend.
-    pub committed_at: DateTime<Utc>,
+    committed_at: DateTime<Utc>,
+    /// Stable first-issuance time retained for deterministic re-signing.
+    issued_at: DateTime<Utc>,
     /// Receipt expiry.
-    pub expires_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
 }
 
 impl CognitionCommitReceipt {
     /// Current durable cognition receipt wire schema.
-    pub const SCHEMA_VERSION: u32 = 2;
+    pub const SCHEMA_VERSION: u32 = 3;
 
-    /// Construct claims whose validity begins at trusted vault preparation.
+    /// Construct claims whose validity begins at stable first issuance and
+    /// whose expiry remains anchored at trusted vault preparation.
     ///
     /// Returns an error when `ttl` is nonpositive or cannot be added to the
     /// preparation timestamp without overflow, or when any supplied claim is
@@ -94,6 +98,7 @@ impl CognitionCommitReceipt {
             authority_revalidated_at: claims.authority_revalidated_at,
             prepared_at: claims.prepared_at,
             committed_at: claims.committed_at,
+            issued_at: claims.issued_at,
             expires_at,
         };
         receipt.validate()?;

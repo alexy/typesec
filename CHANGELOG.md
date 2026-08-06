@@ -8,8 +8,8 @@ by release version, then by the date the logical change landed.
 ### 2026-08-05
 
 - Added a shared typed cognition effect and first-class durable no-change
-  decisions. Bound proposal schema v4, audit/receipt schema v2, and
-  prepared-commit digest profile v4 now distinguish `Mutated` from `NoChange`;
+  decisions. Bound proposal schema v4, audit schema v3, receipt schema v3, and
+  prepared-commit digest profile v5 now distinguish `Mutated` from `NoChange`;
   no-change still performs fresh authority and source preparation before one
   atomic job/audit/outcome commit with unchanged memory version, no affected
   IDs, no record operations, and no index outbox rows. This is the first
@@ -21,6 +21,14 @@ by release version, then by the date the logical change landed.
   preparation, and authoritative commit times, complete validated receipt
   construction, and prepared-commit-bound recovery checks. Receipt expiry
   remains anchored to `prepared_at`, independently of `committed_at`.
+- Sealed cognition receipt schema v3 behind read-only accessors and strict,
+  validated decoding, rejecting unknown, unversioned, legacy, and semantically
+  invalid claim bytes. TypeSec now timestamps completed authority revalidation
+  instead of trusting an adapter timestamp. Receipts bind a separately
+  persisted first `issued_at`, enforce the complete phase ordering, and check
+  issuance and verification against `[issued_at, prepared_at + TTL)` without
+  embedding the caller's clock, so the same persisted claims re-sign
+  byte-identically after response loss.
 - Corrected governed proposal input identity to use the immutable snapshot
   digest, retained schema v1 only as an in-memory unbound construction state,
   and made prior bound schemas fail closed instead of reinterpreting persisted

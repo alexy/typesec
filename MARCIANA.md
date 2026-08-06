@@ -237,25 +237,45 @@ rather than treating serde visibility as a cryptographic boundary;
 confidentiality-hostile storage additionally requires encryption and key
 isolation.
 
-Audit schema v2 and signed receipt schema v2 now carry the composite source
+Audit schema v3 and signed receipt schema v3 now carry the composite source
 scope, separate grant and snapshot digests, original authorization evidence,
 `authorityRevalidatedAt`, `preparedAt`, and authoritative `committedAt` (on the
-outcome and receipt), plus the shared typed effect. `Mutated` retains nonempty
-canonical affected IDs and a real memory-version transition. `NoChange` still
-requires binding, fresh authority, authoritative source reload, source
-preconditions, and vault preparation, then atomically persists job, audit, and
-outcome evidence with equal memory versions, zero affected IDs, zero record
-operations, and zero outbox rows. Prepared-commit digest profile v4 binds this
-distinction for deterministic recovery. Receipt construction is complete and
-validated in one step, while expiry remains preparation-anchored. Proposal
-`Debug` is redacted to schema, effect, label, counts, and binding presence so
-drafts, replacements, evidence, and identity strings cannot reach ordinary
-logs.
+outcome and receipt), plus the shared typed effect. Receipt v3 adds the distinct
+stable `issuedAt`. TypeSec records `authorityRevalidatedAt` immediately after
+the verifier returns; adapters no longer choose that trusted phase timestamp.
+A provider's own observation time remains separate provider evidence.
+`Mutated` retains nonempty canonical affected IDs and a real memory-version
+transition. `NoChange` still requires binding, fresh authority, authoritative
+source reload, source preconditions, and vault preparation, then atomically
+persists job, audit, and outcome evidence with equal memory versions, zero
+affected IDs, zero record operations, and zero outbox rows. Prepared-commit
+digest profile v5 binds this distinction for deterministic recovery.
 
-This v4/v2/v4 combination is the first supported executable cognition epoch.
-There is no compatibility promotion for pre-effect proposal, audit, receipt,
-or prepared-commit bytes; durable systems must reject and explicitly replan
-them from currently authorized inputs.
+`CognitionCommitReceipt` is an opaque, read-only validated value. Its public
+mutable claims type is only untrusted constructor input; direct decoding uses a
+private exact wire shape, rejects unknown fields, and performs the same
+semantic validation as construction, issuance, and verification. The phase
+order is `authorityRevalidatedAt <= preparedAt <= committedAt <= issuedAt <
+expiresAt`. The not-before boundary is `issuedAt`, while expiry remains exactly
+`preparedAt + TTL`; a late first issuance therefore shortens rather than
+extends the usable window. The explicit issuer clock is checked but never
+embedded, so the same stored claims re-sign byte-identically before expiry.
+
+Marciana must create and durably retain that first `issuedAt` after the backend
+commit through an idempotent guarded record, storing either the complete
+receipt claims or the signed token. Recovery reuses that value. TypeSec's
+historical outcome does not reconstruct it, and Marciana must never derive it
+from `committedAt`; a future backend commit or issuance time fails closed as
+not-yet-valid until the issuer clock catches up. Proposal `Debug` remains
+redacted to schema, effect, label, counts, and binding presence so drafts,
+replacements, evidence, and identity strings cannot reach ordinary logs.
+
+This proposal-v4/audit-v3/receipt-v3/prepared-commit-v5 combination is the
+first supported executable cognition epoch. There is no compatibility
+promotion across any superseded bound proposal, audit, receipt, or
+prepared-commit schema; durable systems must reject incompatible bytes and
+explicitly replan from currently authorized inputs where replanning is
+possible.
 
 ## Target architecture
 

@@ -26,12 +26,13 @@ pub(super) fn prepare_commit(
     proposal: &CognitionProposal,
     binding: &CognitionBinding,
     authority: &CognitionAuthorityEvidence,
+    authority_revalidated_at: DateTime<Utc>,
     sources: &[StoredRecord],
     manifest: CognitionSourceManifest,
     identity: &CognitionCommitIdentity,
     now: DateTime<Utc>,
 ) -> Result<PreparedCognitionCommit, CognitionApplyError> {
-    if authority.authority_revalidated_at > now {
+    if authority_revalidated_at > now {
         return Err(CognitionApplyError::Authority);
     }
     let output_count = proposal_output_count(proposal)?;
@@ -83,7 +84,7 @@ pub(super) fn prepare_commit(
             policy_decision_id: authority.policy_decision_id.clone(),
             evidence_digest: identity.evidence_digest.clone(),
             affected_ids: parts.affected_ids,
-            authority_revalidated_at: authority.authority_revalidated_at,
+            authority_revalidated_at,
             prepared_at: now,
         },
     ))

@@ -11,14 +11,16 @@ fn no_change_receipt_round_trips_explicit_effect() {
 
     let receipt = CognitionCommitReceipt::new(complete, TimeDelta::minutes(5)).unwrap();
     let issuer = ReceiptIssuer::new(SigningKey::from_bytes(&[13; 32]));
-    let token = issuer.issue_cognition(&receipt).unwrap();
+    let token = issuer
+        .issue_cognition(&receipt, receipt.issued_at())
+        .unwrap();
     let verified = ReceiptVerifier::new(issuer.verifying_key())
-        .verify_cognition(&token, receipt.prepared_at)
+        .verify_cognition(&token, receipt.issued_at())
         .unwrap();
 
-    assert_eq!(verified.effect, CognitionEffect::NoChange);
-    assert!(verified.affected_ids.is_empty());
-    assert_eq!(verified.prior_version, verified.resulting_version);
+    assert_eq!(verified.effect(), CognitionEffect::NoChange);
+    assert!(verified.affected_ids().is_empty());
+    assert_eq!(verified.prior_version(), verified.resulting_version());
 }
 
 #[test]
@@ -49,16 +51,9 @@ fn effect_must_match_versions_and_affected_ids() {
 }
 
 #[test]
-fn current_receipt_wire_requires_effect_and_prior_schema_is_rejected() {
-    let mut encoded = serde_json::to_value(claims()).unwrap();
+fn current_receipt_wire_requires_effect() {
+    let mut encoded = serde_json::to_value(receipt()).unwrap();
     encoded.as_object_mut().unwrap().remove("effect");
 
     assert!(serde_json::from_value::<CognitionCommitReceipt>(encoded).is_err());
-
-    let mut prior = claims();
-    prior.schema_version = 1;
-    assert_fixed_error(
-        prior.validate().unwrap_err(),
-        "unsupported cognition receipt schema",
-    );
 }

@@ -39,7 +39,8 @@ pub(super) fn validate(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptEr
     validate_effect(receipt)?;
     if receipt.authority_revalidated_at > receipt.prepared_at
         || receipt.committed_at < receipt.prepared_at
-        || receipt.expires_at <= receipt.prepared_at
+        || receipt.issued_at < receipt.committed_at
+        || receipt.issued_at >= receipt.expires_at
     {
         return Err(invalid(INVALID_WINDOW));
     }

@@ -1434,39 +1434,56 @@ versions. `NoChange` requires empty affected IDs and equal memory versions.
 Outcome and audit effects must match, so neither empty IDs nor version equality
 is treated as the discriminator.
 
-Audit and receipt evidence now have explicit, exact schemas. Audit schema 2
+Audit and receipt evidence now have explicit, exact schemas. Audit schema 3
 records the composite governed source scope, governed scan grant/proof digest,
 independent immutable `snapshotDigest`, original authorization-receipt digest,
 `authorityRevalidatedAt`, `preparedAt`, and the explicit effect. Grant and
 snapshot digests must be canonical and different, preventing a valid-looking
 grant from being copied into both roles. These fields are included in the
-TypeSec-owned prepared-commit digest profile v4. Proposal-bearing commit and
+TypeSec-owned prepared-commit digest profile v5. Proposal-bearing commit and
 retry paths match them exactly; proposal-free recovery validates their
 canonical role, effect, and phase shape while remaining inside the documented
 trusted-store boundary.
-The revalidation timestamp is historical evidence, not idempotency identity:
-a later authorized retry may revalidate at a new time but must receive the
-original committed audit unchanged.
+TypeSec stamps the completed authority revalidation after its own validation
+succeeds; an adapter cannot supply this trusted phase time. A
+provider-observation timestamp, when present, remains distinct provider
+evidence. The TypeSec timestamp is historical evidence, not idempotency
+identity: a later authorized retry may revalidate at a new time but must
+receive the original committed audit unchanged.
 
-Proposal v4, audit/receipt v2, and prepared-commit profile v4 form the first
-supported executable cognition epoch. Pre-effect proposal, audit, receipt, and
-prepared-commit bytes are rejected and replanned from current authorized input;
-they are never promoted by defaulting an absent effect.
+Proposal v4, audit v3, receipt v3, and prepared-commit profile v5 form the first
+supported executable cognition epoch. Superseded bound proposal, audit,
+receipt, and prepared-commit schemas are rejected rather than promoted;
+proposal work is explicitly replanned from currently authorized input where
+replanning is possible.
 
-Signed cognition receipt schema 2 carries the same distinct evidence and
-effect plus the authoritative backend `committedAt`. The shared
+Signed cognition receipt schema 3 carries the same distinct evidence and
+effect plus the authoritative backend `committedAt` and a stable, distinct
+first `issuedAt`. The shared
 `CognitionEffect` enum prevents the memory and receipt crates from inventing
 parallel wire vocabularies. Its constructor accepts one complete claims value
 and validates every required field before returning; callers can no longer
-receive a partial value from `CognitionCommitReceipt::new`. Public claim
-mutation remains possible for wire tooling, so issuers and verifiers validate
-again at their trust boundaries. Validators require
-`authorityRevalidatedAt <= preparedAt <= committedAt`. The `preparedAt`
-validity window begins at the trusted TypeSec preparation produced
-only after current authorization and source validation. It remains independent
-of `committedAt`, which only reports when the store committed. An idempotent
-retry signs the original preparation timestamp from the recovered audit, so
-response loss cannot silently extend the receipt lifetime.
+receive a partial value from `CognitionCommitReceipt::new`. The resulting
+receipt is opaque and exposes read-only accessors. Its mutable public claims
+type remains untrusted constructor input, while a private exact wire DTO makes
+direct decoding reject unknown fields and invoke the same semantic validator.
+Issuers and verifiers validate again at their trust boundaries.
+
+Validators require `authorityRevalidatedAt <= preparedAt <= committedAt <=
+issuedAt < expiresAt`. Verification begins at `issuedAt`; expiry remains
+exactly `preparedAt + TTL`, independently of `committedAt`, so late issuance
+shortens rather than extends validity. `ReceiptIssuer::issue_cognition` checks
+an explicit caller-supplied clock but does not embed it. Re-signing identical
+persisted claims before expiry therefore produces identical token bytes.
+Unversioned, schema-v1, schema-v2, unknown-field, and semantically invalid
+receipt bytes all fail closed.
+
+Marciana owns first-issuance persistence after the backend commit. It must
+guardedly and idempotently store either complete receipt claims or the first
+signed token, then reuse that record after response loss. TypeSec's recovered
+historical outcome does not reconstruct `issuedAt`, and Marciana must never
+derive it from `committedAt`. A future backend commit or issuance timestamp is
+not normalized: issuance fails as not-yet-valid until local time catches up.
 
 `CognitionProposal` also has a fixed-shape, payload-redacted `Debug` surface:
 logs receive only schema, effect, joined label, mutation/evidence/source

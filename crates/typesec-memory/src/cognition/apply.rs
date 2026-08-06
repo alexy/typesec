@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use typesec_core::policy::RequestContext;
 use typesec_core::{CanRead, CanWrite, Capability};
 
@@ -88,6 +88,17 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         proposal: &CognitionProposal,
         context: &RequestContext,
     ) -> Result<CognitionCommitOutcome, MemoryError> {
+        self.apply_cognition_with_clock(space, capability, proposal, context, Utc::now)
+    }
+
+    pub(super) fn apply_cognition_with_clock(
+        &self,
+        space: &MemorySpace,
+        capability: &Capability<CanWrite, MemorySpace>,
+        proposal: &CognitionProposal,
+        context: &RequestContext,
+        mut clock: impl FnMut() -> DateTime<Utc>,
+    ) -> Result<CognitionCommitOutcome, MemoryError> {
         if !self.has_policy() {
             return Err(CognitionApplyError::PolicyUnavailable.into());
         }
@@ -107,7 +118,8 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         let authority = verifier
             .revalidate(binding, context)
             .map_err(|_| CognitionApplyError::Authority)?;
-        validate_authority(proposal, binding, &authority, Utc::now())?;
+        validate_authority(proposal, binding, &authority)?;
+        let authority_revalidated_at = clock();
 
         let identity = CognitionCommitIdentity::from_validated(space, proposal, binding)?;
         if let Some(recovered) = self
@@ -118,7 +130,7 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
             return Ok(recovered);
         }
 
-        let now = Utc::now();
+        let now = clock();
         let sources = load_sources(self, space, &proposal.source_ids, purpose, now)?;
         validate_source_scope(&sources, binding.governed_source_scope.as_ref())?;
         let manifest = source_manifest(&sources)?;
@@ -132,7 +144,15 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         }
 
         let prepared = prepare_commit(
-            space, proposal, binding, &authority, &sources, manifest, &identity, now,
+            space,
+            proposal,
+            binding,
+            &authority,
+            authority_revalidated_at,
+            &sources,
+            manifest,
+            &identity,
+            now,
         )?;
         let prepared_audit = prepared.audit().clone();
         let outcome = self.store().commit_cognition(prepared)?;

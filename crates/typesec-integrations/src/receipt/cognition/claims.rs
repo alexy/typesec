@@ -3,7 +3,12 @@
 use chrono::{DateTime, Utc};
 use typesec_core::CognitionEffect;
 
-/// Evidence that must be present before a cognition receipt can be created.
+/// Untrusted evidence that must be present before a cognition receipt can be
+/// created.
+///
+/// This mutable composition DTO is not a receipt. Pass it to
+/// [`CognitionCommitReceipt::new`](super::CognitionCommitReceipt::new) to
+/// obtain an opaque, validated value before signing or persistence.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CognitionCommitReceiptClaims {
     /// Explicit memory effect of the committed cognition decision.
@@ -38,11 +43,13 @@ pub struct CognitionCommitReceiptClaims {
     pub affected_ids: Vec<String>,
     /// Durable backend commit identity.
     pub backend_commit_id: String,
-    /// Time the trusted authority adapter completed application-time
-    /// revalidation.
+    /// Time TypeSec completed application-time authority revalidation.
     pub authority_revalidated_at: DateTime<Utc>,
     /// Trusted TypeSec preparation time.
     pub prepared_at: DateTime<Utc>,
     /// Authoritative commit time returned by the transaction backend.
     pub committed_at: DateTime<Utc>,
+    /// Stable first-issuance time retained unchanged for deterministic
+    /// re-signing after response loss.
+    pub issued_at: DateTime<Utc>,
 }

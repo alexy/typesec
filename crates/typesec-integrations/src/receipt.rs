@@ -131,12 +131,17 @@ impl ReceiptIssuer {
         self.issue_claims(receipt)
     }
 
-    /// Sign a commit-bound Marciana cognition receipt.
+    /// Sign a currently valid commit-bound Marciana cognition receipt.
+    ///
+    /// `now` is checked but is not embedded in the token. Re-signing the same
+    /// stored receipt before expiry therefore produces byte-identical output.
     pub fn issue_cognition(
         &self,
         receipt: &CognitionCommitReceipt,
+        now: DateTime<Utc>,
     ) -> Result<String, ReceiptError> {
         receipt.validate()?;
+        validate_window(receipt.issued_at(), receipt.expires_at(), now)?;
         Ok(self.issue_claims(receipt))
     }
 
@@ -181,7 +186,7 @@ impl ReceiptVerifier {
     ) -> Result<CognitionCommitReceipt, ReceiptError> {
         let receipt: CognitionCommitReceipt = self.verify_claims(token)?;
         receipt.validate()?;
-        validate_window(receipt.prepared_at, receipt.expires_at, now)?;
+        validate_window(receipt.issued_at(), receipt.expires_at(), now)?;
         Ok(receipt)
     }
 

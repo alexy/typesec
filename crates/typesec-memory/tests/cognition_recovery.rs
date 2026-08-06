@@ -10,8 +10,8 @@ use chrono::TimeDelta;
 use typesec_core::policy::{MintOptions, RequestContext, mint_capability_for_id};
 use typesec_core::{CanWrite, CapabilityRevocationList, CapabilityUseError, Resource};
 use typesec_memory::{
-    CognitionCommitOutcome, CognitionCommitStatus, CognitionEffect, CognitionRecoveryError,
-    MemoryError, MemoryId, MemorySpace, MemoryVault,
+    CognitionAuditEvidence, CognitionCommitOutcome, CognitionCommitStatus, CognitionEffect,
+    CognitionRecoveryError, MemoryError, MemoryId, MemorySpace, MemoryVault,
 };
 
 use support::{Fixture, JOB_ID, OTHER_SUBJECT, capability, digest};
@@ -205,7 +205,12 @@ fn tampered_recovered_evidence_fails_closed() {
             value.effect = CognitionEffect::NoChange;
             value.audit.effect = CognitionEffect::NoChange;
         }),
-        ("audit schema", |value| value.audit.schema_version += 1),
+        ("legacy audit schema", |value| {
+            value.audit.schema_version = CognitionAuditEvidence::SCHEMA_VERSION - 1;
+        }),
+        ("future audit schema", |value| {
+            value.audit.schema_version += 1;
+        }),
         ("snapshot syntax", |value| {
             value.audit.snapshot_digest = "bad".into()
         }),

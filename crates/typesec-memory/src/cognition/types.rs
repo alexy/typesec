@@ -132,8 +132,6 @@ pub struct CognitionAuthorityEvidence {
     /// Stable application-time decision identifier derived from fresh
     /// authorization and policy evidence.
     pub policy_decision_id: String,
-    /// Time the trusted authority adapter completed the current revalidation.
-    pub authority_revalidated_at: DateTime<Utc>,
 }
 
 /// Trusted application-time adapter for LakeCat and TypeDID evidence.
@@ -296,8 +294,7 @@ pub struct CognitionAuditEvidence {
     pub evidence_digest: String,
     /// IDs affected by the prepared effect; empty only for no-change.
     pub affected_ids: Vec<MemoryId>,
-    /// Time the trusted authority adapter completed application-time
-    /// revalidation.
+    /// Time TypeSec completed application-time authority revalidation.
     pub authority_revalidated_at: DateTime<Utc>,
     /// Time the vault prepared the transaction.
     pub prepared_at: DateTime<Utc>,
@@ -305,7 +302,7 @@ pub struct CognitionAuditEvidence {
 
 impl CognitionAuditEvidence {
     /// Current durable audit wire schema.
-    pub const SCHEMA_VERSION: u32 = 2;
+    pub const SCHEMA_VERSION: u32 = 3;
 }
 
 /// Whether a call committed a decision or disclosed an immutable prior commit.

@@ -1,0 +1,30 @@
+warning: unreachable statement
+ --> tests/ui/cannot_construct_cognition_receipt.rs:5:5
+  |
+4 |       let receipt: CognitionCommitReceipt = todo!();
+  |                                             ------- any code following this expression is unreachable
+5 | /     let _forged = CognitionCommitReceipt {
+6 | |         schema_version: 3,
+7 | |         ..receipt
+8 | |     };
+  | |______^ unreachable statement
+  |
+  = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `receipt`
+ --> tests/ui/cannot_construct_cognition_receipt.rs:4:9
+  |
+4 |     let receipt: CognitionCommitReceipt = todo!();
+  |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_receipt`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+error[E0451]: fields `schema_version`, `effect`, `subject`, `resource`, `job_id`, `governed_source_scope`, `typedid_request_digest`, `proposal_digest`, `governed_scan_digest`, `input_snapshot_digest`, `policy_decision_digest`, `authorization_receipt_digest`, `prior_version`, `resulting_version`, `affected_ids`, `backend_commit_id`, `authority_revalidated_at`, `prepared_at`, `committed_at`, `issued_at` and `expires_at` of struct `CognitionCommitReceipt` are private
+ --> tests/ui/cannot_construct_cognition_receipt.rs:6:9
+  |
+5 |     let _forged = CognitionCommitReceipt {
+  |                   ---------------------- in this type
+6 |         schema_version: 3,
+  |         ^^^^^^^^^^^^^^^^^ private field
+7 |         ..receipt
+  |           ^^^^^^^ fields `effect`, `subject`, `resource`, `job_id`, `governed_source_scope`, `typedid_request_digest`, `proposal_digest`, `governed_scan_digest`, `input_snapshot_digest`, `policy_decision_digest`, `authorization_receipt_digest`, `prior_version`, `resulting_version`, `affected_ids`, `backend_commit_id`, `authority_revalidated_at`, `prepared_at`, `committed_at`, `issued_at` and `expires_at` are private

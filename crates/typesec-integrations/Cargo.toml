@@ -34,3 +34,4 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 opentelemetry_sdk = { version = "0.30", default-features = false, features = ["trace", "testing"] }
+trybuild = "1"

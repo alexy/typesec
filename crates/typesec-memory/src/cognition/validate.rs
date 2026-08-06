@@ -118,7 +118,6 @@ pub(super) fn validate_authority(
     proposal: &CognitionProposal,
     binding: &CognitionBinding,
     authority: &CognitionAuthorityEvidence,
-    checked_at: DateTime<Utc>,
 ) -> Result<(), CognitionApplyError> {
     for (name, matches) in [
         ("space", binding.space_id == authority.space_id),
@@ -180,9 +179,7 @@ pub(super) fn validate_authority(
     {
         return Err(CognitionApplyError::BindingMismatch("effective projection"));
     }
-    if !is_canonical_text(&authority.policy_decision_id)
-        || authority.authority_revalidated_at > checked_at
-    {
+    if !is_canonical_text(&authority.policy_decision_id) {
         return Err(CognitionApplyError::Authority);
     }
     Ok(())

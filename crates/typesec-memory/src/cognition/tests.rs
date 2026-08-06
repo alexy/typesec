@@ -305,7 +305,7 @@ impl Fixture {
             .for_purposes(["research"]),
             None,
             source.clone(),
-            Utc::now(),
+            DateTime::<Utc>::UNIX_EPOCH,
             governed_source_scope.clone(),
         );
         store.put(source_record).expect("source write");
@@ -424,7 +424,6 @@ fn authority_for(binding: &CognitionBinding) -> CognitionAuthorityEvidence {
         effective_projection: binding.effective_projection.clone(),
         typedid_request_digest: binding.typedid_request_digest.clone(),
         policy_decision_id: "policy-decision-7".into(),
-        authority_revalidated_at: DateTime::<Utc>::UNIX_EPOCH,
     }
 }
 

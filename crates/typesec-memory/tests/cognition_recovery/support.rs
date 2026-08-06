@@ -462,7 +462,6 @@ fn authority_for(binding: &CognitionBinding) -> CognitionAuthorityEvidence {
         effective_projection: binding.effective_projection.clone(),
         typedid_request_digest: binding.typedid_request_digest.clone(),
         policy_decision_id: digest("current policy decision"),
-        authority_revalidated_at: DateTime::<Utc>::UNIX_EPOCH,
     }
 }
 

@@ -1,19 +1,23 @@
 use super::*;
-use chrono::TimeDelta;
+use chrono::{TimeDelta, TimeZone};
 
 #[test]
 fn committed_audit_carries_versioned_grant_snapshot_and_phase_evidence() {
     let fixture = Fixture::new();
-    let expected_authority = authority_for(&fixture.binding);
+    let authority_revalidated_at = Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 0).unwrap();
+    let prepared_at = authority_revalidated_at + TimeDelta::seconds(1);
+    let mut clock = [authority_revalidated_at, prepared_at].into_iter();
     let outcome = fixture
         .vault
-        .apply_cognition(
+        .apply_cognition_with_clock(
             &fixture.space,
             &fixture.write,
             &fixture.proposal(),
             &fixture.context,
+            || clock.next().expect("expected cognition phase timestamp"),
         )
         .expect("valid cognition commit");
+    assert!(clock.next().is_none());
 
     assert_eq!(
         outcome.audit.schema_version,
@@ -35,15 +39,18 @@ fn committed_audit_carries_versioned_grant_snapshot_and_phase_evidence() {
     );
     assert_eq!(
         outcome.audit.authority_revalidated_at,
-        expected_authority.authority_revalidated_at
+        authority_revalidated_at
     );
-    assert!(outcome.audit.authority_revalidated_at <= outcome.audit.prepared_at);
-    assert!(outcome.audit.prepared_at <= outcome.committed_at);
+    assert_eq!(outcome.audit.prepared_at, prepared_at);
+    assert_eq!(outcome.committed_at, prepared_at);
 }
 
 #[test]
 fn recovered_audit_rejects_schema_snapshot_and_phase_tampering() {
-    let mutations: [fn(&mut CognitionCommitOutcome); 4] = [
+    let mutations: [fn(&mut CognitionCommitOutcome); 5] = [
+        |outcome| {
+            outcome.audit.schema_version = CognitionAuditEvidence::SCHEMA_VERSION - 1;
+        },
         |outcome| outcome.audit.schema_version += 1,
         |outcome| outcome.audit.snapshot_digest = digest("wrong snapshot"),
         |outcome| {
@@ -80,7 +87,10 @@ fn recovered_audit_rejects_schema_snapshot_and_phase_tampering() {
 
 #[test]
 fn newly_applied_outcome_must_return_the_exact_expanded_audit() {
-    let mutations: [fn(&mut CognitionCommitOutcome); 3] = [
+    let mutations: [fn(&mut CognitionCommitOutcome); 4] = [
+        |outcome| {
+            outcome.audit.schema_version = CognitionAuditEvidence::SCHEMA_VERSION - 1;
+        },
         |outcome| outcome.audit.schema_version += 1,
         |outcome| outcome.audit.snapshot_digest = digest("wrong snapshot"),
         |outcome| {
@@ -128,27 +138,6 @@ fn missing_audit_schema_fails_strict_wire_decoding() {
 }
 
 #[test]
-fn future_authority_time_fails_before_store_access() {
-    let fixture = Fixture::new();
-    let mut future = authority_for(&fixture.binding);
-    future.authority_revalidated_at = DateTime::<Utc>::MAX_UTC;
-    fixture.authority.set(future);
-    let before_gets = fixture.store.state().get_calls;
-
-    assert!(matches!(
-        fixture.vault.apply_cognition(
-            &fixture.space,
-            &fixture.write,
-            &fixture.proposal(),
-            &fixture.context
-        ),
-        Err(MemoryError::Cognition(CognitionApplyError::Authority))
-    ));
-    assert_eq!(fixture.store.state().recovery_calls, 0);
-    assert_eq!(fixture.store.state().get_calls, before_gets);
-}
-
-#[test]
 fn later_revalidation_recovers_the_original_historical_audit() {
     let fixture = Fixture::new();
     let proposal = fixture.proposal();
@@ -157,7 +146,6 @@ fn later_revalidation_recovers_the_original_historical_audit() {
         .apply_cognition(&fixture.space, &fixture.write, &proposal, &fixture.context)
         .expect("initial commit");
     let mut later = authority_for(&fixture.binding);
-    later.authority_revalidated_at = first.audit.authority_revalidated_at + TimeDelta::seconds(1);
     later.policy_decision_id = "policy-decision-8".into();
     fixture.authority.set(later);
 
@@ -167,4 +155,5 @@ fn later_revalidation_recovers_the_original_historical_audit() {
         .expect("idempotent retry with fresh authority evidence");
     assert_eq!(recovered.status, CognitionCommitStatus::AlreadyApplied);
     assert_eq!(recovered.audit, first.audit);
+    assert_eq!(fixture.authority.calls(), 2);
 }

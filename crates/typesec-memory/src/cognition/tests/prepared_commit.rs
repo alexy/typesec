@@ -13,7 +13,7 @@ fn digest_is_canonical_repeatable_and_plaintext_opaque() {
     assert!(is_canonical_sha256(&digest));
     assert_eq!(
         digest,
-        "sha256:88f1060a04a33319ba4f4734bad088ea394bfd0713c701975f3ac6e9d840b6b3"
+        "sha256:b59b0cb41ea413e6a581beef25886e14d9dbd8fcd2056352ea825ea05f993305"
     );
     assert_eq!(digest, commit.canonical_digest().unwrap());
     assert_ne!(digest, commit.proposal_digest());
@@ -102,6 +102,21 @@ fn digest_binds_distinct_grant_snapshot_and_revalidation_evidence() {
         baseline.audit().governed_scan_digest,
         baseline.audit().snapshot_digest
     );
+}
+
+#[test]
+fn preparation_rejects_a_type_sec_timestamp_after_preparation() {
+    let prepared_at = prepared_at();
+    assert!(matches!(
+        try_prepared_fixture_with_evidence(
+            prepared_at,
+            None,
+            "governed scan",
+            "snapshot 42",
+            prepared_at + TimeDelta::nanoseconds(1),
+        ),
+        Err(CognitionApplyError::Authority)
+    ));
 }
 
 #[test]
@@ -205,6 +220,23 @@ fn prepared_fixture_with_evidence(
     snapshot: &str,
     authority_revalidated_at: DateTime<Utc>,
 ) -> PreparedFixture {
+    try_prepared_fixture_with_evidence(
+        now,
+        governed_source_scope,
+        governed_scan,
+        snapshot,
+        authority_revalidated_at,
+    )
+    .expect("prepare cognition commit")
+}
+
+fn try_prepared_fixture_with_evidence(
+    now: DateTime<Utc>,
+    governed_source_scope: Option<GovernedSourceScope>,
+    governed_scan: &str,
+    snapshot: &str,
+    authority_revalidated_at: DateTime<Utc>,
+) -> Result<PreparedFixture, CognitionApplyError> {
     let space = MemorySpace::new("tenant:acme", "research");
     let source_id = MemoryId::from_string("mem-source-1");
     let source_time = prepared_at() - TimeDelta::hours(1);
@@ -264,26 +296,25 @@ fn prepared_fixture_with_evidence(
         &space, &proposal, &binding,
     )
     .expect("commit identity");
-    let mut authority = authority_for(&binding);
-    authority.authority_revalidated_at = authority_revalidated_at;
+    let authority = authority_for(&binding);
     let commit = super::super::prepare::prepare_commit(
         &space,
         &proposal,
         &binding,
         &authority,
+        authority_revalidated_at,
         &sources,
         manifest.clone(),
         &identity,
         now,
-    )
-    .expect("prepare cognition commit");
-    PreparedFixture {
+    )?;
+    Ok(PreparedFixture {
         commit,
         proposal,
         binding,
         sources,
         manifest,
-    }
+    })
 }
 
 fn prepared_at() -> DateTime<Utc> {

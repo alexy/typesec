@@ -892,9 +892,10 @@ CognitionProposal {
 The proposal is inert. Standalone Marciana owns composition and orchestration;
 `MemoryVault::apply_cognition` is the TypeSec reauthorization and application
 boundary; Grust owns generic guarded persistence. Proposal schema 4 binds the
-effect into canonical identity. Audit and signed receipt schema 2 carry the
-same effect, and prepared-commit digest profile 4 binds it into backend
-execution. `Mutated` requires nonempty canonical affected IDs and a memory
+effect into canonical identity. Audit schema 3 and signed receipt schema 3
+carry the same effect, with receipt schema 3 also adding stable first issuance;
+prepared-commit digest profile 5 binds the effect into backend execution.
+`Mutated` requires nonempty canonical affected IDs and a memory
 version transition; `NoChange` requires empty affected IDs and an unchanged
 memory version, but both produce one durable, recoverable decision. qg-rust
 remains a consumer during and after extraction. Stale proposals are rejected
@@ -918,7 +919,11 @@ reconstruct a protected proposal, rerun mutation authority, or reapply the
 operation. Absence, digest conflict, corrupt evidence, and backend failure all
 collapse to the same unavailable result so the lookup cannot become a
 cross-subject or adapter-error oracle. Marciana owns orchestration and receipt
-projection around this TypeSec boundary.
+projection around this TypeSec boundary. In particular, Marciana must persist
+the first post-commit `issuedAt` (or the complete signed receipt) in an
+idempotent guarded record and reuse it after response loss. The historical
+TypeSec outcome cannot reconstruct first issuance, and `issuedAt` must never be
+derived from backend `committedAt`.
 
 **Acceptance criteria:**
 
