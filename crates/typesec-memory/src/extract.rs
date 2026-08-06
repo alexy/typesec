@@ -12,6 +12,7 @@
 pub mod ollama;
 #[cfg(feature = "ollama")]
 pub use ollama::OllamaExtractor;
+mod proposal_debug;
 
 use crate::label::Label;
 use crate::record::{MemoryContent, MemoryDraft, Provenance};
@@ -29,14 +30,16 @@ use crate::cognition::CognitionBinding;
 /// store handle and cannot mutate memory; drafts and plans must still enter
 /// through [`crate::MemoryVault::remember`] or
 /// [`crate::MemoryVault::consolidate`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Its manual `Debug` implementation emits only schema, label, counts, and
+/// binding presence; it never formats proposal strings or plaintext payloads.
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CognitionProposal {
     /// Proposal schema version.
     pub schema_version: u32,
     /// Idempotent scheduler/job identifier.
     pub job_id: String,
-    /// Backend-specific snapshot/version read by the job.
+    /// Canonical digest of the immutable input snapshot read by the job.
     pub input_snapshot: String,
     /// Stable digest of the source records and relevant policy inputs.
     pub source_digest: String,
@@ -67,9 +70,12 @@ pub struct CognitionProposal {
 
 impl CognitionProposal {
     /// Highest supported proposal schema. Governed bindings use this version.
-    pub const SCHEMA_VERSION: u32 = 2;
+    ///
+    /// Bound versions 1 and 2 are intentionally not accepted because they
+    /// ambiguously used a governed grant digest as the input snapshot identity.
+    pub const SCHEMA_VERSION: u32 = 3;
 
-    /// Oldest accepted schema. Version 1 is local/no-scope only.
+    /// Oldest accepted schema. Version 1 is inert and unbound only.
     pub const MIN_SCHEMA_VERSION: u32 = 1;
 
     /// Create an inert proposal with no mutations yet.
@@ -114,13 +120,11 @@ impl CognitionProposal {
     }
 
     /// Bind the proposal to verified identity, catalog, authorization, and
-    /// source-manifest evidence. A governed source scope upgrades the proposal
-    /// to schema version 2; local proposals retain the version 1 wire shape.
+    /// source-manifest evidence. Every bound proposal uses schema version 3;
+    /// unbound inert proposals retain the version 1 wire shape.
     #[must_use]
     pub fn with_binding(mut self, binding: CognitionBinding) -> Self {
-        if binding.governed_source_scope.is_some()
-            && self.schema_version == Self::MIN_SCHEMA_VERSION
-        {
+        if self.schema_version == Self::MIN_SCHEMA_VERSION {
             self.schema_version = Self::SCHEMA_VERSION;
         }
         self.binding = Some(binding);

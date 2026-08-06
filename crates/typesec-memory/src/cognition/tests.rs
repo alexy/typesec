@@ -344,7 +344,7 @@ impl Fixture {
     fn proposal(&self) -> CognitionProposal {
         CognitionProposal::new(
             "job-42",
-            self.binding.governed_scan_digest.clone(),
+            self.binding.snapshot_digest.clone(),
             self.binding.source_manifest_digest.clone(),
             "marciana.summarize.sail",
             "1",
@@ -399,6 +399,7 @@ fn authority_for(binding: &CognitionBinding) -> CognitionAuthorityEvidence {
         effective_projection: binding.effective_projection.clone(),
         typedid_request_digest: binding.typedid_request_digest.clone(),
         policy_decision_id: "policy-decision-7".into(),
+        authority_revalidated_at: DateTime::<Utc>::UNIX_EPOCH,
     }
 }
 
@@ -421,6 +422,7 @@ fn digest(value: &str) -> String {
 }
 
 mod application;
+mod audit_schema;
 mod authorized_source_limits;
 mod governed_scope;
 mod hardening;

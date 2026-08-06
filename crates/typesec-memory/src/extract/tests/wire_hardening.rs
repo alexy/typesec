@@ -74,8 +74,8 @@ fn proposal_value() -> serde_json::Value {
     .with_entities([EntityRef::new("Alice", "person")]);
     let proposal = CognitionProposal::new(
         "job-1",
-        "snapshot-42",
-        "sha256:sources",
+        digest('1'),
+        digest('2'),
         "community-summary",
         "model-v3",
         vec![source.clone()],

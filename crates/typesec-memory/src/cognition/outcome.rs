@@ -49,21 +49,25 @@ pub(super) fn validate_shape(outcome: &CognitionCommitOutcome) -> bool {
 }
 
 fn canonical_audit(audit: &CognitionAuditEvidence) -> bool {
-    [
-        audit.operation_id.as_str(),
-        audit.subject.as_str(),
-        audit.space_id.as_str(),
-        audit.purpose.as_str(),
-        audit.policy_decision_id.as_str(),
-    ]
-    .into_iter()
-    .all(is_canonical_text)
+    audit.schema_version == CognitionAuditEvidence::SCHEMA_VERSION
+        && audit.authority_revalidated_at <= audit.prepared_at
+        && audit.governed_scan_digest != audit.snapshot_digest
+        && [
+            audit.operation_id.as_str(),
+            audit.subject.as_str(),
+            audit.space_id.as_str(),
+            audit.purpose.as_str(),
+            audit.policy_decision_id.as_str(),
+        ]
+        .into_iter()
+        .all(is_canonical_text)
         && [
             audit.proposal_digest.as_str(),
             audit.binding_digest.as_str(),
             audit.source_manifest_digest.as_str(),
             audit.typedid_request_digest.as_str(),
             audit.governed_scan_digest.as_str(),
+            audit.snapshot_digest.as_str(),
             audit.authorization_receipt_digest.as_str(),
             audit.evidence_digest.as_str(),
         ]

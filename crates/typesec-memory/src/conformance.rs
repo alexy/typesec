@@ -17,6 +17,10 @@
 //! stores — neighborhood reachability. Expectations are compared as **sets**:
 //! ordering is a store's own affair (the vault ranks). A store that *widens*
 //! any filter fails loudly with the fixture case name.
+//!
+//! Conformance verifies backend behavior, not record authenticity,
+//! confidentiality, authorization, or database integrity. The tested store
+//! and its raw persistence remain trusted TypeSec infrastructure.
 
 use std::collections::BTreeSet;
 
@@ -100,7 +104,8 @@ fn expect_set(expect: &[String]) -> BTreeSet<String> {
 ///
 /// Set `graph` when the store implements `link`/`neighborhood`; the graph
 /// cases are then mandatory instead of skipped. Panics with the failing
-/// fixture case name on any deviation.
+/// fixture case name on any deviation. Passing this harness is not a security
+/// attestation for untrusted storage.
 pub fn run_store_conformance(store: &dyn MemoryStore, graph: bool) {
     let corpus = parse_corpus();
 

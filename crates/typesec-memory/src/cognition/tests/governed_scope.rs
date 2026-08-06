@@ -89,26 +89,69 @@ fn authoritative_reload_rejects_missing_or_wrong_scope() {
 }
 
 #[test]
-fn schema_v1_cannot_downgrade_a_scoped_proposal() {
+fn schema_v1_cannot_downgrade_a_bound_proposal() {
+    for fixture in [Fixture::new(), Fixture::new_with_scope(Some(scope('a')))] {
+        let mut proposal = fixture.proposal();
+        assert_eq!(proposal.schema_version, CognitionProposal::SCHEMA_VERSION);
+        proposal.schema_version = CognitionProposal::MIN_SCHEMA_VERSION;
+
+        assert!(matches!(
+            proposal.canonical_digest().unwrap_err(),
+            CognitionApplyError::InvalidBinding(message)
+                if message == "bound proposals require schemaVersion 3"
+        ));
+    }
+}
+
+#[test]
+fn ambiguous_governed_schema_v2_is_rejected_instead_of_reinterpreted() {
     let fixture = Fixture::new_with_scope(Some(scope('a')));
     let mut proposal = fixture.proposal();
-    assert_eq!(proposal.schema_version, CognitionProposal::SCHEMA_VERSION);
-    proposal.schema_version = CognitionProposal::MIN_SCHEMA_VERSION;
+    proposal.schema_version = 2;
 
     assert!(matches!(
         proposal.canonical_digest().unwrap_err(),
-        CognitionApplyError::InvalidBinding(message)
-            if message == "governedSourceScope requires schemaVersion 2"
+        CognitionApplyError::UnsupportedSchema(2)
     ));
 }
 
 #[test]
-fn local_proposals_keep_the_v1_wire_contract() {
+fn local_and_governed_bound_proposals_share_one_current_schema() {
     let fixture = Fixture::new();
     assert_eq!(
         fixture.proposal().schema_version,
+        CognitionProposal::SCHEMA_VERSION
+    );
+    assert_eq!(
+        Fixture::new_with_scope(Some(scope('a')))
+            .proposal()
+            .schema_version,
+        CognitionProposal::SCHEMA_VERSION
+    );
+}
+
+#[test]
+fn unbound_proposals_keep_v1_and_cannot_claim_v3_without_a_binding() {
+    let mut proposal = CognitionProposal::new(
+        "job-unbound",
+        digest("snapshot"),
+        digest("source manifest"),
+        "marciana.test",
+        "1",
+        vec![MemoryId::from_string("mem-source")],
+        Label::Internal,
+    );
+    assert_eq!(
+        proposal.schema_version,
         CognitionProposal::MIN_SCHEMA_VERSION
     );
+
+    proposal.schema_version = CognitionProposal::SCHEMA_VERSION;
+    assert!(matches!(
+        proposal.canonical_digest().unwrap_err(),
+        CognitionApplyError::InvalidBinding(message)
+            if message == "schemaVersion 3 requires a binding"
+    ));
 }
 
 #[test]

@@ -89,7 +89,8 @@ system to get it right *in*.
    resource id; reading, writing, and forgetting it require
    `Capability<CanRead|CanWrite|CanDelete, MemorySpace>`, minted through a
    `PolicyEngine` like every other capability — audited, expiring, revocable,
-   attenuable. There is no unauthenticated path to memory contents.
+   attenuable. There is no unauthenticated application path to memory contents;
+   raw persistence access remains a trusted infrastructure seam.
 2. **Contents are labeled, not just scoped.** Every record's content lives in
    a `SecureValue<L, MemoryContent, MemorySpace>`. Scope says *whose* memory;
    the label says *how hot* it is. Both gates apply independently.
@@ -226,11 +227,13 @@ Key decisions baked into these signatures:
 
 `SecureValue`'s label is compile-time; a store holds mixed-label records. At
 rest each record carries a **runtime label tag** (`Public | Internal |
-Sensitive | Secret`); the vault is the only component that rehydrates content,
-and it re-wraps into the statically-typed `SecureValue<L>` *only* when the
-record's runtime label ⊑ the recall ceiling `L`. The unsafe rehydration path
-is `pub(crate)` inside typesec-memory — exactly the `new_minted` pattern:
-one guarded construction site, compile-fail tests to keep it that way.
+Sensitive | Secret`); the vault is the only application component that reveals
+content, and it re-wraps into the statically-typed `SecureValue<L>` *only* when
+the record's runtime label ⊑ the recall ceiling `L`. Direct content field access
+is `pub(crate)` inside typesec-memory — exactly the `new_minted` pattern: one
+guarded application construction site, with compile-fail tests to keep it that
+way. Store serde, record `Debug`, and raw store handles are trusted
+plaintext-bearing persistence surfaces, not alternate application APIs.
 
 ### 3.4 Provenance, taint, and memory poisoning
 
@@ -376,9 +379,10 @@ QueryGraph stack.** Concretely:
 types, `MemorySpace`, the vault, labels-at-rest, quarantine, `MemoryStore` +
 `SemanticIndex` traits, `InMemoryStore`, `GrustMemoryStore` (feature-gated,
 same as rbac's grust dep), interop bindings, `memory-serve`, Python/WASM
-surfaces, receipts/audit wiring. Rationale: the invariants (one rehydration
-site, capability-gated ops, label joins) are compile-time properties that
-must live next to the sealed traits and compile-fail tests that enforce them.
+surfaces, receipts/audit wiring. Rationale: the invariants (one guarded
+application reveal path, capability-gated ops, label joins) are compile-time
+properties that must live next to the sealed traits and compile-fail tests that
+enforce them.
 
 **Standalone Marciana project:** everything about the four-verb product,
 scale, cognition, and memory-specific adapters, implementing TypeSec's traits
@@ -594,7 +598,7 @@ flowchart LR
 | Request binding | The signature covers sender, recipient, action, path resource, and a payload hash whose `bodySha256` binds the exact HTTP body |
 | Policy gate | `ToolCallGuard` denies by default and normalizes the memory tool request before any capability is minted |
 | Typed authority | `MemoryToolRouter` mints the operation-specific capability and enters `MemoryVault`; a JSON `subject` field has no authority |
-| Information flow | The vault alone rehydrates content, applies purpose and clearance, preserves quarantine, joins labels, and emits audit events |
+| Information flow | The vault alone reveals content to applications, applies purpose and clearance, preserves quarantine, joins labels, and emits audit events; raw persistence remains trusted |
 | Persistence | `TursoMemoryStore` stores opaque `StoredRecord` JSON plus entity graph structure in bootstrapped Grust universal tables |
 | Runtime seam | `querygraph-memory` owns the single sync-to-async bridge, including I/O/time drivers, nested-Tokio calls, and async-context-safe shutdown |
 
@@ -1137,11 +1141,11 @@ deferred—without weakening the already-complete v1 claim.
 ## 7. V1 implementation plan (complete; each milestone green + changelogged)
 
 - **M1 — vault core** (`typesec-memory`): `MemorySpace`, records, runtime
-  labels + single rehydration site, `MemoryVault` ops gated by capabilities,
-  `InMemoryStore`, bi-temporal invalidation, tombstones, audit actions,
-  quarantine flag; tests incl. compile-fail (`recall` without a capability,
-  rehydrate outside the crate). *This alone already beats the field's
-  security story.*
+  labels + single guarded application reveal path, `MemoryVault` ops gated by
+  capabilities, `InMemoryStore`, bi-temporal invalidation, tombstones, audit
+  actions, quarantine flag; tests incl. compile-fail (`recall` without a
+  capability, direct content-field access outside the crate). *This alone
+  already beats the field's security story.*
 - **M2 — policy depth**: ODRL purpose-bound recall + retention reaper +
   deletion receipts; `recall<L>` ceiling semantics + redacted hits + `reveal`
   escalation; attenuated delegation example (planner → sub-agent).
@@ -1166,10 +1170,10 @@ milestones.
 All five milestones and their v1 follow-ons landed as tested commits on main
 (`typesec-memory`, workspace member #11):
 
-- **M1 done** — `MemorySpace`/records/runtime `Label` + single rehydration
-  site (compile-fail-guarded), `MemoryVault` (remember/recall::<L>/reveal/
-  consolidate/forget), `InMemoryStore`, quarantine, provenance birth labels,
-  bi-temporal invalidation, audit.
+- **M1 done** — `MemorySpace`/records/runtime `Label` + single guarded
+  application reveal path (compile-fail-guarded), `MemoryVault`
+  (remember/recall::<L>/reveal/consolidate/forget), `InMemoryStore`, quarantine,
+  provenance birth labels, bi-temporal invalidation, audit.
 - **M2 done** — `with_policy` per-op ODRL re-check at use time, `reap_expired`
   retention reaper, signed deletion receipts (`receipts` feature),
   attenuated-delegation.

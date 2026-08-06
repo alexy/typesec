@@ -1,10 +1,11 @@
 //! Memory content, provenance, drafts, and the at-rest stored record.
 //!
-//! The load-bearing invariant lives here: [`StoredRecord`] keeps its
-//! `content` **private**. The store round-trips records opaquely, but only
-//! the vault (same crate) can read content back out — the single, guarded
-//! rehydration site, mirroring core's `Capability::new_minted` pattern. A
-//! compile-fail test in `tests/ui/` proves external code cannot touch it.
+//! [`StoredRecord`] keeps protected fields private from ordinary Rust field
+//! access, preserving the vault as the application-level rehydration and
+//! governed-ingestion path. Serde and [`crate::MemoryStore`] remain privileged
+//! persistence surfaces: any code holding or reconstructing a stored record is
+//! inside the confidentiality and integrity trust boundary. Compile-fail tests
+//! in `tests/ui/` cover direct field access only.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -186,9 +187,12 @@ impl MemoryDraft {
     }
 }
 
-/// A record as it lives in a store: metadata is public, **content is not**.
+/// A record as it lives in a trusted store: metadata is public, **content is
+/// not directly field-accessible**.
 ///
-/// Stores persist and return these opaquely; only the vault reads `content`.
+/// Serialization necessarily includes private persisted fields. A raw store
+/// handle or deserialized record is therefore privileged; private fields do
+/// not provide authenticity or confidentiality against that code.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredRecord {
     /// Record id.
@@ -207,8 +211,9 @@ pub struct StoredRecord {
     pub provenance: Provenance,
     /// Vault-verified external governance scope, when ingestion was governed.
     ///
-    /// Private so callers cannot attach or replace it through normal record
-    /// APIs. Trusted stores still round-trip it through serde.
+    /// Private so callers cannot attach or replace it through normal field
+    /// APIs. Trusted stores still round-trip it through serde, which is why the
+    /// persistence layer is part of the integrity trust boundary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     governed_source_scope: Option<GovernedSourceScope>,
     /// When we learned it.
@@ -221,7 +226,8 @@ pub struct StoredRecord {
     pub expires_at: Option<DateTime<Utc>>,
     /// Purposes this memory may serve.
     pub purposes: Vec<String>,
-    /// The protected payload. Private: only the vault rehydrates it.
+    /// The protected payload. Only the vault accesses this field directly;
+    /// trusted record serde and `Debug` still expose its plaintext.
     pub(crate) content: MemoryContent,
 }
 
@@ -242,8 +248,8 @@ impl StoredRecord {
         self.governed_source_scope.as_ref()
     }
 
-    /// Crate-internal: the protected content, for the vault's single
-    /// rehydration site. Not public — reading content is the vault's job.
+    /// Crate-internal direct content access for the guarded vault path.
+    /// Trusted record serde and `Debug` remain separate plaintext surfaces.
     pub(crate) fn content(&self) -> &MemoryContent {
         &self.content
     }

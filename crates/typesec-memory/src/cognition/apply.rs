@@ -104,7 +104,7 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         let authority = verifier
             .revalidate(binding, context)
             .map_err(|_| CognitionApplyError::Authority)?;
-        validate_authority(proposal, binding, &authority)?;
+        validate_authority(proposal, binding, &authority, Utc::now())?;
 
         let identity = CognitionCommitIdentity::from_validated(space, proposal, binding)?;
         if let Some(recovered) = self

@@ -218,14 +218,29 @@ memory came from an authorized snapshot. TypeSec now owns a separate canonical
 - bindings, fresh authority, proposals, preconditions, prepared commits,
   audits, signed receipts, and derived records retain the exact optional scope;
   and
-- schema v1 remains no-scope only, preventing a scoped proposal from being
-  downgraded by deleting its scope field.
+- schema v1 remains inert and unbound only, while every local or governed bound
+  proposal uses schema v3 to separate the scan grant from the immutable input
+  snapshot; ambiguous bound v1/v2 inputs are rejected, preventing either
+  downgrade or digest-role substitution.
 
 Opaque provider evidence is never persisted. The trusted-store qualification
 is explicit: private Rust fields stop ordinary API forgery, but a backend that
-deserializes attacker-authored `StoredRecord` bytes must add record
-authentication rather than treating serde visibility as a cryptographic
-boundary.
+deserializes attacker-authored `StoredRecord` bytes or exposes direct
+`MemoryStore::put` can forge the private scope. `MemoryStore`, the database,
+and raw backend handles are therefore trusted infrastructure. Production
+Marciana must ingest governed drafts through `remember_governed` and its
+exact-draft verifier. Integrity-hostile storage requires record authentication
+rather than treating serde visibility as a cryptographic boundary;
+confidentiality-hostile storage additionally requires encryption and key
+isolation.
+
+Audit schema v1 and signed receipt schema v1 now carry the composite source
+scope, separate grant and snapshot digests, original authorization evidence,
+`authorityRevalidatedAt`, `preparedAt`, and authoritative `committedAt` (on the
+outcome and receipt). Receipt construction is complete and validated in one
+step, while expiry remains preparation-anchored. Proposal `Debug` is redacted
+to schema, label, counts, and binding presence so drafts, replacements,
+evidence, and identity strings cannot reach ordinary logs.
 
 ## Target architecture
 

@@ -1251,16 +1251,18 @@ let id = vault.remember(
 `MemoryVault` checks that the capability is active and bound to the target
 space. When constructed with `with_policy`, it also rechecks policy at use time,
 so a still-live proof does not silently ignore a purpose or governance change.
-The model never receives a constructor for capabilities or an unguarded handle
-to stored content.
+Production model/application code receives neither a capability constructor nor
+the privileged raw store handle. Backend code is different: record serde,
+`StoredRecord` debug formatting, and `MemoryVault::store()` can expose protected
+plaintext and therefore remain inside the trusted persistence boundary.
 
 ## Labels travel with content
 
 Scope answers whose memory this is. A label answers how sensitive its contents
 are. Every stored record carries a runtime `Public`, `Internal`, `Sensitive`, or
-`Secret` tag. Only the vault may rehydrate the private content field, and the
-typed Rust recall path declares the maximum sensitivity of the destination
-context:
+`Secret` tag. Only the vault accesses the private content field directly;
+trusted serde and debug formatting can still expose it. The typed Rust recall
+path declares the maximum sensitivity of the destination context:
 
 ```rust
 let recalled: Recall<Internal> = vault.recall::<Internal>(
@@ -1335,20 +1337,31 @@ carry one exact expected scope and expose that scope on the transient
 `AuthorizedCognitionInput`. Application then requires the binding and freshly
 resolved authority to agree, checks the exact scope again on authoritative
 reload, includes it in record, binding, proposal, prepared-commit, audit, and
-receipt digests, and attaches it to every derived record. Version 1 proposals
-remain readable only for no-scope input; a scoped proposal requires schema 2,
-so removing the field cannot downgrade it into a local operation. Ordinary
-consolidation likewise preserves a unanimous scope and rejects mixed sources
-instead of laundering them into an unscoped summary.
+receipt digests, and attaches it to every derived record. Version 1 remains an
+inert, unbound proposal wire only; attaching either a local or governed binding
+upgrades the proposal to schema 3. Bound schemas 1 and 2 are rejected rather
+than silently reinterpreted because their input field used the governed grant
+digest where the immutable snapshot digest belonged. Removing a scope cannot
+downgrade a bound proposal into the old semantics. Ordinary consolidation
+likewise preserves a unanimous scope and rejects mixed sources instead of
+laundering them into an unscoped summary.
 
 The privacy boundary is the vault API, not arbitrary persistence bytes.
 `StoredRecord` keeps the field private and a compile-fail test prevents normal
 callers from setting it, but trusted stores must deserialize and round-trip the
 record. A store that accepts attacker-controlled serialized `StoredRecord`
 bytes can therefore forge any private persisted field, including content and
-scope. Such a store is outside this trust model; deployments needing hostile
-storage must authenticate records with a MAC or signature before
-deserialization and before returning them to the vault.
+scope. `MemoryStore::put`, `MemoryStore::get`, and `MemoryVault::store()` are
+therefore privileged infrastructure seams, not application APIs; the backend,
+database, and raw handles are part of the confidentiality and integrity TCB.
+Production Marciana ingestion must use `remember_governed` with a configured
+`GovernedSourceVerifier` over the exact draft digest, never deserialize an
+arbitrary scoped record and insert it directly. Conformance tests establish
+store behavior, not authenticity. Deployments with integrity-hostile storage
+must authenticate records with a TypeSec-owned MAC or signature envelope before
+deserialization and before returning them to the vault. Confidentiality-hostile
+storage additionally requires encryption and key isolation; authentication
+alone does not hide record content.
 
 ## Time, graph, and retrieval
 
@@ -1405,14 +1418,39 @@ historical commit: its canonical shape, authority-scoped identity, proposal,
 binding, source, TypeDID, governed-scan, authorization, evidence, and affected
 IDs—including the optional governed source scope—must match, while historical
 preparation time and policy-decision evidence remain those committed by the
-original transaction. Signed commit receipts apply the same canonical and
-bounded treatment to the evidence they expose. Their `preparedAt` validity
-window begins at the trusted TypeSec `audit.prepared_at` produced only after
-current authorization and source validation. It is intentionally not the
-backend `CognitionCommitOutcome.committed_at`: that later timestamp reports
-when the store committed. An idempotent retry signs the original preparation
-timestamp from the recovered audit, so response loss cannot silently extend
-the receipt lifetime.
+original transaction.
+
+Audit and receipt evidence now have explicit, exact schemas. Audit schema 1
+records the composite governed source scope, governed scan grant/proof digest,
+independent immutable `snapshotDigest`, original authorization-receipt digest,
+`authorityRevalidatedAt`, and `preparedAt`. Grant and snapshot digests must be
+canonical and different, preventing a valid-looking grant from being copied
+into both roles. These fields are included in the TypeSec-owned prepared-commit
+digest profile v3. Proposal-bearing commit and retry paths match them exactly;
+proposal-free recovery validates their canonical role and phase shape while
+remaining inside the documented trusted-store boundary.
+The revalidation timestamp is historical evidence, not idempotency identity:
+a later authorized retry may revalidate at a new time but must receive the
+original committed audit unchanged.
+
+Signed cognition receipt schema 1 carries the same distinct evidence plus the
+authoritative backend `committedAt`. Its constructor accepts one complete
+claims value and validates every required field before returning; callers can
+no longer receive a partial value from `CognitionCommitReceipt::new`. Public
+claim mutation remains possible for wire tooling, so issuers and verifiers
+validate again at their trust boundaries. Validators require
+`authorityRevalidatedAt <= preparedAt <= committedAt`. The `preparedAt`
+validity window begins at the trusted TypeSec preparation produced
+only after current authorization and source validation. It remains independent
+of `committedAt`, which only reports when the store committed. An idempotent
+retry signs the original preparation timestamp from the recovered audit, so
+response loss cannot silently extend the receipt lifetime.
+
+`CognitionProposal` also has a fixed-shape, payload-redacted `Debug` surface:
+logs receive only schema, joined label, mutation/evidence/source
+counts, and binding presence. Job and algorithm strings, source identifiers,
+digests, drafts, replacement drafts, evidence strings, and binding contents are
+never formatted.
 These are TypeSec security rules; they do not introduce a Cognee runtime,
 store, adapter, or wire-compatibility surface.
 
@@ -1993,8 +2031,9 @@ WorkOS, Arcade, JWT, and capability-composition path. Python smoke tests in
 Marciana adds a security-focused matrix of its own. The audited
 `typesec-memory` all-features suite includes unit, integration, compile-fail,
 graph-integration, and doctest coverage. Compile-fail cases prove that external
-code cannot rehydrate a stored record or recall without the required
-capability. Runtime cases cover space binding, clearance and redaction,
+code cannot access a stored record's content field directly or recall without
+the required capability; trusted serde, debug, and raw-store surfaces remain
+outside that claim. Runtime cases cover space binding, clearance and redaction,
 `Secret` sealing, purpose filtering, quarantine defaults, label joins,
 transactional consolidation, retention, forgetting, graph neighborhoods,
 semantic ranking, guarded tool routing, and proposal-free response-loss

@@ -7,14 +7,24 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
-- Renamed cognition receipt `committed_at`/`committedAt` to
-  `prepared_at`/`preparedAt` so its signed validity window is explicitly
-  anchored to trusted TypeSec preparation rather than backend commit time.
+- Added exact v1 cognition audit and receipt schemas with independent governed
+  grant and immutable snapshot digests, authority-revalidation, preparation,
+  and authoritative commit times, complete validated receipt construction,
+  and recovery checks bound to the expanded prepared-commit v3 digest profile.
+  Receipt expiry remains anchored to `prepared_at`, independently of
+  `committed_at`.
+- Corrected governed proposal input identity to use the immutable snapshot
+  digest, upgraded every bound proposal to schema v3, and made ambiguous bound
+  schemas v1 and v2 fail closed instead of reinterpreting persisted jobs.
+- Replaced plaintext-bearing `CognitionProposal` debug output with redacted
+  counts and documented `MemoryStore`, raw backend handles, and record serde as
+  trusted persistence seams. Production governed Marciana ingestion is
+  required to use `remember_governed` with its exact-draft verifier.
 
 - Added a vault-owned governed-source binding for Marciana ingestion and
   cognition: exact staged-draft verification, bounded nonpersistent evidence,
   distinct local/governed reads, authoritative scope rechecks, derived-record
-  propagation, schema-v2 downgrade protection, and scope-bound audits and
+  propagation, bound-schema-v3 downgrade protection, and scope-bound audits and
   signed receipts.
 
 - Added allocation-free borrowed access to gateway-verified TypeDID claims so

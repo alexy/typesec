@@ -1,5 +1,5 @@
-// External callers may inspect a verified scope but cannot attach or replace
-// one on a StoredRecord. Only TypeSec's governed vault path owns that write.
+// External callers cannot attach or replace a scope through ordinary field
+// access. This test does not claim authenticity against trusted serde/storage.
 
 use typesec_memory::{GovernedSourceScope, StoredRecord};
 

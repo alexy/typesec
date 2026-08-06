@@ -37,6 +37,7 @@ pub use jwt::{JwtAuthenticator, JwtClaims, JwtClaimsEngine, OidcConfig, Verified
 pub use otel::OtelAuditSink;
 pub use pydantic_ai::{PydanticAiCapability, PydanticAiToolCapability};
 pub use receipt::{
-    CognitionCommitReceipt, DecisionReceipt, ReceiptError, ReceiptIssuer, ReceiptVerifier,
+    CognitionCommitReceipt, CognitionCommitReceiptClaims, DecisionReceipt, ReceiptError,
+    ReceiptIssuer, ReceiptVerifier,
 };
 pub use workos::{WorkOsFgaEngine, WorkOsFgaRequest, WorkOsResource};

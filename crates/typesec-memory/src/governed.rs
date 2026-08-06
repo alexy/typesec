@@ -18,9 +18,11 @@ pub const MAX_GOVERNED_SOURCE_EVIDENCE_BYTES: usize = 16 * 1024 * 1024;
 
 /// Opaque, canonical identity of one externally governed source scope.
 ///
-/// Constructing this value is harmless: only
-/// [`crate::MemoryVault::remember_governed`] can attach it to a record, and
-/// that path first invokes the host-configured [`GovernedSourceVerifier`].
+/// Normal record APIs cannot attach this value. Trusted persistence can still
+/// reconstruct it through `StoredRecord` serde, so field privacy is not proof
+/// of authenticity. Production ingestion must attach it through
+/// [`crate::MemoryVault::remember_governed`], which first invokes the
+/// host-configured [`GovernedSourceVerifier`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 pub struct GovernedSourceScope(String);

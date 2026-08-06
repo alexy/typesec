@@ -1,4 +1,5 @@
 use super::*;
+use crate::CognitionApplyError;
 use crate::space::MemoryId;
 
 #[test]
@@ -68,8 +69,8 @@ fn cognition_proposal_records_snapshot_and_stays_inert() {
     );
     let proposal = CognitionProposal::new(
         "job-1",
-        "snapshot-42",
-        "sha256:sources",
+        digest('1'),
+        digest('2'),
         "community-summary",
         "model-v3",
         vec![source.clone()],
@@ -91,8 +92,8 @@ fn cognition_proposal_records_snapshot_and_stays_inert() {
 fn cognition_proposal_rejects_unknown_wire_fields() {
     let mut value = serde_json::to_value(CognitionProposal::new(
         "job-1",
-        "snapshot-42",
-        "sha256:sources",
+        digest('1'),
+        digest('2'),
         "community-summary",
         "model-v3",
         vec![MemoryId::from_string("mem-source")],
@@ -107,4 +108,36 @@ fn cognition_proposal_rejects_unknown_wire_fields() {
     assert!(serde_json::from_value::<CognitionProposal>(value).is_err());
 }
 
+#[test]
+fn unbound_proposal_requires_canonical_snapshot_and_source_digests() {
+    let mut proposal = CognitionProposal::new(
+        "job-1",
+        digest('1'),
+        digest('2'),
+        "community-summary",
+        "model-v3",
+        vec![MemoryId::from_string("mem-source")],
+        Label::Internal,
+    );
+    proposal.input_snapshot = "snapshot-42".into();
+    assert!(matches!(
+        proposal.canonical_digest(),
+        Err(CognitionApplyError::InvalidPlan(message))
+            if message == "input snapshot digest is not canonical"
+    ));
+
+    proposal.input_snapshot = digest('1');
+    proposal.source_digest = "sha256:sources".into();
+    assert!(matches!(
+        proposal.canonical_digest(),
+        Err(CognitionApplyError::InvalidPlan(message))
+            if message == "source digest is not canonical"
+    ));
+}
+
+fn digest(fill: char) -> String {
+    format!("sha256:{}", fill.to_string().repeat(64))
+}
+
+mod proposal_debug;
 mod wire_hardening;

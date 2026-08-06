@@ -30,6 +30,9 @@ pub(super) fn prepare_commit(
     identity: &CognitionCommitIdentity,
     now: DateTime<Utc>,
 ) -> Result<PreparedCognitionCommit, CognitionApplyError> {
+    if authority.authority_revalidated_at > now {
+        return Err(CognitionApplyError::Authority);
+    }
     let output_count = proposal_output_count(proposal)?;
     validate_prepared_expansion(proposal, output_count)?;
     let mut builder = CommitBuilder::new(
@@ -63,6 +66,7 @@ pub(super) fn prepare_commit(
         parts.operations,
         parts.index_outbox,
         CognitionAuditEvidence {
+            schema_version: CognitionAuditEvidence::SCHEMA_VERSION,
             operation_id: proposal.job_id.clone(),
             subject: binding.subject.clone(),
             space_id: binding.space_id.clone(),
@@ -73,10 +77,12 @@ pub(super) fn prepare_commit(
             source_manifest_digest: binding.source_manifest_digest.clone(),
             typedid_request_digest: binding.typedid_request_digest.clone(),
             governed_scan_digest: binding.governed_scan_digest.clone(),
+            snapshot_digest: binding.snapshot_digest.clone(),
             authorization_receipt_digest: binding.authorization_receipt_digest.clone(),
             policy_decision_id: authority.policy_decision_id.clone(),
             evidence_digest: identity.evidence_digest.clone(),
             affected_ids: parts.affected_ids,
+            authority_revalidated_at: authority.authority_revalidated_at,
             prepared_at: now,
         },
     ))

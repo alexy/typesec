@@ -1,9 +1,10 @@
 //! `MemoryVault` — the capability-gated front door to a memory store.
 //!
-//! Every operation takes a typed `Capability<P, MemorySpace>` as proof: there
-//! is no unauthenticated path to memory contents. The vault verifies the
-//! capability covers the target space and is still active, performs the store
-//! op, re-checks the label ceiling on results, and emits an audit event.
+//! Every application operation takes a typed `Capability<P, MemorySpace>` as
+//! proof. The vault verifies that it covers the target space and is still
+//! active, performs the store op, re-checks the label ceiling on results, and
+//! emits an audit event. [`MemoryVault::store`] is the explicit privileged
+//! backend seam and must remain inside trusted infrastructure.
 
 mod types;
 pub(crate) mod visibility;
@@ -107,6 +108,8 @@ impl<S: MemoryStore> MemoryVault<S> {
     ///
     /// The adapter receives bounded opaque evidence and a digest of the exact
     /// draft. TypeSec does not depend on or parse any provider-specific proof.
+    /// Production governed ingestion, including Marciana ingestion, must use
+    /// this verifier together with [`Self::remember_governed`].
     #[must_use]
     pub fn with_governed_source_verifier(
         mut self,
@@ -230,8 +233,12 @@ impl<S: MemoryStore> MemoryVault<S> {
         )
     }
 
-    /// Borrow the underlying store (read-only; bypasses no gates because the
-    /// store cannot read record content — that is the vault's private path).
+    /// Borrow the trusted underlying persistence backend.
+    ///
+    /// This is a privileged integration seam, not an application read API.
+    /// Every [`MemoryStore`](crate::MemoryStore) method takes `&self`, including
+    /// mutators, so calls through this reference bypass vault authorization and
+    /// governed-ingestion verification. Do not expose it to untrusted callers.
     pub fn store(&self) -> &S {
         &self.store
     }
@@ -289,6 +296,8 @@ impl<S: MemoryStore> MemoryVault<S> {
     /// reaches the trusted verifier. The verifier must bind the request scope,
     /// subject, space, context, evidence, and exact draft digest. Evidence is
     /// never persisted; only the canonical scope is attached by the vault.
+    /// Production integrations must not substitute direct
+    /// [`MemoryStore::put`](crate::MemoryStore::put) calls for this path.
     pub fn remember_governed(
         &self,
         space: &MemorySpace,

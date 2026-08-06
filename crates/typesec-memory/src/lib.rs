@@ -9,7 +9,8 @@
 //!   no new machinery.
 //! - Access is a minted, expiring, revocable, attenuable
 //!   [`Capability`](typesec_core::Capability): [`MemoryVault`] has no
-//!   unauthenticated path to contents.
+//!   unauthenticated application operation that reveals contents. Its raw
+//!   store borrow is a separately documented trusted-infrastructure seam.
 //! - Records carry a runtime [`Label`]; recall is *typed* —
 //!   [`MemoryVault::recall`] takes a compile-time clearance and returns only
 //!   records at or below it (the rest come back redacted). The clearance rides
@@ -17,9 +18,10 @@
 //!   cannot be mixed.
 //! - Provenance fixes each record's birth label and quarantines untrusted
 //!   sources (raw model text) against memory poisoning.
-//! - Contents live behind a single rehydration boundary
+//! - Direct field access to content lives behind the vault rehydration boundary
 //!   (`StoredRecord::content` is crate-private); a compile-fail test proves
-//!   external code cannot read it.
+//!   ordinary callers cannot read it. Store serde and `StoredRecord` debug
+//!   formatting are plaintext-bearing trusted persistence surfaces.
 //!
 //! ```
 //! use std::sync::Arc;

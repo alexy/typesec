@@ -142,13 +142,34 @@ fn same_space_and_job_are_isolated_by_verified_subject() {
 
 #[test]
 fn malformed_authority_digests_fail_before_commit() {
+    #[derive(Clone, Copy)]
+    enum FailureKind {
+        Binding,
+        Proposal,
+    }
+
     type DigestMutation = fn(&mut CognitionBinding, String);
-    let fields: [DigestMutation; 5] = [
-        |binding, value| binding.governed_scan_digest = value,
-        |binding, value| binding.plan_task_digest = value,
-        |binding, value| binding.authorization_receipt_digest = value,
-        |binding, value| binding.source_manifest_digest = value,
-        |binding, value| binding.typedid_request_digest = value,
+    let fields: [(DigestMutation, FailureKind); 5] = [
+        (
+            |binding, value| binding.governed_scan_digest = value,
+            FailureKind::Binding,
+        ),
+        (
+            |binding, value| binding.plan_task_digest = value,
+            FailureKind::Binding,
+        ),
+        (
+            |binding, value| binding.authorization_receipt_digest = value,
+            FailureKind::Binding,
+        ),
+        (
+            |binding, value| binding.source_manifest_digest = value,
+            FailureKind::Proposal,
+        ),
+        (
+            |binding, value| binding.typedid_request_digest = value,
+            FailureKind::Binding,
+        ),
     ];
     let malformed = [
         "sha256:short".to_owned(),
@@ -156,29 +177,33 @@ fn malformed_authority_digests_fail_before_commit() {
         format!("blake3:{}", "a".repeat(64)),
         format!("sha256:{}", "a".repeat(63)),
     ];
-    for mutate in fields {
+    for (mutate, failure_kind) in fields {
         for value in &malformed {
             let fixture = Fixture::new();
             let mut binding = fixture.binding.clone();
             mutate(&mut binding, value.clone());
             fixture.authority.set(authority_for(&binding));
             let mut proposal = fixture.proposal();
-            proposal.input_snapshot = binding.governed_scan_digest.clone();
+            proposal.input_snapshot = binding.snapshot_digest.clone();
             proposal.source_digest = binding.source_manifest_digest.clone();
             proposal.binding = Some(binding);
             let before_gets = fixture.store.state().get_calls;
 
-            assert!(matches!(
-                fixture.vault.apply_cognition(
-                    &fixture.space,
-                    &fixture.write,
-                    &proposal,
-                    &fixture.context
-                ),
-                Err(MemoryError::Cognition(CognitionApplyError::InvalidBinding(
-                    _
-                )))
-            ));
+            let error = fixture
+                .vault
+                .apply_cognition(&fixture.space, &fixture.write, &proposal, &fixture.context)
+                .unwrap_err();
+            match failure_kind {
+                FailureKind::Binding => assert!(matches!(
+                    error,
+                    MemoryError::Cognition(CognitionApplyError::InvalidBinding(_))
+                )),
+                FailureKind::Proposal => assert!(matches!(
+                    error,
+                    MemoryError::Cognition(CognitionApplyError::InvalidPlan(message))
+                        if message == "source digest is not canonical"
+                )),
+            }
             assert_eq!(fixture.authority.calls(), 0);
             assert_eq!(fixture.store.state().recovery_calls, 0);
             assert_eq!(fixture.store.state().get_calls, before_gets);
@@ -188,18 +213,48 @@ fn malformed_authority_digests_fail_before_commit() {
 }
 
 #[test]
-fn snapshot_identity_accepts_canonical_non_digest_text() {
+fn snapshot_identity_requires_a_canonical_digest_before_authority_or_store() {
     let fixture = Fixture::new();
     let mut binding = fixture.binding.clone();
     binding.snapshot_digest = "lakecat:snapshot/42".into();
     fixture.authority.set(authority_for(&binding));
     let mut proposal = fixture.proposal();
     proposal.binding = Some(binding);
+    let before_gets = fixture.store.state().get_calls;
 
-    fixture
-        .vault
-        .apply_cognition(&fixture.space, &fixture.write, &proposal, &fixture.context)
-        .expect("canonical immutable snapshot identity");
+    assert!(matches!(
+        fixture
+            .vault
+            .apply_cognition(&fixture.space, &fixture.write, &proposal, &fixture.context),
+        Err(MemoryError::Cognition(CognitionApplyError::InvalidBinding(
+            field
+        ))) if field == "snapshotDigest"
+    ));
+    assert_eq!(fixture.authority.calls(), 0);
+    assert_eq!(fixture.store.state().get_calls, before_gets);
+}
+
+#[test]
+fn governed_grant_cannot_be_substituted_for_the_input_snapshot() {
+    let fixture = Fixture::new();
+    let mut binding = fixture.binding.clone();
+    binding.snapshot_digest = binding.governed_scan_digest.clone();
+    fixture.authority.set(authority_for(&binding));
+    let mut proposal = fixture.proposal();
+    proposal.input_snapshot = binding.snapshot_digest.clone();
+    proposal.binding = Some(binding);
+    let before_gets = fixture.store.state().get_calls;
+
+    assert!(matches!(
+        fixture
+            .vault
+            .apply_cognition(&fixture.space, &fixture.write, &proposal, &fixture.context),
+        Err(MemoryError::Cognition(CognitionApplyError::InvalidBinding(
+            field
+        ))) if field == "governedScanDigest and snapshotDigest must be distinct"
+    ));
+    assert_eq!(fixture.authority.calls(), 0);
+    assert_eq!(fixture.store.state().get_calls, before_gets);
 }
 
 #[test]
@@ -276,7 +331,7 @@ fn add_only_proposal(
 ) -> CognitionProposal {
     CognitionProposal::new(
         "job-42",
-        binding.governed_scan_digest.clone(),
+        binding.snapshot_digest.clone(),
         binding.source_manifest_digest.clone(),
         "marciana.summarize.sail",
         "1",

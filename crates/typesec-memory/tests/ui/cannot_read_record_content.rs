@@ -1,6 +1,6 @@
-// A StoredRecord round-trips through a store opaquely, but its content is the
-// vault's private path. External code must not be able to read it — that is
-// the single-rehydration-site invariant.
+// Ordinary external code cannot read content through direct field access.
+// Trusted store serde and Debug are separate documented plaintext surfaces.
+// This compile-fail case covers only the direct-field API guarantee.
 
 use typesec_memory::StoredRecord;
 

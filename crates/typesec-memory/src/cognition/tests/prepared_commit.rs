@@ -13,7 +13,7 @@ fn digest_is_canonical_repeatable_and_plaintext_opaque() {
     assert!(is_canonical_sha256(&digest));
     assert_eq!(
         digest,
-        "sha256:71a1f23ed5a142a99f349dc7a4063a0ec8d5965ca969506439aaf55e4c916ac6"
+        "sha256:f37df2f5eb170a2df36b145de702a2c4672e83202b31b60c4be4a56b7104c8ad"
     );
     assert_eq!(digest, commit.canonical_digest().unwrap());
     assert_ne!(digest, commit.proposal_digest());
@@ -42,7 +42,7 @@ fn digest_is_canonical_repeatable_and_plaintext_opaque() {
 }
 
 #[test]
-fn digest_is_stable_for_identical_preparation_and_binds_commit_time() {
+fn digest_is_stable_for_identical_preparation_and_binds_prepared_at() {
     let at = prepared_at();
     let first = prepared_fixture(at).commit;
     let identical = prepared_fixture(at).commit;
@@ -55,6 +55,51 @@ fn digest_is_stable_for_identical_preparation_and_binds_commit_time() {
     assert_ne!(
         first.canonical_digest().unwrap(),
         later.canonical_digest().unwrap()
+    );
+}
+
+#[test]
+fn digest_binds_distinct_grant_snapshot_and_revalidation_evidence() {
+    let at = prepared_at();
+    let baseline = prepared_fixture(at).commit;
+    let changed_grant = prepared_fixture_with_evidence(
+        at,
+        None,
+        "other governed scan",
+        "snapshot 42",
+        DateTime::<Utc>::UNIX_EPOCH,
+    )
+    .commit;
+    let changed_snapshot = prepared_fixture_with_evidence(
+        at,
+        None,
+        "governed scan",
+        "snapshot 43",
+        DateTime::<Utc>::UNIX_EPOCH,
+    )
+    .commit;
+    let changed_revalidation = prepared_fixture_with_evidence(
+        at,
+        None,
+        "governed scan",
+        "snapshot 42",
+        DateTime::<Utc>::UNIX_EPOCH + TimeDelta::seconds(1),
+    )
+    .commit;
+
+    for changed in [changed_grant, changed_snapshot, changed_revalidation] {
+        assert_ne!(
+            baseline.canonical_digest().unwrap(),
+            changed.canonical_digest().unwrap()
+        );
+    }
+    assert_eq!(
+        baseline.audit().schema_version,
+        CognitionAuditEvidence::SCHEMA_VERSION
+    );
+    assert_ne!(
+        baseline.audit().governed_scan_digest,
+        baseline.audit().snapshot_digest
     );
 }
 
@@ -143,6 +188,22 @@ fn prepared_fixture_with_scope(
     now: DateTime<Utc>,
     governed_source_scope: Option<GovernedSourceScope>,
 ) -> PreparedFixture {
+    prepared_fixture_with_evidence(
+        now,
+        governed_source_scope,
+        "governed scan",
+        "snapshot 42",
+        DateTime::<Utc>::UNIX_EPOCH,
+    )
+}
+
+fn prepared_fixture_with_evidence(
+    now: DateTime<Utc>,
+    governed_source_scope: Option<GovernedSourceScope>,
+    governed_scan: &str,
+    snapshot: &str,
+    authority_revalidated_at: DateTime<Utc>,
+) -> PreparedFixture {
     let space = MemorySpace::new("tenant:acme", "research");
     let source_id = MemoryId::from_string("mem-source-1");
     let source_time = prepared_at() - TimeDelta::hours(1);
@@ -167,8 +228,8 @@ fn prepared_fixture_with_scope(
         subject: "did:key:researcher".into(),
         purpose: "research".into(),
         governed_source_scope,
-        governed_scan_digest: super::digest("governed scan"),
-        snapshot_digest: super::digest("snapshot 42"),
+        governed_scan_digest: super::digest(governed_scan),
+        snapshot_digest: super::digest(snapshot),
         plan_task_digest: super::digest("plan token"),
         authorization_receipt_digest: super::digest("authorization receipt"),
         effective_projection: vec!["id".into(), "text".into(), "valid_from".into()],
@@ -177,7 +238,7 @@ fn prepared_fixture_with_scope(
     };
     let proposal = CognitionProposal::new(
         "job-42",
-        binding.governed_scan_digest.clone(),
+        binding.snapshot_digest.clone(),
         binding.source_manifest_digest.clone(),
         "marciana.summarize.sail",
         "1",
@@ -202,11 +263,13 @@ fn prepared_fixture_with_scope(
         &space, &proposal, &binding,
     )
     .expect("commit identity");
+    let mut authority = authority_for(&binding);
+    authority.authority_revalidated_at = authority_revalidated_at;
     let commit = super::super::prepare::prepare_commit(
         &space,
         &proposal,
         &binding,
-        &authority_for(&binding),
+        &authority,
         &sources,
         manifest.clone(),
         &identity,

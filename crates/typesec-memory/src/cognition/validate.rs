@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use typesec_core::policy::RequestContext;
 use typesec_core::{CanWrite, Capability, Resource};
 
-use super::canonical::is_canonical_text;
+use super::canonical::{is_canonical_sha256, is_canonical_text};
 use super::limits::{CognitionSourceBudget, MAX_COGNITION_SOURCE_COUNT, validate_proposal_budget};
 use super::types::{CognitionApplyError, CognitionAuthorityEvidence, CognitionBinding};
 use crate::CognitionProposal;
@@ -41,22 +41,25 @@ fn validate_proposal(
     require_mutation: bool,
 ) -> Result<(), CognitionApplyError> {
     validate_proposal_budget(proposal)?;
-    if !(CognitionProposal::MIN_SCHEMA_VERSION..=CognitionProposal::SCHEMA_VERSION)
-        .contains(&proposal.schema_version)
+    if ![
+        CognitionProposal::MIN_SCHEMA_VERSION,
+        CognitionProposal::SCHEMA_VERSION,
+    ]
+    .contains(&proposal.schema_version)
     {
         return Err(CognitionApplyError::UnsupportedSchema(
             proposal.schema_version,
         ));
     }
-    if proposal.schema_version == CognitionProposal::MIN_SCHEMA_VERSION
-        && proposal
-            .binding
-            .as_ref()
-            .and_then(|binding| binding.governed_source_scope.as_ref())
-            .is_some()
-    {
+    let has_binding = proposal.binding.is_some();
+    if proposal.schema_version == CognitionProposal::MIN_SCHEMA_VERSION && has_binding {
         return Err(CognitionApplyError::InvalidBinding(
-            "governedSourceScope requires schemaVersion 2".to_owned(),
+            "bound proposals require schemaVersion 3".to_owned(),
+        ));
+    }
+    if proposal.schema_version == CognitionProposal::SCHEMA_VERSION && !has_binding {
+        return Err(CognitionApplyError::InvalidBinding(
+            "schemaVersion 3 requires a binding".to_owned(),
         ));
     }
     if !is_canonical_text(&proposal.job_id) {
@@ -68,6 +71,16 @@ fn validate_proposal(
         return Err(CognitionApplyError::InvalidPlan(
             "algorithm identity is not canonical".to_owned(),
         ));
+    }
+    for (name, value) in [
+        ("input snapshot", proposal.input_snapshot.as_str()),
+        ("source", proposal.source_digest.as_str()),
+    ] {
+        if !is_canonical_sha256(value) {
+            return Err(CognitionApplyError::InvalidPlan(format!(
+                "{name} digest is not canonical"
+            )));
+        }
     }
     validate_source_ids(&proposal.source_ids)?;
     validate_mutation_plan(proposal, require_mutation)
@@ -89,8 +102,8 @@ pub(super) fn validate_request_binding(
     if binding.purpose != purpose {
         return Err(CognitionApplyError::BindingMismatch("purpose"));
     }
-    if binding.governed_scan_digest != proposal.input_snapshot {
-        return Err(CognitionApplyError::BindingMismatch("governed scan digest"));
+    if binding.snapshot_digest != proposal.input_snapshot {
+        return Err(CognitionApplyError::BindingMismatch("snapshot digest"));
     }
     if binding.source_manifest_digest != proposal.source_digest {
         return Err(CognitionApplyError::BindingMismatch(
@@ -104,6 +117,7 @@ pub(super) fn validate_authority(
     proposal: &CognitionProposal,
     binding: &CognitionBinding,
     authority: &CognitionAuthorityEvidence,
+    checked_at: DateTime<Utc>,
 ) -> Result<(), CognitionApplyError> {
     for (name, matches) in [
         ("space", binding.space_id == authority.space_id),
@@ -165,7 +179,9 @@ pub(super) fn validate_authority(
     {
         return Err(CognitionApplyError::BindingMismatch("effective projection"));
     }
-    if !is_canonical_text(&authority.policy_decision_id) {
+    if !is_canonical_text(&authority.policy_decision_id)
+        || authority.authority_revalidated_at > checked_at
+    {
         return Err(CognitionApplyError::Authority);
     }
     Ok(())

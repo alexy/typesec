@@ -29,6 +29,7 @@ pub(super) struct CognitionCommitIdentity {
     source_manifest_digest: String,
     typedid_request_digest: String,
     governed_scan_digest: String,
+    snapshot_digest: String,
     authorization_receipt_digest: String,
 }
 
@@ -59,12 +60,14 @@ impl CognitionCommitIdentity {
             source_manifest_digest: binding.source_manifest_digest.clone(),
             typedid_request_digest: binding.typedid_request_digest.clone(),
             governed_scan_digest: binding.governed_scan_digest.clone(),
+            snapshot_digest: binding.snapshot_digest.clone(),
             authorization_receipt_digest: binding.authorization_receipt_digest.clone(),
         })
     }
 
     pub(super) fn matches_audit(&self, audit: &CognitionAuditEvidence) -> bool {
-        audit.operation_id == self.job_id
+        audit.schema_version == CognitionAuditEvidence::SCHEMA_VERSION
+            && audit.operation_id == self.job_id
             && audit.subject == self.subject
             && audit.space_id == self.space_id
             && audit.purpose == self.purpose
@@ -74,6 +77,7 @@ impl CognitionCommitIdentity {
             && audit.source_manifest_digest == self.source_manifest_digest
             && audit.typedid_request_digest == self.typedid_request_digest
             && audit.governed_scan_digest == self.governed_scan_digest
+            && audit.snapshot_digest == self.snapshot_digest
             && audit.authorization_receipt_digest == self.authorization_receipt_digest
             && audit.evidence_digest == self.evidence_digest
             && audit.affected_ids == self.expected_affected_ids

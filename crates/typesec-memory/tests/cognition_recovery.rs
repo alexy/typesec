@@ -193,8 +193,19 @@ fn tampered_recovered_evidence_fails_closed() {
         ("binding digest", |value| {
             value.audit.binding_digest = "bad".into()
         }),
+        ("audit schema", |value| value.audit.schema_version += 1),
+        ("snapshot syntax", |value| {
+            value.audit.snapshot_digest = "bad".into()
+        }),
+        ("grant substituted for snapshot", |value| {
+            value.audit.snapshot_digest = value.audit.governed_scan_digest.clone()
+        }),
         ("policy decision", |value| {
             value.audit.policy_decision_id = " decision ".into();
+        }),
+        ("authority time", |value| {
+            value.audit.authority_revalidated_at =
+                value.audit.prepared_at + TimeDelta::nanoseconds(1);
         }),
         ("affected ids", |value| {
             value.affected_ids.push(MemoryId::from_string("mem-extra"));

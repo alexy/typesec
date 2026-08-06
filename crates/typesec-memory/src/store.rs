@@ -1,11 +1,14 @@
 //! The storage trait and its query model.
 //!
-//! A [`MemoryStore`] persists [`StoredRecord`]s opaquely. It is deliberately
-//! *not* an authorization boundary — the vault gates every call with a
-//! capability before touching the store, and re-checks the label ceiling on
-//! results. A store that "helpfully" filtered by subject would still be
-//! backstopped by the vault; a store that leaked would still be caught by the
-//! vault's ceiling check. Storage is storage.
+//! A [`MemoryStore`] is a trusted confidentiality and integrity persistence
+//! seam. It is deliberately *not* an authorization boundary: production
+//! callers authorize through the vault, while the store must faithfully
+//! persist and return only vault-originated or otherwise authenticated record
+//! bytes. Direct trait calls bypass vault policy and governed-ingestion checks.
+//! The database, backend adapter, and any raw backend handle therefore belong
+//! to the trusted computing base. A TypeSec-owned authenticated envelope can
+//! remove storage from the integrity TCB; removing it from the confidentiality
+//! TCB additionally requires encryption and key isolation.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -141,13 +144,19 @@ pub enum StoreBatchOp {
     },
 }
 
-/// Opaque persistence for memory records. Graph capabilities are optional and
-/// default to [`StoreError::Unsupported`].
+/// Trusted persistence for memory records.
+///
+/// This trait is public so backend implementations can integrate with TypeSec,
+/// not as an application-level write API. Direct reads and writes bypass vault
+/// authorization, and serde field privacy does not authenticate a
+/// [`StoredRecord`]. Production application code must use [`crate::MemoryVault`]
+/// operations. Graph capabilities are optional and default to
+/// [`StoreError::Unsupported`].
 pub trait MemoryStore: Send + Sync {
-    /// Insert or replace a record by id.
+    /// Insert or replace a trusted record by id, bypassing vault gates.
     fn put(&self, record: StoredRecord) -> Result<(), StoreError>;
 
-    /// Fetch a record by id.
+    /// Fetch a protected record by id, bypassing vault disclosure gates.
     fn get(&self, id: &MemoryId) -> Result<Option<StoredRecord>, StoreError>;
 
     /// Return records matching `query` (unordered; the vault ranks/limits).

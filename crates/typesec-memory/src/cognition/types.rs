@@ -30,7 +30,7 @@ pub struct CognitionBinding {
     pub governed_source_scope: Option<GovernedSourceScope>,
     /// Digest of the complete governed LakeCat scan proof.
     pub governed_scan_digest: String,
-    /// Digest or immutable identity of the catalog snapshot.
+    /// Canonical digest of the immutable catalog snapshot.
     pub snapshot_digest: String,
     /// Digest of the opaque Sail plan-task token.
     pub plan_task_digest: String,
@@ -51,7 +51,6 @@ impl CognitionBinding {
             ("spaceId", self.space_id.as_str()),
             ("subject", self.subject.as_str()),
             ("purpose", self.purpose.as_str()),
-            ("snapshotDigest", self.snapshot_digest.as_str()),
         ] {
             if !is_canonical_text(value) {
                 return Err(CognitionApplyError::InvalidBinding(name.to_owned()));
@@ -59,6 +58,7 @@ impl CognitionBinding {
         }
         for (name, value) in [
             ("governedScanDigest", self.governed_scan_digest.as_str()),
+            ("snapshotDigest", self.snapshot_digest.as_str()),
             ("planTaskDigest", self.plan_task_digest.as_str()),
             (
                 "authorizationReceiptDigest",
@@ -70,6 +70,11 @@ impl CognitionBinding {
             if !is_canonical_sha256(value) {
                 return Err(CognitionApplyError::InvalidBinding(name.to_owned()));
             }
+        }
+        if self.governed_scan_digest == self.snapshot_digest {
+            return Err(CognitionApplyError::InvalidBinding(
+                "governedScanDigest and snapshotDigest must be distinct".to_owned(),
+            ));
         }
         validate_projection_count(self.effective_projection.len())?;
         if self.effective_projection.is_empty()
@@ -113,7 +118,7 @@ pub struct CognitionAuthorityEvidence {
     pub algorithm_version: String,
     /// Current governed-scan proof digest.
     pub governed_scan_digest: String,
-    /// Current immutable snapshot digest or identity.
+    /// Current canonical immutable snapshot digest.
     pub snapshot_digest: String,
     /// Current opaque plan-task digest.
     pub plan_task_digest: String,
@@ -126,6 +131,8 @@ pub struct CognitionAuthorityEvidence {
     /// Stable application-time decision identifier derived from fresh
     /// authorization and policy evidence.
     pub policy_decision_id: String,
+    /// Time the trusted authority adapter completed the current revalidation.
+    pub authority_revalidated_at: DateTime<Utc>,
 }
 
 /// Trusted application-time adapter for LakeCat and TypeDID evidence.
@@ -253,6 +260,8 @@ impl CognitionIdempotencyKey {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CognitionAuditEvidence {
+    /// Explicit schema version for durable and cross-process decoding.
+    pub schema_version: u32,
     /// Durable operation/job id.
     pub operation_id: String,
     /// Verified subject.
@@ -272,8 +281,10 @@ pub struct CognitionAuditEvidence {
     pub source_manifest_digest: String,
     /// Verified TypeDID request digest.
     pub typedid_request_digest: String,
-    /// Governed scan proof digest.
+    /// Governed scan grant/proof digest.
     pub governed_scan_digest: String,
+    /// Immutable catalog snapshot digest consumed by cognition.
+    pub snapshot_digest: String,
     /// Original issue-time LakeCat grant receipt digest.
     pub authorization_receipt_digest: String,
     /// Application-time decision id derived from fresh authority evidence.
@@ -282,8 +293,16 @@ pub struct CognitionAuditEvidence {
     pub evidence_digest: String,
     /// IDs affected by the prepared mutation.
     pub affected_ids: Vec<MemoryId>,
+    /// Time the trusted authority adapter completed application-time
+    /// revalidation.
+    pub authority_revalidated_at: DateTime<Utc>,
     /// Time the vault prepared the transaction.
     pub prepared_at: DateTime<Utc>,
+}
+
+impl CognitionAuditEvidence {
+    /// Current durable audit wire schema.
+    pub const SCHEMA_VERSION: u32 = 1;
 }
 
 /// Whether a call performed a mutation or disclosed an immutable prior commit.

@@ -338,7 +338,7 @@ fn binding(space: &MemorySpace, source_manifest_digest: String) -> CognitionBind
 fn proposal(source: MemoryId, binding: CognitionBinding) -> CognitionProposal {
     CognitionProposal::new(
         JOB_ID,
-        binding.governed_scan_digest.clone(),
+        binding.snapshot_digest.clone(),
         binding.source_manifest_digest.clone(),
         "marciana.test",
         "1",
@@ -441,6 +441,7 @@ fn authority_for(binding: &CognitionBinding) -> CognitionAuthorityEvidence {
         effective_projection: binding.effective_projection.clone(),
         typedid_request_digest: binding.typedid_request_digest.clone(),
         policy_decision_id: digest("current policy decision"),
+        authority_revalidated_at: DateTime::<Utc>::UNIX_EPOCH,
     }
 }
 

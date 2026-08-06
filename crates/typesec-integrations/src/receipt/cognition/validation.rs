@@ -14,6 +14,7 @@ const INVALID_DIGEST: &str = "invalid cognition receipt digest";
 const INVALID_VERSIONS: &str = "invalid cognition receipt versions";
 const INVALID_AFFECTED_IDS: &str = "invalid cognition receipt affected IDs";
 const INVALID_WINDOW: &str = "invalid cognition receipt validity window";
+const INVALID_SCHEMA: &str = "unsupported cognition receipt schema";
 
 pub(super) fn checked_expiry(
     prepared_at: DateTime<Utc>,
@@ -29,11 +30,17 @@ pub(super) fn checked_expiry(
 }
 
 pub(super) fn validate(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptError> {
+    if receipt.schema_version != CognitionCommitReceipt::SCHEMA_VERSION {
+        return Err(invalid(INVALID_SCHEMA));
+    }
     validate_identities(receipt)?;
     validate_digests(receipt)?;
     validate_versions(receipt)?;
     validate_affected_ids(&receipt.affected_ids)?;
-    if receipt.expires_at <= receipt.prepared_at {
+    if receipt.authority_revalidated_at > receipt.prepared_at
+        || receipt.committed_at < receipt.prepared_at
+        || receipt.expires_at <= receipt.prepared_at
+    {
         return Err(invalid(INVALID_WINDOW));
     }
     Ok(())
@@ -61,11 +68,13 @@ fn validate_digests(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptError
     let digests = [
         receipt.typedid_request_digest.as_str(),
         receipt.proposal_digest.as_str(),
+        receipt.governed_scan_digest.as_str(),
         receipt.input_snapshot_digest.as_str(),
         receipt.policy_decision_digest.as_str(),
         receipt.authorization_receipt_digest.as_str(),
     ];
     if digests.into_iter().all(is_canonical_sha256)
+        && receipt.governed_scan_digest != receipt.input_snapshot_digest
         && receipt
             .governed_source_scope
             .as_deref()
