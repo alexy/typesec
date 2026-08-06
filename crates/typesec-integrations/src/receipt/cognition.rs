@@ -40,26 +40,29 @@ pub struct CognitionCommitReceipt {
     pub affected_ids: Vec<String>,
     /// Durable Grust commit identity.
     pub backend_commit_id: String,
-    /// Backend commit time; used as the stable receipt issue time.
-    pub committed_at: DateTime<Utc>,
+    /// Trusted TypeSec preparation and authorization time.
+    ///
+    /// Receipt validity begins here. This is deliberately distinct from the
+    /// backend commit time reported by the cognition outcome.
+    pub prepared_at: DateTime<Utc>,
     /// Receipt expiry.
     pub expires_at: DateTime<Utc>,
 }
 
 impl CognitionCommitReceipt {
-    /// Construct claims whose validity begins at the durable commit time.
+    /// Construct claims whose validity begins at trusted vault preparation.
     ///
     /// Returns an error when `ttl` is nonpositive or cannot be added to the
-    /// commit timestamp without overflow.
+    /// preparation timestamp without overflow.
     pub fn new(
         subject: impl Into<String>,
         resource: impl Into<String>,
         job_id: impl Into<String>,
         backend_commit_id: impl Into<String>,
-        committed_at: DateTime<Utc>,
+        prepared_at: DateTime<Utc>,
         ttl: TimeDelta,
     ) -> Result<Self, ReceiptError> {
-        let expires_at = validation::checked_expiry(committed_at, ttl)?;
+        let expires_at = validation::checked_expiry(prepared_at, ttl)?;
         Ok(Self {
             subject: subject.into(),
             resource: resource.into(),
@@ -74,7 +77,7 @@ impl CognitionCommitReceipt {
             resulting_version: String::new(),
             affected_ids: Vec::new(),
             backend_commit_id: backend_commit_id.into(),
-            committed_at,
+            prepared_at,
             expires_at,
         })
     }

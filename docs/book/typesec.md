@@ -1405,8 +1405,14 @@ historical commit: its canonical shape, authority-scoped identity, proposal,
 binding, source, TypeDID, governed-scan, authorization, evidence, and affected
 IDs—including the optional governed source scope—must match, while historical
 preparation time and policy-decision evidence remain those committed by the
-original transaction. Signed commit receipts
-apply the same canonical and bounded treatment to the evidence they expose.
+original transaction. Signed commit receipts apply the same canonical and
+bounded treatment to the evidence they expose. Their `preparedAt` validity
+window begins at the trusted TypeSec `audit.prepared_at` produced only after
+current authorization and source validation. It is intentionally not the
+backend `CognitionCommitOutcome.committed_at`: that later timestamp reports
+when the store committed. An idempotent retry signs the original preparation
+timestamp from the recovered audit, so response loss cannot silently extend
+the receipt lifetime.
 These are TypeSec security rules; they do not introduce a Cognee runtime,
 store, adapter, or wire-compatibility surface.
 

@@ -2,13 +2,13 @@ use super::*;
 use chrono::TimeZone;
 
 fn claims() -> CognitionCommitReceipt {
-    let committed_at = Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 0).unwrap();
+    let prepared_at = Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 0).unwrap();
     let mut receipt = CognitionCommitReceipt::new(
         "did:key:agent",
         "memory/did:key:agent/research",
         "job-42",
         "commit-42",
-        committed_at,
+        prepared_at,
         TimeDelta::minutes(5),
     )
     .unwrap();
@@ -34,7 +34,7 @@ fn cognition_receipt_round_trips_all_commit_evidence() {
     let token = issuer.issue_cognition(&receipt).unwrap();
     assert_eq!(token, issuer.issue_cognition(&receipt).unwrap());
     let verified = ReceiptVerifier::new(issuer.verifying_key())
-        .verify_cognition(&token, receipt.committed_at + TimeDelta::seconds(1))
+        .verify_cognition(&token, receipt.prepared_at + TimeDelta::seconds(1))
         .unwrap();
     assert_eq!(verified, receipt);
 }
@@ -46,7 +46,7 @@ fn cognition_receipt_round_trips_and_validates_governed_source_scope() {
     receipt.governed_source_scope = Some(digest('a'));
     let token = issuer.issue_cognition(&receipt).unwrap();
     let verified = ReceiptVerifier::new(issuer.verifying_key())
-        .verify_cognition(&token, receipt.committed_at)
+        .verify_cognition(&token, receipt.prepared_at)
         .unwrap();
     assert_eq!(
         verified.governed_source_scope,
@@ -81,7 +81,19 @@ fn legacy_local_receipt_without_scope_still_deserializes() {
 }
 
 #[test]
-fn cognition_receipt_verification_enforces_the_commit_window() {
+fn cognition_receipt_wire_names_the_trusted_preparation_time() {
+    let encoded = serde_json::to_value(claims()).unwrap();
+    assert_eq!(
+        encoded
+            .get("preparedAt")
+            .and_then(serde_json::Value::as_str),
+        Some("2026-08-05T12:00:00Z")
+    );
+    assert!(encoded.get("committedAt").is_none());
+}
+
+#[test]
+fn cognition_receipt_verification_enforces_the_preparation_window() {
     let issuer = ReceiptIssuer::new(SigningKey::from_bytes(&[11; 32]));
     let receipt = claims();
     let token = issuer.issue_cognition(&receipt).unwrap();
@@ -89,12 +101,12 @@ fn cognition_receipt_verification_enforces_the_commit_window() {
 
     assert_eq!(
         verifier
-            .verify_cognition(&token, receipt.committed_at)
+            .verify_cognition(&token, receipt.prepared_at)
             .unwrap(),
         receipt
     );
     assert!(matches!(
-        verifier.verify_cognition(&token, receipt.committed_at - TimeDelta::nanoseconds(1)),
+        verifier.verify_cognition(&token, receipt.prepared_at - TimeDelta::nanoseconds(1)),
         Err(ReceiptError::NotYetValid { .. })
     ));
     assert!(matches!(
@@ -119,17 +131,17 @@ fn cognition_receipt_rejects_missing_or_tampered_evidence() {
     let forged = format!("{forged_claims}.{signature}");
     assert!(matches!(
         ReceiptVerifier::new(issuer.verifying_key())
-            .verify_cognition(&forged, claims().committed_at),
+            .verify_cognition(&forged, claims().prepared_at),
         Err(ReceiptError::BadSignature)
     ));
 }
 
 #[test]
 fn cognition_receipt_constructor_rejects_invalid_windows_without_panicking() {
-    let committed_at = Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 0).unwrap();
+    let prepared_at = Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 0).unwrap();
     for ttl in [TimeDelta::zero(), TimeDelta::seconds(-1)] {
         let error =
-            CognitionCommitReceipt::new("subject", "resource", "job", "commit", committed_at, ttl)
+            CognitionCommitReceipt::new("subject", "resource", "job", "commit", prepared_at, ttl)
                 .unwrap_err();
         assert_fixed_error(error, "invalid cognition receipt validity window");
     }

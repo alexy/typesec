@@ -16,13 +16,13 @@ const INVALID_AFFECTED_IDS: &str = "invalid cognition receipt affected IDs";
 const INVALID_WINDOW: &str = "invalid cognition receipt validity window";
 
 pub(super) fn checked_expiry(
-    committed_at: DateTime<Utc>,
+    prepared_at: DateTime<Utc>,
     ttl: TimeDelta,
 ) -> Result<DateTime<Utc>, ReceiptError> {
-    let expires_at = committed_at
+    let expires_at = prepared_at
         .checked_add_signed(ttl)
         .ok_or_else(|| invalid(INVALID_WINDOW))?;
-    if expires_at <= committed_at {
+    if expires_at <= prepared_at {
         return Err(invalid(INVALID_WINDOW));
     }
     Ok(expires_at)
@@ -33,7 +33,7 @@ pub(super) fn validate(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptEr
     validate_digests(receipt)?;
     validate_versions(receipt)?;
     validate_affected_ids(&receipt.affected_ids)?;
-    if receipt.expires_at <= receipt.committed_at {
+    if receipt.expires_at <= receipt.prepared_at {
         return Err(invalid(INVALID_WINDOW));
     }
     Ok(())

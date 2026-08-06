@@ -434,7 +434,9 @@ Repository extraction and later API work must preserve all of the following:
    snapshot, projection, source revisions, and label join.
 8. Worker loss cannot partially mutate memory.
 9. Retrying the same operation after timeout or response loss cannot duplicate
-   memory and can recover the original commit-bound receipt.
+   memory and can recover the original commit-bound receipt. Its validity
+   remains anchored to the original trusted TypeSec preparation time rather
+   than backend commit or recovery time.
 10. Semantic-index failures create ID-only repair work committed atomically with
    the authoritative mutation.
 11. Forgetting is scoped, audited, recoverable as evidence, and incapable of

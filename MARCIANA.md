@@ -276,7 +276,9 @@ cognition receives a vault-authorized source bundle, produces an inert bound
 proposal, and can mutate only through an opaque vault-prepared commit. A lost
 commit reply can be recovered by exact job and proposal digest only after a
 current capability and policy check, with fixed anti-oracle failures and no
-proposal reconstruction or second mutation.
+proposal reconstruction or second mutation. Receipt validity starts at the
+original trusted TypeSec preparation time, not the later backend commit time,
+so recovery cannot mint a fresh lifetime after response loss.
 
 Governed ingestion and cognition additionally carry an exact vault-verified
 source scope from staged draft through derived records, authoritative reload,

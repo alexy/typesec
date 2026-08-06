@@ -181,7 +181,7 @@ impl ReceiptVerifier {
     ) -> Result<CognitionCommitReceipt, ReceiptError> {
         let receipt: CognitionCommitReceipt = self.verify_claims(token)?;
         receipt.validate()?;
-        validate_window(receipt.committed_at, receipt.expires_at, now)?;
+        validate_window(receipt.prepared_at, receipt.expires_at, now)?;
         Ok(receipt)
     }
 

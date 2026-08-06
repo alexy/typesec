@@ -7,6 +7,10 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Renamed cognition receipt `committed_at`/`committedAt` to
+  `prepared_at`/`preparedAt` so its signed validity window is explicitly
+  anchored to trusted TypeSec preparation rather than backend commit time.
+
 - Added a vault-owned governed-source binding for Marciana ingestion and
   cognition: exact staged-draft verification, bounded nonpersistent evidence,
   distinct local/governed reads, authoritative scope rechecks, derived-record
