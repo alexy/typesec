@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use typesec_core::policy::RequestContext;
 
+use crate::governed::GovernedSourceScope;
 use crate::label::Label;
 use crate::space::MemoryId;
 use crate::store::{MemoryStore, StoreError};
@@ -24,6 +25,9 @@ pub struct CognitionBinding {
     pub subject: String,
     /// Purpose authorized for the scan and mutation.
     pub purpose: String,
+    /// Exact vault-verified source scope, or `None` for explicit local input.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub governed_source_scope: Option<GovernedSourceScope>,
     /// Digest of the complete governed LakeCat scan proof.
     pub governed_scan_digest: String,
     /// Digest or immutable identity of the catalog snapshot.
@@ -99,6 +103,8 @@ pub struct CognitionAuthorityEvidence {
     pub subject: String,
     /// Currently authorized purpose.
     pub purpose: String,
+    /// Freshly resolved source scope, or `None` for explicit local cognition.
+    pub governed_source_scope: Option<GovernedSourceScope>,
     /// Durable job identity resolved from the verified request.
     pub job_id: String,
     /// Cognition algorithm identity resolved from trusted intent.
@@ -255,6 +261,9 @@ pub struct CognitionAuditEvidence {
     pub space_id: String,
     /// Authorized purpose.
     pub purpose: String,
+    /// Exact source scope committed with the mutation, when governed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub governed_source_scope: Option<GovernedSourceScope>,
     /// Canonical proposal digest.
     pub proposal_digest: String,
     /// Canonical authority-binding digest.
@@ -402,6 +411,9 @@ pub enum CognitionApplyError {
     /// The worker's label join differs from the vault's recomputation.
     #[error("cognition source label join changed")]
     JoinedLabelMismatch,
+    /// Selected records did not all match the binding's exact source scope.
+    #[error("cognition sources do not match the required governed scope")]
+    SourceScopeMismatch,
     /// The proposed mutation is empty or references invalid targets.
     #[error("invalid cognition plan: {0}")]
     InvalidPlan(String),

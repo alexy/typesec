@@ -40,6 +40,47 @@ fn cognition_receipt_round_trips_all_commit_evidence() {
 }
 
 #[test]
+fn cognition_receipt_round_trips_and_validates_governed_source_scope() {
+    let issuer = ReceiptIssuer::new(SigningKey::from_bytes(&[12; 32]));
+    let mut receipt = claims();
+    receipt.governed_source_scope = Some(digest('a'));
+    let token = issuer.issue_cognition(&receipt).unwrap();
+    let verified = ReceiptVerifier::new(issuer.verifying_key())
+        .verify_cognition(&token, receipt.committed_at)
+        .unwrap();
+    assert_eq!(
+        verified.governed_source_scope,
+        receipt.governed_source_scope
+    );
+
+    for invalid in [
+        format!("sha256:{}", "A".repeat(64)),
+        format!("sha256:{}", "g".repeat(64)),
+        "scope:local".to_owned(),
+    ] {
+        let mut invalid_receipt = claims();
+        invalid_receipt.governed_source_scope = Some(invalid);
+        assert_fixed_error(
+            invalid_receipt.validate().unwrap_err(),
+            "invalid cognition receipt digest",
+        );
+    }
+}
+
+#[test]
+fn legacy_local_receipt_without_scope_still_deserializes() {
+    let receipt = claims();
+    let mut encoded = serde_json::to_value(receipt).unwrap();
+    encoded
+        .as_object_mut()
+        .unwrap()
+        .remove("governedSourceScope");
+    let decoded: CognitionCommitReceipt = serde_json::from_value(encoded).unwrap();
+    assert!(decoded.governed_source_scope.is_none());
+    decoded.validate().unwrap();
+}
+
+#[test]
 fn cognition_receipt_verification_enforces_the_commit_window() {
     let issuer = ReceiptIssuer::new(SigningKey::from_bytes(&[11; 32]));
     let receipt = claims();

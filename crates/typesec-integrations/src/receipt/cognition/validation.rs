@@ -65,7 +65,12 @@ fn validate_digests(receipt: &CognitionCommitReceipt) -> Result<(), ReceiptError
         receipt.policy_decision_digest.as_str(),
         receipt.authorization_receipt_digest.as_str(),
     ];
-    if digests.into_iter().all(is_canonical_sha256) {
+    if digests.into_iter().all(is_canonical_sha256)
+        && receipt
+            .governed_source_scope
+            .as_deref()
+            .is_none_or(is_canonical_sha256)
+    {
         Ok(())
     } else {
         Err(invalid(INVALID_DIGEST))

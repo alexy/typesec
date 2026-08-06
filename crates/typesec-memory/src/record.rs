@@ -9,6 +9,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::governed::GovernedSourceScope;
 use crate::label::Label;
 use crate::space::{MemoryId, MemoryKind};
 
@@ -204,6 +205,12 @@ pub struct StoredRecord {
     pub entities: Vec<EntityRef>,
     /// Provenance.
     pub provenance: Provenance,
+    /// Vault-verified external governance scope, when ingestion was governed.
+    ///
+    /// Private so callers cannot attach or replace it through normal record
+    /// APIs. Trusted stores still round-trip it through serde.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    governed_source_scope: Option<GovernedSourceScope>,
     /// When we learned it.
     pub observed_at: DateTime<Utc>,
     /// When the fact became true.
@@ -230,6 +237,11 @@ impl StoredRecord {
         self.expires_at.is_some_and(|deadline| deadline <= at)
     }
 
+    /// Vault-verified external governance scope, if this record has one.
+    pub fn governed_source_scope(&self) -> Option<&GovernedSourceScope> {
+        self.governed_source_scope.as_ref()
+    }
+
     /// Crate-internal: the protected content, for the vault's single
     /// rehydration site. Not public — reading content is the vault's job.
     pub(crate) fn content(&self) -> &MemoryContent {
@@ -251,6 +263,7 @@ impl StoredRecord {
         quarantined: bool,
         entities: Vec<EntityRef>,
         provenance: Provenance,
+        governed_source_scope: Option<GovernedSourceScope>,
         observed_at: DateTime<Utc>,
         valid_from: DateTime<Utc>,
         expires_at: Option<DateTime<Utc>>,
@@ -265,6 +278,7 @@ impl StoredRecord {
             quarantined,
             entities,
             provenance,
+            governed_source_scope,
             observed_at,
             valid_from,
             invalid_at: None,

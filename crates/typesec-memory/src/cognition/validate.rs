@@ -41,9 +41,22 @@ fn validate_proposal(
     require_mutation: bool,
 ) -> Result<(), CognitionApplyError> {
     validate_proposal_budget(proposal)?;
-    if proposal.schema_version != CognitionProposal::SCHEMA_VERSION {
+    if !(CognitionProposal::MIN_SCHEMA_VERSION..=CognitionProposal::SCHEMA_VERSION)
+        .contains(&proposal.schema_version)
+    {
         return Err(CognitionApplyError::UnsupportedSchema(
             proposal.schema_version,
+        ));
+    }
+    if proposal.schema_version == CognitionProposal::MIN_SCHEMA_VERSION
+        && proposal
+            .binding
+            .as_ref()
+            .and_then(|binding| binding.governed_source_scope.as_ref())
+            .is_some()
+    {
+        return Err(CognitionApplyError::InvalidBinding(
+            "governedSourceScope requires schemaVersion 2".to_owned(),
         ));
     }
     if !is_canonical_text(&proposal.job_id) {
@@ -96,6 +109,10 @@ pub(super) fn validate_authority(
         ("space", binding.space_id == authority.space_id),
         ("subject", binding.subject == authority.subject),
         ("purpose", binding.purpose == authority.purpose),
+        (
+            "governed source scope",
+            binding.governed_source_scope == authority.governed_source_scope,
+        ),
         ("job", proposal.job_id == authority.job_id),
         ("algorithm", proposal.algorithm == authority.algorithm),
         (

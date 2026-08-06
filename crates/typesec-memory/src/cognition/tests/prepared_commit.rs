@@ -104,6 +104,29 @@ fn streaming_hashing_preserves_existing_canonical_digest_bytes() {
     );
 }
 
+#[test]
+fn governed_scope_is_bound_into_the_prepared_commit_and_outputs() {
+    let at = prepared_at();
+    let scope = GovernedSourceScope::from_digest(format!("sha256:{}", "a".repeat(64))).unwrap();
+    let local = prepared_fixture(at).commit;
+    let governed = prepared_fixture_with_scope(at, Some(scope.clone())).commit;
+
+    assert_ne!(
+        local.canonical_digest().unwrap(),
+        governed.canonical_digest().unwrap()
+    );
+    assert_eq!(governed.audit().governed_source_scope, Some(scope.clone()));
+    let created = governed
+        .operations()
+        .iter()
+        .find_map(|operation| match operation {
+            StoreBatchOp::Put(record) => Some(record.as_ref()),
+            StoreBatchOp::Invalidate { .. } => None,
+        })
+        .expect("prepared record write");
+    assert_eq!(created.governed_source_scope(), Some(&scope));
+}
+
 struct PreparedFixture {
     commit: PreparedCognitionCommit,
     proposal: CognitionProposal,
@@ -113,6 +136,13 @@ struct PreparedFixture {
 }
 
 fn prepared_fixture(now: DateTime<Utc>) -> PreparedFixture {
+    prepared_fixture_with_scope(now, None)
+}
+
+fn prepared_fixture_with_scope(
+    now: DateTime<Utc>,
+    governed_source_scope: Option<GovernedSourceScope>,
+) -> PreparedFixture {
     let space = MemorySpace::new("tenant:acme", "research");
     let source_id = MemoryId::from_string("mem-source-1");
     let source_time = prepared_at() - TimeDelta::hours(1);
@@ -124,6 +154,7 @@ fn prepared_fixture(now: DateTime<Utc>) -> PreparedFixture {
         false,
         Vec::new(),
         Provenance::Operator,
+        governed_source_scope.clone(),
         source_time,
         source_time,
         None,
@@ -135,6 +166,7 @@ fn prepared_fixture(now: DateTime<Utc>) -> PreparedFixture {
         space_id: space.resource_id().to_owned(),
         subject: "did:key:researcher".into(),
         purpose: "research".into(),
+        governed_source_scope,
         governed_scan_digest: super::digest("governed scan"),
         snapshot_digest: super::digest("snapshot 42"),
         plan_task_digest: super::digest("plan token"),

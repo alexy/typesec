@@ -7,6 +7,12 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Added a vault-owned governed-source binding for Marciana ingestion and
+  cognition: exact staged-draft verification, bounded nonpersistent evidence,
+  distinct local/governed reads, authoritative scope rechecks, derived-record
+  propagation, schema-v2 downgrade protection, and scope-bound audits and
+  signed receipts.
+
 - Added allocation-free borrowed access to gateway-verified TypeDID claims so
   downstream boundaries can enforce budgets and allowlists before cloning an
   audit attestation.

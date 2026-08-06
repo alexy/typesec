@@ -77,7 +77,10 @@ fn cognition_proposal_records_snapshot_and_stays_inert() {
     )
     .with_drafts(vec![draft]);
 
-    assert_eq!(proposal.schema_version, CognitionProposal::SCHEMA_VERSION);
+    assert_eq!(
+        proposal.schema_version,
+        CognitionProposal::MIN_SCHEMA_VERSION
+    );
     assert_eq!(proposal.source_ids, [source]);
     assert_eq!(proposal.joined_label, Label::Sensitive);
     assert_eq!(proposal.drafts.len(), 1);

@@ -12,6 +12,7 @@ fn rec(id: &str, label: Label, text: &str) -> StoredRecord {
         false,
         vec![],
         Provenance::Operator,
+        None,
         Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
         Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
         None,

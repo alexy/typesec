@@ -17,7 +17,7 @@ use crate::index::IndexMutation;
 use crate::record::{MemoryDraft, Provenance, StoredRecord};
 use crate::space::{MemoryId, MemorySpace};
 use crate::store::StoreBatchOp;
-use crate::vault::{ConsolidationStep, build_record_with_id_at};
+use crate::vault::{ConsolidationStep, build_record_with_id_at_and_scope};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_commit(
@@ -67,6 +67,7 @@ pub(super) fn prepare_commit(
             subject: binding.subject.clone(),
             space_id: binding.space_id.clone(),
             purpose: binding.purpose.clone(),
+            governed_source_scope: binding.governed_source_scope.clone(),
             proposal_digest: identity.proposal_digest.clone(),
             binding_digest: identity.binding_digest.clone(),
             source_manifest_digest: binding.source_manifest_digest.clone(),
@@ -186,12 +187,13 @@ impl<'a> CommitBuilder<'a> {
             &self.canonical_source_ids,
             self.retention_ceiling,
         );
-        let record = build_record_with_id_at(
+        let record = build_record_with_id_at_and_scope(
             self.space,
             draft,
             Some(self.label_floor),
             id.clone(),
             self.prepared_at,
+            self.binding.governed_source_scope.clone(),
         );
         self.operations.push(StoreBatchOp::Put(Box::new(record)));
         self.index_outbox

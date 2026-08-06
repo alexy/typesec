@@ -1309,6 +1309,47 @@ must add that audited promotion boundary and prove quarantine propagation across
 all derived records. The book treats this as unfinished security work, not as a
 property inferred from the default query behavior.
 
+## Governed source identity is vault-owned
+
+Provenance describes how a draft presents itself; it is not proof that an
+external catalog authorized the exact bytes written. TypeSec therefore keeps a
+separate `GovernedSourceScope`, represented as a canonical lowercase
+`sha256:` digest. Ordinary `remember` cannot attach one. The only normal API
+that can is `remember_governed`, after capability, space, and configured-policy
+checks and a host-supplied `GovernedSourceVerifier` decision.
+
+The verifier receives a borrowed, externally nonconstructible request binding
+the scope, capability subject, memory space, use-time request context, bounded
+opaque evidence, and a domain-separated digest of the exact `MemoryDraft` the
+vault will consume. It never receives the draft plaintext from TypeSec, and the
+opaque evidence is never stored in the memory record. Marciana adapters can
+prime an exact staged-draft allowlist with the public
+`governed_source_draft_digest` helper instead of copying TypeSec's canonical
+serialization contract. A verifier rejection, unavailable verifier, or
+oversized evidence returns one fixed error and performs no write.
+
+Governed cognition is deliberately distinct from local cognition.
+`cognition_input_at` and `cognition_source_manifest` accept only records with no
+governed scope. Their governed counterparts require every selected record to
+carry one exact expected scope and expose that scope on the transient
+`AuthorizedCognitionInput`. Application then requires the binding and freshly
+resolved authority to agree, checks the exact scope again on authoritative
+reload, includes it in record, binding, proposal, prepared-commit, audit, and
+receipt digests, and attaches it to every derived record. Version 1 proposals
+remain readable only for no-scope input; a scoped proposal requires schema 2,
+so removing the field cannot downgrade it into a local operation. Ordinary
+consolidation likewise preserves a unanimous scope and rejects mixed sources
+instead of laundering them into an unscoped summary.
+
+The privacy boundary is the vault API, not arbitrary persistence bytes.
+`StoredRecord` keeps the field private and a compile-fail test prevents normal
+callers from setting it, but trusted stores must deserialize and round-trip the
+record. A store that accepts attacker-controlled serialized `StoredRecord`
+bytes can therefore forge any private persisted field, including content and
+scope. Such a store is outside this trust model; deployments needing hostile
+storage must authenticate records with a MAC or signature before
+deserialization and before returning them to the vault.
+
 ## Time, graph, and retrieval
 
 A memory record distinguishes when it was observed from when it was valid.
@@ -1352,8 +1393,9 @@ That boundary is deliberately narrow and bounded. Network and model-produced
 JSON enters through `CognitionProposal::from_json_slice`, which rejects an
 oversized body before parsing; proposal and nested cognition types reject
 unknown fields. Application independently resolves the exact job, native
-algorithm and version, governed scan, immutable snapshot, effective
-projection, source manifest, verified TypeDID request, subject, and purpose.
+algorithm and version, governed scan, immutable snapshot, effective projection,
+source manifest, verified TypeDID request, subject, purpose, and the exact
+vault-owned governed source scope (or explicit absence for local input).
 Its durable idempotency identity contains only the space, job, and an opaque
 digest of the authority scope. Fixed budgets cover proposal bytes, source
 records and source IDs, projections, mutations, cloned lineage, evidence, and
@@ -1361,8 +1403,9 @@ affected IDs. An `Applied` backend outcome must carry the exact audit the vault
 just prepared. An `AlreadyApplied` outcome instead discloses an immutable
 historical commit: its canonical shape, authority-scoped identity, proposal,
 binding, source, TypeDID, governed-scan, authorization, evidence, and affected
-IDs must match, while historical preparation time and policy-decision evidence
-remain those committed by the original transaction. Signed commit receipts
+IDs—including the optional governed source scope—must match, while historical
+preparation time and policy-decision evidence remain those committed by the
+original transaction. Signed commit receipts
 apply the same canonical and bounded treatment to the evidence they expose.
 These are TypeSec security rules; they do not introduce a Cognee runtime,
 store, adapter, or wire-compatibility surface.

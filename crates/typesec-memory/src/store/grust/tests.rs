@@ -16,6 +16,7 @@ fn rec(id: &str, text: &str, entities: &[(&str, &str)]) -> StoredRecord {
             .map(|(n, k)| EntityRef::new(*n, *k))
             .collect(),
         Provenance::Operator,
+        None,
         Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
         Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
         None,

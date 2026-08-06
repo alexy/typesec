@@ -201,6 +201,32 @@ subject, confirm that source IDs and digest match the current snapshot,
 recompute the label join, reject stale or revoked work, and apply mutations
 through `MemoryVault`.
 
+### 6. Governed rows need a vault-owned source binding
+
+LakeCat-shaped provenance on a draft is not evidence that the exact durable
+memory came from an authorized snapshot. TypeSec now owns a separate canonical
+`GovernedSourceScope` and the only normal attachment path:
+
+- `remember_governed` checks capability, space, and current policy before
+  invoking a trusted verifier over bounded opaque evidence and the exact draft
+  digest;
+- `governed_source_draft_digest` lets Marciana build an exact authenticated
+  staged-row allowlist without reimplementing TypeSec canonicalization;
+- local cognition rejects scoped records, governed cognition rejects local,
+  mixed, or differently scoped records before reveal and again on authoritative
+  reload;
+- bindings, fresh authority, proposals, preconditions, prepared commits,
+  audits, signed receipts, and derived records retain the exact optional scope;
+  and
+- schema v1 remains no-scope only, preventing a scoped proposal from being
+  downgraded by deleting its scope field.
+
+Opaque provider evidence is never persisted. The trusted-store qualification
+is explicit: private Rust fields stop ordinary API forgery, but a backend that
+deserializes attacker-authored `StoredRecord` bytes must add record
+authentication rather than treating serde visibility as a cryptographic
+boundary.
+
 ## Target architecture
 
 ```text
@@ -252,6 +278,11 @@ commit reply can be recovered by exact job and proposal digest only after a
 current capability and policy check, with fixed anti-oracle failures and no
 proposal reconstruction or second mutation.
 
+Governed ingestion and cognition additionally carry an exact vault-verified
+source scope from staged draft through derived records, authoritative reload,
+audit evidence, and signed receipt; local and governed input paths cannot be
+silently mixed.
+
 Second, the QueryGraph stack owns reusable substrate rather than Marciana
 product semantics. LakeCat issues governed snapshot and authorization evidence;
 Grust supplies guarded graph commits and durable backends; Sail supplies generic
@@ -295,8 +326,9 @@ project.
 
 ## Handoff status on 2026-08-05
 
-TypeSec's bound proposals, opaque prepared commits, complete TypeDID v2 request
-binding, and policy-gated proposal-free recovery are implemented. LakeCat owns
+TypeSec's governed-source ingestion binding, bound proposals, opaque prepared
+commits, complete TypeDID v2 request binding, and policy-gated proposal-free
+recovery are implemented. LakeCat owns
 and persists the governed scan proof and original authorization evidence.
 qg-rust contains the initial verified TypeDID/LakeCat composition slice, but it
 remains a consumer and temporary integration edge rather than the owner of the

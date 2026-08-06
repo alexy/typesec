@@ -23,6 +23,11 @@ use typesec_core::{
 
 use crate::cognition::CognitionAuthorityVerifier;
 use crate::error::MemoryError;
+use crate::governed::{
+    GovernedSourceScope, GovernedSourceVerification, GovernedSourceVerificationError,
+    GovernedSourceVerifier, governed_source_draft_digest, unanimous_source_scope,
+    validate_evidence_budget,
+};
 use crate::index::{IndexMutation, IndexOutbox, SemanticIndex};
 use crate::label::{Clearance, Label};
 use crate::record::{MemoryContent, MemoryDraft, StoredRecord};
@@ -43,6 +48,7 @@ pub struct MemoryVault<S: MemoryStore> {
     index: Option<Arc<dyn SemanticIndex>>,
     index_outbox: Option<Arc<dyn IndexOutbox>>,
     cognition_authority: Option<Arc<dyn CognitionAuthorityVerifier>>,
+    governed_source_verifier: Option<Arc<dyn GovernedSourceVerifier>>,
 }
 
 impl<S: MemoryStore> MemoryVault<S> {
@@ -54,6 +60,7 @@ impl<S: MemoryStore> MemoryVault<S> {
             index: None,
             index_outbox: None,
             cognition_authority: None,
+            governed_source_verifier: None,
         }
     }
 
@@ -93,6 +100,19 @@ impl<S: MemoryStore> MemoryVault<S> {
         verifier: Arc<dyn CognitionAuthorityVerifier>,
     ) -> Self {
         self.cognition_authority = Some(verifier);
+        self
+    }
+
+    /// Attach the trusted host adapter that verifies governed ingestion.
+    ///
+    /// The adapter receives bounded opaque evidence and a digest of the exact
+    /// draft. TypeSec does not depend on or parse any provider-specific proof.
+    #[must_use]
+    pub fn with_governed_source_verifier(
+        mut self,
+        verifier: Arc<dyn GovernedSourceVerifier>,
+    ) -> Self {
+        self.governed_source_verifier = Some(verifier);
         self
     }
 
@@ -194,6 +214,22 @@ impl<S: MemoryStore> MemoryVault<S> {
         build_record_with_id(space, draft, label_floor, MemoryId::next())
     }
 
+    fn build_governed_record(
+        space: &MemorySpace,
+        draft: MemoryDraft,
+        label_floor: Option<Label>,
+        scope: GovernedSourceScope,
+    ) -> StoredRecord {
+        build_record_with_id_at_and_scope(
+            space,
+            draft,
+            label_floor,
+            MemoryId::next(),
+            Utc::now(),
+            Some(scope),
+        )
+    }
+
     /// Borrow the underlying store (read-only; bypasses no gates because the
     /// store cannot read record content — that is the vault's private path).
     pub fn store(&self) -> &S {
@@ -244,6 +280,51 @@ impl<S: MemoryStore> MemoryVault<S> {
     ) -> Result<MemoryId, MemoryError> {
         self.authorize(space, cap, &RequestContext::default())?;
         let record = Self::build_record(space, draft, None);
+        self.persist_new_record(space, cap, record, "memory:write")
+    }
+
+    /// Remember one record bound to a verified external governance scope.
+    ///
+    /// Capability, policy, and space checks run before bounded opaque evidence
+    /// reaches the trusted verifier. The verifier must bind the request scope,
+    /// subject, space, context, evidence, and exact draft digest. Evidence is
+    /// never persisted; only the canonical scope is attached by the vault.
+    pub fn remember_governed(
+        &self,
+        space: &MemorySpace,
+        cap: &Capability<CanWrite, MemorySpace>,
+        draft: MemoryDraft,
+        scope: &GovernedSourceScope,
+        evidence: &[u8],
+        context: &RequestContext,
+    ) -> Result<MemoryId, MemoryError> {
+        self.authorize(space, cap, context)?;
+        validate_evidence_budget(evidence)?;
+        let verifier = self
+            .governed_source_verifier
+            .as_deref()
+            .ok_or(GovernedSourceVerificationError::Unavailable)?;
+        let draft_digest = governed_source_draft_digest(&draft)?;
+        let verification = GovernedSourceVerification::new(
+            scope,
+            cap.subject(),
+            space.resource_id(),
+            context,
+            evidence,
+            &draft_digest,
+        );
+        verifier.verify(&verification)?;
+        let record = Self::build_governed_record(space, draft, None, scope.clone());
+        self.persist_new_record(space, cap, record, "memory:governed_write")
+    }
+
+    fn persist_new_record(
+        &self,
+        space: &MemorySpace,
+        cap: &Capability<CanWrite, MemorySpace>,
+        record: StoredRecord,
+        action: &'static str,
+    ) -> Result<MemoryId, MemoryError> {
         let (id, label, quarantined, text) = (
             record.id.clone(),
             record.label,
@@ -254,7 +335,7 @@ impl<S: MemoryStore> MemoryVault<S> {
         self.index_record(&id, label, &text);
 
         audit(
-            "memory:write",
+            action,
             cap.subject(),
             space,
             &format!("id={id} label={} quarantined={quarantined}", label.name()),
@@ -464,10 +545,15 @@ impl<S: MemoryStore> MemoryVault<S> {
                 } => {
                     // SecLib join: the summary is at least as sensitive as
                     // every record it supersedes.
-                    let mut join = Label::Public;
-                    for id in &superseded {
-                        join = join.join(self.fetch_in_space(space, id)?.label);
-                    }
+                    let sources = superseded
+                        .iter()
+                        .map(|id| self.fetch_in_space(space, id))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let join = sources
+                        .iter()
+                        .fold(Label::Public, |label, record| label.join(record.label));
+                    let governed_source_scope = unanimous_source_scope(&sources)
+                        .map_err(|()| MemoryError::GovernedSourceScopeMismatch)?;
                     for id in &superseded {
                         batch.push(crate::store::StoreBatchOp::Invalidate {
                             id: id.clone(),
@@ -476,7 +562,14 @@ impl<S: MemoryStore> MemoryVault<S> {
                         report.invalidated.push(id.clone());
                         to_unindex.push(id.clone());
                     }
-                    let record = Self::build_record(space, replacement, Some(join));
+                    let record = build_record_with_id_at_and_scope(
+                        space,
+                        replacement,
+                        Some(join),
+                        MemoryId::next(),
+                        now,
+                        governed_source_scope,
+                    );
                     let (id, label, text) = (
                         record.id.clone(),
                         record.label,
@@ -640,6 +733,17 @@ pub(crate) fn build_record_with_id_at(
     id: MemoryId,
     now: DateTime<Utc>,
 ) -> StoredRecord {
+    build_record_with_id_at_and_scope(space, draft, label_floor, id, now, None)
+}
+
+pub(crate) fn build_record_with_id_at_and_scope(
+    space: &MemorySpace,
+    draft: MemoryDraft,
+    label_floor: Option<Label>,
+    id: MemoryId,
+    now: DateTime<Utc>,
+    governed_source_scope: Option<GovernedSourceScope>,
+) -> StoredRecord {
     let birth = draft.provenance.default_label();
     let quarantined = draft.provenance.is_untrusted();
     // A trusted source's declared label is authoritative (it may set anything,
@@ -661,6 +765,7 @@ pub(crate) fn build_record_with_id_at(
         quarantined,
         draft.entities,
         draft.provenance,
+        governed_source_scope,
         now,
         draft.valid_from.unwrap_or(now),
         draft.expires_at,

@@ -14,7 +14,7 @@ use crate::record::{MemoryContent, MemoryDraft, Provenance, StoredRecord};
 use crate::space::{MemoryId, MemoryKind, MemorySpace};
 use crate::store::{MemoryStore, StoreBatchOp, StoreError, StoreQuery};
 use crate::vault::{ConsolidationPlan, ConsolidationStep, MemoryVault};
-use crate::{CognitionProposal, Label, MemoryError};
+use crate::{CognitionProposal, GovernedSourceScope, Label, MemoryError};
 
 #[derive(Default)]
 struct AllowPolicy;
@@ -69,6 +69,7 @@ struct TestState {
     audits: Vec<CognitionAuditEvidence>,
     version: u64,
     fail_precondition_once: bool,
+    replace_scope_before_precondition: Option<GovernedSourceScope>,
     preflight_outcome_mutation: Option<fn(&mut CognitionCommitOutcome)>,
     commit_outcome_mutation: Option<fn(&mut CognitionCommitOutcome)>,
     recovery_calls: usize,
@@ -88,6 +89,10 @@ impl TransactionalTestStore {
 
     fn fail_next_precondition(&self) {
         self.state().fail_precondition_once = true;
+    }
+
+    fn replace_scope_before_precondition(&self, scope: GovernedSourceScope) {
+        self.state().replace_scope_before_precondition = Some(scope);
     }
 }
 
@@ -173,6 +178,16 @@ impl CognitionCommitStore for TransactionalTestStore {
                 commit.source_preconditions()[0].id.clone(),
             ));
         }
+        if let Some(scope) = state.replace_scope_before_precondition.take() {
+            let source_id = &commit.source_preconditions()[0].id;
+            let record = state.records.get_mut(source_id).expect("source record");
+            let mut encoded = serde_json::to_value(&*record).expect("encode source");
+            encoded
+                .as_object_mut()
+                .expect("record object")
+                .insert("governed_source_scope".into(), serde_json::json!(scope));
+            *record = serde_json::from_value(encoded).expect("replace source scope");
+        }
         for expected in commit.source_preconditions() {
             let current = state
                 .records
@@ -253,6 +268,10 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::new_with_scope(None)
+    }
+
+    fn new_with_scope(governed_source_scope: Option<GovernedSourceScope>) -> Self {
         let store = TransactionalTestStore::default();
         let authority = Arc::new(MutableAuthority::default());
         let policy = Arc::new(AllowPolicy);
@@ -263,26 +282,43 @@ impl Fixture {
         let vault = MemoryVault::new(store.clone())
             .with_policy(policy.clone())
             .with_cognition_authority(authority.clone());
-        let source = vault
-            .remember(
-                &space,
-                &write,
-                MemoryDraft::new(
-                    MemoryKind::Semantic,
-                    MemoryContent::text("private source text"),
-                    Provenance::Operator,
-                )
-                .with_label(Label::Sensitive)
-                .for_purposes(["research"]),
+        let source = MemoryId::next();
+        let source_record = crate::vault::build_record_with_id_at_and_scope(
+            &space,
+            MemoryDraft::new(
+                MemoryKind::Semantic,
+                MemoryContent::text("private source text"),
+                Provenance::Operator,
             )
-            .expect("source write");
-        let manifest = vault
-            .cognition_source_manifest(&space, &read, std::slice::from_ref(&source), &context)
-            .expect("source manifest");
+            .with_label(Label::Sensitive)
+            .for_purposes(["research"]),
+            None,
+            source.clone(),
+            Utc::now(),
+            governed_source_scope.clone(),
+        );
+        store.put(source_record).expect("source write");
+        let manifest = match governed_source_scope.as_ref() {
+            Some(scope) => vault.governed_cognition_source_manifest(
+                &space,
+                &read,
+                std::slice::from_ref(&source),
+                &context,
+                scope,
+            ),
+            None => vault.cognition_source_manifest(
+                &space,
+                &read,
+                std::slice::from_ref(&source),
+                &context,
+            ),
+        }
+        .expect("source manifest");
         let binding = CognitionBinding {
             space_id: space.resource_id().to_owned(),
             subject: "did:key:researcher".into(),
             purpose: "research".into(),
+            governed_source_scope,
             governed_scan_digest: digest("governed scan"),
             snapshot_digest: digest("snapshot 42"),
             plan_task_digest: digest("plan token"),
@@ -352,6 +388,7 @@ fn authority_for(binding: &CognitionBinding) -> CognitionAuthorityEvidence {
         space_id: binding.space_id.clone(),
         subject: binding.subject.clone(),
         purpose: binding.purpose.clone(),
+        governed_source_scope: binding.governed_source_scope.clone(),
         job_id: "job-42".into(),
         algorithm: "marciana.summarize.sail".into(),
         algorithm_version: "1".into(),
@@ -385,6 +422,7 @@ fn digest(value: &str) -> String {
 
 mod application;
 mod authorized_source_limits;
+mod governed_scope;
 mod hardening;
 mod limits_hardening;
 mod outcome_hardening;

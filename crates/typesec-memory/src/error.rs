@@ -4,7 +4,10 @@ use thiserror::Error;
 use typesec_core::capability::CapabilityUseError;
 
 use crate::store::StoreError;
-use crate::{CognitionApplyError, CognitionCommitError, CognitionRecoveryError};
+use crate::{
+    CognitionApplyError, CognitionCommitError, CognitionRecoveryError,
+    GovernedSourceVerificationError,
+};
 
 /// A memory-vault operation failed.
 #[derive(Debug, Error)]
@@ -44,6 +47,13 @@ pub enum MemoryError {
         /// The recall/reveal ceiling.
         ceiling: &'static str,
     },
+    /// Governed ingestion could not be verified safely. This fixed error never
+    /// exposes opaque evidence or provider diagnostics.
+    #[error(transparent)]
+    GovernedSourceVerification(#[from] GovernedSourceVerificationError),
+    /// Selected records did not all match the explicitly required source scope.
+    #[error("memory sources do not match the required governed scope")]
+    GovernedSourceScopeMismatch,
     /// The backing store failed.
     #[error(transparent)]
     Store(#[from] StoreError),

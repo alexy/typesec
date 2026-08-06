@@ -302,7 +302,8 @@ Keep in QueryGraph:
 Do not extract:
 
 - `MemorySpace`, `MemoryId`, protected record types, labels, provenance,
-  quarantine, clearance, retention, and private content access;
+  governed-source scope binding, quarantine, clearance, retention, and private
+  content access;
 - `MemoryVault` and every content-returning or mutating security check;
 - `CognitionProposal` as the inert protocol accepted by the vault;
 - cognition binding validation, source-manifest calculation, label
@@ -423,25 +424,29 @@ Repository extraction and later API work must preserve all of the following:
 4. LakeCat proof material and TypeDID context are carried as identifiers and
    digests where possible; reusable tokens, receipts, signing material, and
    plaintext are absent from queues and audit evidence.
-5. Derived memory inherits the join of every source label, complete lineage,
+5. Local cognition consumes only unscoped records. Governed cognition binds one
+   exact vault-verified source scope through reveal, authoritative reload,
+   derived records, audit, and receipt; missing, mixed, or substituted scopes
+   fail closed.
+6. Derived memory inherits the join of every source label, complete lineage,
    the strictest applicable retention ceiling, and appropriate quarantine.
-6. Proposal application revalidates current policy, subject, purpose,
+7. Proposal application revalidates current policy, subject, purpose,
    snapshot, projection, source revisions, and label join.
-7. Worker loss cannot partially mutate memory.
-8. Retrying the same operation after timeout or response loss cannot duplicate
+8. Worker loss cannot partially mutate memory.
+9. Retrying the same operation after timeout or response loss cannot duplicate
    memory and can recover the original commit-bound receipt.
-9. Semantic-index failures create ID-only repair work committed atomically with
+10. Semantic-index failures create ID-only repair work committed atomically with
    the authoritative mutation.
-10. Forgetting is scoped, audited, recoverable as evidence, and incapable of
+11. Forgetting is scoped, audited, recoverable as evidence, and incapable of
     invoking an unauthenticated or unscoped production `forgetAll` path.
-11. Existing durable database identifiers and route behavior remain compatible
+12. Existing durable database identifiers and route behavior remain compatible
     until an explicit migration or API-version transition is delivered.
-12. No foundational repository gains a dependency on Marciana.
-13. Durable proposal identity binds every authority and mutation input but is
+13. No foundational repository gains a dependency on Marciana.
+14. Durable proposal identity binds every authority and mutation input but is
     stable across a worker retry that changes only observational creation time.
     A concurrent or response-loss retry reloads the originally committed
     outcome and audit evidence before issuing a receipt.
-14. Raw job identifiers, worker identities, lease tokens, failure text,
+15. Raw job identifiers, worker identities, lease tokens, failure text,
     reusable authorization material, protected proposals, and memory plaintext
     are absent from scheduler, outbox, and log records. Only proposal identity
     and canonical digest are durable in scheduler metadata.

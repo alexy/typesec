@@ -262,6 +262,7 @@ fn authorized_source_projection(record: &StoredRecord) -> AuthorizedSourceProjec
         content: record.content(),
         entities: &record.entities,
         provenance: &record.provenance,
+        governed_source_scope: record.governed_source_scope(),
         valid_from: &record.valid_from,
     }
 }
@@ -285,6 +286,8 @@ struct AuthorizedSourceProjection<'a> {
     content: &'a crate::MemoryContent,
     entities: &'a [crate::EntityRef],
     provenance: &'a crate::Provenance,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    governed_source_scope: Option<&'a crate::GovernedSourceScope>,
     valid_from: &'a chrono::DateTime<chrono::Utc>,
 }
 

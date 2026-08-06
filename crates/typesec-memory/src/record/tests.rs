@@ -31,6 +31,7 @@ fn bitemporal_validity_and_expiry() {
         quarantined: false,
         entities: vec![],
         provenance: Provenance::Operator,
+        governed_source_scope: None,
         observed_at: at(2024, 1, 1),
         valid_from: at(2023, 1, 1),
         invalid_at: Some(at(2026, 1, 1)),
@@ -60,4 +61,47 @@ fn draft_builder_carries_intent() {
     assert_eq!(draft.label, Some(Label::Sensitive));
     assert_eq!(draft.entities.len(), 1);
     assert_eq!(draft.purposes, ["personalization"]);
+}
+
+#[test]
+fn governed_scope_is_optional_and_round_trips_for_trusted_stores() {
+    let local = StoredRecord::assemble(
+        MemoryId::from_string("mem-local"),
+        "memory/user:alice/profile".into(),
+        MemoryKind::Semantic,
+        Label::Internal,
+        false,
+        vec![],
+        Provenance::Operator,
+        None,
+        at(2024, 1, 1),
+        at(2024, 1, 1),
+        None,
+        vec![],
+        MemoryContent::text("local"),
+    );
+    let local_json = serde_json::to_value(&local).unwrap();
+    assert!(local_json.get("governed_source_scope").is_none());
+    let decoded_local: StoredRecord = serde_json::from_value(local_json).unwrap();
+    assert!(decoded_local.governed_source_scope().is_none());
+
+    let scope = GovernedSourceScope::from_digest(format!("sha256:{}", "a".repeat(64))).unwrap();
+    let governed = StoredRecord::assemble(
+        MemoryId::from_string("mem-governed"),
+        "memory/user:alice/profile".into(),
+        MemoryKind::Semantic,
+        Label::Internal,
+        false,
+        vec![],
+        Provenance::Operator,
+        Some(scope.clone()),
+        at(2024, 1, 1),
+        at(2024, 1, 1),
+        None,
+        vec![],
+        MemoryContent::text("governed"),
+    );
+    let decoded: StoredRecord =
+        serde_json::from_value(serde_json::to_value(governed).unwrap()).unwrap();
+    assert_eq!(decoded.governed_source_scope(), Some(&scope));
 }

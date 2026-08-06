@@ -66,8 +66,11 @@ pub struct CognitionProposal {
 }
 
 impl CognitionProposal {
-    /// Current proposal schema.
-    pub const SCHEMA_VERSION: u32 = 1;
+    /// Highest supported proposal schema. Governed bindings use this version.
+    pub const SCHEMA_VERSION: u32 = 2;
+
+    /// Oldest accepted schema. Version 1 is local/no-scope only.
+    pub const MIN_SCHEMA_VERSION: u32 = 1;
 
     /// Create an inert proposal with no mutations yet.
     pub fn new(
@@ -80,7 +83,7 @@ impl CognitionProposal {
         joined_label: Label,
     ) -> Self {
         Self {
-            schema_version: Self::SCHEMA_VERSION,
+            schema_version: Self::MIN_SCHEMA_VERSION,
             job_id: job_id.into(),
             input_snapshot: input_snapshot.into(),
             source_digest: source_digest.into(),
@@ -111,9 +114,15 @@ impl CognitionProposal {
     }
 
     /// Bind the proposal to verified identity, catalog, authorization, and
-    /// source-manifest evidence.
+    /// source-manifest evidence. A governed source scope upgrades the proposal
+    /// to schema version 2; local proposals retain the version 1 wire shape.
     #[must_use]
     pub fn with_binding(mut self, binding: CognitionBinding) -> Self {
+        if binding.governed_source_scope.is_some()
+            && self.schema_version == Self::MIN_SCHEMA_VERSION
+        {
+            self.schema_version = Self::SCHEMA_VERSION;
+        }
         self.binding = Some(binding);
         self
     }

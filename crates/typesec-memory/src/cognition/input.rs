@@ -5,9 +5,11 @@ use typesec_core::policy::RequestContext;
 use typesec_core::{CanRead, Capability};
 
 use super::digest::source_manifest;
+use super::source_scope::validate_source_scope;
 use super::types::CognitionSourceManifest;
 use super::validate::{load_sources, required_purpose};
 use crate::error::MemoryError;
+use crate::governed::GovernedSourceScope;
 use crate::label::Label;
 use crate::space::{MemoryId, MemorySpace};
 use crate::store::MemoryStore;
@@ -22,6 +24,7 @@ use crate::vault::{MemoryVault, RecalledMemory};
 pub struct AuthorizedCognitionInput {
     memories: Vec<RecalledMemory>,
     manifest: CognitionSourceManifest,
+    governed_source_scope: Option<GovernedSourceScope>,
 }
 
 impl AuthorizedCognitionInput {
@@ -33,6 +36,11 @@ impl AuthorizedCognitionInput {
     /// Manifest computed from the same record values as [`Self::memories`].
     pub fn manifest(&self) -> &CognitionSourceManifest {
         &self.manifest
+    }
+
+    /// Exact verified source scope, or `None` for explicit local cognition.
+    pub fn governed_source_scope(&self) -> Option<&GovernedSourceScope> {
+        self.governed_source_scope.as_ref()
     }
 
     /// Consume the transient bundle after a trusted composition layer has
@@ -57,9 +65,46 @@ impl<S: MemoryStore> MemoryVault<S> {
         context: &RequestContext,
         ceiling: Label,
     ) -> Result<AuthorizedCognitionInput, MemoryError> {
+        self.cognition_input_for_scope_at(space, capability, source_ids, context, ceiling, None)
+    }
+
+    /// Read exact governed source revisions for cognition.
+    ///
+    /// Every selected record must carry the exact expected scope. Mixed,
+    /// local, or differently scoped sources fail before plaintext leaves the
+    /// vault.
+    pub fn governed_cognition_input_at(
+        &self,
+        space: &MemorySpace,
+        capability: &Capability<CanRead, MemorySpace>,
+        source_ids: &[MemoryId],
+        context: &RequestContext,
+        ceiling: Label,
+        scope: &GovernedSourceScope,
+    ) -> Result<AuthorizedCognitionInput, MemoryError> {
+        self.cognition_input_for_scope_at(
+            space,
+            capability,
+            source_ids,
+            context,
+            ceiling,
+            Some(scope),
+        )
+    }
+
+    fn cognition_input_for_scope_at(
+        &self,
+        space: &MemorySpace,
+        capability: &Capability<CanRead, MemorySpace>,
+        source_ids: &[MemoryId],
+        context: &RequestContext,
+        ceiling: Label,
+        scope: Option<&GovernedSourceScope>,
+    ) -> Result<AuthorizedCognitionInput, MemoryError> {
         self.authorize(space, capability, context)?;
         let purpose = required_purpose(context)?;
         let records = load_sources(self, space, source_ids, purpose, Utc::now())?;
+        validate_source_scope(&records, scope)?;
         if let Some(record) = records.iter().find(|record| record.label > ceiling) {
             return Err(MemoryError::AboveCeiling {
                 id: record.id.to_string(),
@@ -74,8 +119,17 @@ impl<S: MemoryStore> MemoryVault<S> {
             "memory:cognition_read",
             capability.subject(),
             space,
-            &format!("ceiling={} sources={}", ceiling.name(), records.len()),
+            &format!(
+                "ceiling={} sources={} governed={}",
+                ceiling.name(),
+                records.len(),
+                scope.is_some()
+            ),
         );
-        Ok(AuthorizedCognitionInput { memories, manifest })
+        Ok(AuthorizedCognitionInput {
+            memories,
+            manifest,
+            governed_source_scope: scope.cloned(),
+        })
     }
 }

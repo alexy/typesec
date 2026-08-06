@@ -53,11 +53,13 @@
 
 #[cfg(feature = "agent")]
 pub mod agent;
+mod canonical;
 pub mod cognition;
 #[cfg(feature = "conformance")]
 pub mod conformance;
 pub mod error;
 pub mod extract;
+pub mod governed;
 pub mod index;
 pub mod label;
 #[cfg(feature = "receipts")]
@@ -80,6 +82,11 @@ pub use cognition::{
 pub use error::MemoryError;
 pub use extract::{
     CognitionProposal, Episode, ExtractError, Extractor, MemorySummary, RuleExtractor,
+};
+pub use governed::{
+    GovernedSourceScope, GovernedSourceScopeError, GovernedSourceVerification,
+    GovernedSourceVerificationError, GovernedSourceVerifier, MAX_GOVERNED_SOURCE_EVIDENCE_BYTES,
+    governed_source_draft_digest,
 };
 pub use index::{
     InMemoryIndexOutbox, IndexError, IndexMutation, IndexOutbox, KeywordIndex, SemanticIndex,

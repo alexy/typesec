@@ -15,6 +15,7 @@ mod outcome;
 mod prepare;
 mod prepared;
 mod recovery;
+mod source_scope;
 mod types;
 mod validate;
 

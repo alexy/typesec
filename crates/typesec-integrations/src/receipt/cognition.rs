@@ -17,6 +17,10 @@ pub struct CognitionCommitReceipt {
     pub resource: String,
     /// Durable cognition job identifier.
     pub job_id: String,
+    /// Exact TypeSec-verified external source scope, when cognition consumed
+    /// governed rather than explicitly local records.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub governed_source_scope: Option<String>,
     /// Digest of the verified TypeDID request envelope.
     pub typedid_request_digest: String,
     /// Digest of the exact inert proposal.
@@ -60,6 +64,7 @@ impl CognitionCommitReceipt {
             subject: subject.into(),
             resource: resource.into(),
             job_id: job_id.into(),
+            governed_source_scope: None,
             typedid_request_digest: String::new(),
             proposal_digest: String::new(),
             input_snapshot_digest: String::new(),

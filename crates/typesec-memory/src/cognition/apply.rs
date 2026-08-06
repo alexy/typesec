@@ -6,6 +6,7 @@ use super::digest::source_manifest;
 use super::identity::CognitionCommitIdentity;
 use super::outcome::{validate_commit_outcome, validate_preflight_outcome};
 use super::prepare::prepare_commit;
+use super::source_scope::validate_source_scope;
 use super::types::{
     CognitionApplyError, CognitionCommitOutcome, CognitionCommitStore, CognitionSourceManifest,
 };
@@ -15,6 +16,7 @@ use super::validate::{
 };
 use crate::CognitionProposal;
 use crate::error::MemoryError;
+use crate::governed::GovernedSourceScope;
 use crate::space::{MemoryId, MemorySpace};
 use crate::store::MemoryStore;
 use crate::vault::MemoryVault;
@@ -32,9 +34,40 @@ impl<S: MemoryStore> MemoryVault<S> {
         source_ids: &[MemoryId],
         context: &RequestContext,
     ) -> Result<CognitionSourceManifest, MemoryError> {
+        self.cognition_source_manifest_for_scope(space, capability, source_ids, context, None)
+    }
+
+    /// Compute a source manifest only when every record has the exact
+    /// governed scope supplied by the trusted composition layer.
+    pub fn governed_cognition_source_manifest(
+        &self,
+        space: &MemorySpace,
+        capability: &Capability<CanRead, MemorySpace>,
+        source_ids: &[MemoryId],
+        context: &RequestContext,
+        scope: &GovernedSourceScope,
+    ) -> Result<CognitionSourceManifest, MemoryError> {
+        self.cognition_source_manifest_for_scope(
+            space,
+            capability,
+            source_ids,
+            context,
+            Some(scope),
+        )
+    }
+
+    fn cognition_source_manifest_for_scope(
+        &self,
+        space: &MemorySpace,
+        capability: &Capability<CanRead, MemorySpace>,
+        source_ids: &[MemoryId],
+        context: &RequestContext,
+        scope: Option<&GovernedSourceScope>,
+    ) -> Result<CognitionSourceManifest, MemoryError> {
         self.authorize(space, capability, context)?;
         let purpose = required_purpose(context)?;
         let records = load_sources(self, space, source_ids, purpose, Utc::now())?;
+        validate_source_scope(&records, scope)?;
         source_manifest(&records).map_err(Into::into)
     }
 }
@@ -84,6 +117,7 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
 
         let now = Utc::now();
         let sources = load_sources(self, space, &proposal.source_ids, purpose, now)?;
+        validate_source_scope(&sources, binding.governed_source_scope.as_ref())?;
         let manifest = source_manifest(&sources)?;
         if manifest.digest != binding.source_manifest_digest
             || manifest.digest != proposal.source_digest

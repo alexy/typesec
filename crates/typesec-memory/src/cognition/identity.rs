@@ -10,7 +10,7 @@ use super::limits::proposal_output_count;
 use super::{
     CognitionApplyError, CognitionAuditEvidence, CognitionBinding, CognitionIdempotencyKey,
 };
-use crate::{CognitionProposal, ConsolidationStep, MemoryId, MemorySpace};
+use crate::{CognitionProposal, ConsolidationStep, GovernedSourceScope, MemoryId, MemorySpace};
 
 pub(super) const COGNITION_OUTPUT_ID_PREFIX: &str = "mem-cog-";
 pub(super) const COGNITION_OUTPUT_ID_BYTES: usize = COGNITION_OUTPUT_ID_PREFIX.len() + 64;
@@ -25,6 +25,7 @@ pub(super) struct CognitionCommitIdentity {
     subject: String,
     space_id: String,
     purpose: String,
+    governed_source_scope: Option<GovernedSourceScope>,
     source_manifest_digest: String,
     typedid_request_digest: String,
     governed_scan_digest: String,
@@ -54,6 +55,7 @@ impl CognitionCommitIdentity {
             subject: binding.subject.clone(),
             space_id: binding.space_id.clone(),
             purpose: binding.purpose.clone(),
+            governed_source_scope: binding.governed_source_scope.clone(),
             source_manifest_digest: binding.source_manifest_digest.clone(),
             typedid_request_digest: binding.typedid_request_digest.clone(),
             governed_scan_digest: binding.governed_scan_digest.clone(),
@@ -66,6 +68,7 @@ impl CognitionCommitIdentity {
             && audit.subject == self.subject
             && audit.space_id == self.space_id
             && audit.purpose == self.purpose
+            && audit.governed_source_scope == self.governed_source_scope
             && audit.proposal_digest == self.proposal_digest
             && audit.binding_digest == self.binding_digest
             && audit.source_manifest_digest == self.source_manifest_digest

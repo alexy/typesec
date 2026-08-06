@@ -1,0 +1,5 @@
+error[E0616]: field `governed_source_scope` of struct `StoredRecord` is private
+ --> tests/ui/cannot_set_governed_source_scope.rs:7:12
+  |
+7 |     record.governed_source_scope = Some(scope);
+  |            ^^^^^^^^^^^^^^^^^^^^^ private field
