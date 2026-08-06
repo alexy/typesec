@@ -5,6 +5,9 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Add the standalone Marciana project handoff covering ownership boundaries,
+  verified implementation, Ossie integration, publication assets, and next
+  work in ~/src/marciana.
 ### 2026-08-05
 
 - Added capability-gated candidate-ID recall for Marciana and other ranking
