@@ -174,6 +174,7 @@ pub struct Tombstone {
 /// A consolidation step: supersede a set of records with a summary, or just
 /// invalidate them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(clippy::large_enum_variant)] // Preserve the established by-value replacement API.
 pub enum ConsolidationStep {
     /// Invalidate `superseded` and write `replacement`. The replacement's
@@ -195,6 +196,7 @@ pub enum ConsolidationStep {
 /// A batch of consolidation steps applied atomically where the backend
 /// supports transactions (M4 Grust store).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConsolidationPlan {
     /// The steps to apply, in order.
     pub steps: Vec<ConsolidationStep>,

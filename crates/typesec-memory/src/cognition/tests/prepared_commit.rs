@@ -13,14 +13,14 @@ fn digest_is_canonical_repeatable_and_plaintext_opaque() {
     assert!(is_canonical_sha256(&digest));
     assert_eq!(
         digest,
-        "sha256:4743163a56fe521243764d45158b2e9459a279a6d70a9a5b42ae6d504ab0cd43"
+        "sha256:71a1f23ed5a142a99f349dc7a4063a0ec8d5965ca969506439aaf55e4c916ac6"
     );
     assert_eq!(digest, commit.canonical_digest().unwrap());
     assert_ne!(digest, commit.proposal_digest());
     assert!(!digest.contains("private source text"));
     assert!(!digest.contains("derived summary"));
 
-    assert_eq!(commit.idempotency_key().job_id, "job-42");
+    assert_eq!(commit.idempotency_key().job_id(), "job-42");
     assert_eq!(commit.proposal_digest(), commit.audit().proposal_digest);
     assert_eq!(commit.source_preconditions().len(), 1);
     assert!(!commit.operations().is_empty());
@@ -164,7 +164,12 @@ fn prepared_fixture(now: DateTime<Utc>) -> PreparedFixture {
         }),
     )
     .with_binding(binding.clone());
-    let proposal_digest = proposal.canonical_digest().expect("proposal digest");
+    super::super::validate::validate_proposal_for_application(&proposal)
+        .expect("valid cognition proposal");
+    let identity = super::super::identity::CognitionCommitIdentity::from_validated(
+        &space, &proposal, &binding,
+    )
+    .expect("commit identity");
     let commit = super::super::prepare::prepare_commit(
         &space,
         &proposal,
@@ -172,7 +177,7 @@ fn prepared_fixture(now: DateTime<Utc>) -> PreparedFixture {
         &authority_for(&binding),
         &sources,
         manifest.clone(),
-        proposal_digest,
+        &identity,
         now,
     )
     .expect("prepare cognition commit");

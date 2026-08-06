@@ -68,10 +68,13 @@ pub mod store;
 pub mod vault;
 
 pub use cognition::{
-    AuthorizedCognitionInput, CognitionApplyError, CognitionAuditEvidence,
+    AuthorizedCognitionInput, CognitionApplyError, CognitionAuditEvidence, CognitionAuthorityError,
     CognitionAuthorityEvidence, CognitionAuthorityVerifier, CognitionBinding, CognitionCommitError,
     CognitionCommitOutcome, CognitionCommitStatus, CognitionCommitStore, CognitionIdempotencyKey,
-    CognitionRecoveryError, CognitionSourceManifest, CognitionSourcePrecondition,
+    CognitionRecoveryError, CognitionSourceBudget, CognitionSourceManifest,
+    CognitionSourcePrecondition, MAX_COGNITION_ALGORITHM_BYTES, MAX_COGNITION_EVIDENCE_ITEMS,
+    MAX_COGNITION_IDENTITY_BYTES, MAX_COGNITION_MUTATIONS, MAX_COGNITION_PROJECTION_FIELDS,
+    MAX_COGNITION_PROPOSAL_BYTES, MAX_COGNITION_SOURCE_BYTES, MAX_COGNITION_SOURCE_COUNT,
     PreparedCognitionCommit,
 };
 pub use error::MemoryError;

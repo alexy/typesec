@@ -1,10 +1,10 @@
 //! Shared canonical text and digest validation for cognition identities.
 
-const MAX_IDENTITY_BYTES: usize = 4_096;
+use super::limits::MAX_COGNITION_IDENTITY_BYTES;
 
 pub(super) fn is_canonical_text(value: &str) -> bool {
     !value.is_empty()
-        && value.len() <= MAX_IDENTITY_BYTES
+        && value.len() <= MAX_COGNITION_IDENTITY_BYTES
         && value == value.trim()
         && !value.chars().any(char::is_control)
 }

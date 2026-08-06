@@ -30,6 +30,7 @@ use crate::cognition::CognitionBinding;
 /// through [`crate::MemoryVault::remember`] or
 /// [`crate::MemoryVault::consolidate`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CognitionProposal {
     /// Proposal schema version.
     pub schema_version: u32,

@@ -7,6 +7,11 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Hardened cognition application with authority-scoped opaque idempotency,
+  strict digest and algorithm binding, bounded inputs, lineage expansion, and
+  affected IDs, pre-parse bounded JSON ingress, sanitized authority failures,
+  recursive unknown-field rejection, and exact validation of authoritative
+  preflight and post-commit outcomes.
 - Hardened signed cognition commit receipts with checked validity-window
   construction, bounded canonical identities and affected-ID sets, strict
   lowercase SHA-256 evidence, and distinct opaque backend versions.

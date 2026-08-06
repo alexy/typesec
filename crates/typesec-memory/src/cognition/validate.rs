@@ -5,12 +5,14 @@ use typesec_core::policy::RequestContext;
 use typesec_core::{CanWrite, Capability, Resource};
 
 use super::canonical::is_canonical_text;
+use super::limits::{CognitionSourceBudget, MAX_COGNITION_SOURCE_COUNT, validate_proposal_budget};
 use super::types::{CognitionApplyError, CognitionAuthorityEvidence, CognitionBinding};
 use crate::CognitionProposal;
 use crate::error::MemoryError;
 use crate::record::StoredRecord;
 use crate::space::{MemoryId, MemorySpace};
 use crate::store::MemoryStore;
+use crate::vault::ConsolidationStep;
 use crate::vault::MemoryVault;
 use crate::vault::visibility::RecordVisibility;
 
@@ -25,6 +27,20 @@ pub(super) fn required_purpose(context: &RequestContext) -> Result<&str, Cogniti
 pub(super) fn validate_proposal_shape(
     proposal: &CognitionProposal,
 ) -> Result<(), CognitionApplyError> {
+    validate_proposal(proposal, false)
+}
+
+pub(super) fn validate_proposal_for_application(
+    proposal: &CognitionProposal,
+) -> Result<(), CognitionApplyError> {
+    validate_proposal(proposal, true)
+}
+
+fn validate_proposal(
+    proposal: &CognitionProposal,
+    require_mutation: bool,
+) -> Result<(), CognitionApplyError> {
+    validate_proposal_budget(proposal)?;
     if proposal.schema_version != CognitionProposal::SCHEMA_VERSION {
         return Err(CognitionApplyError::UnsupportedSchema(
             proposal.schema_version,
@@ -35,12 +51,13 @@ pub(super) fn validate_proposal_shape(
             "job id is not canonical".to_owned(),
         ));
     }
-    if proposal.algorithm.trim().is_empty() || proposal.algorithm_version.trim().is_empty() {
+    if !is_canonical_text(&proposal.algorithm) || !is_canonical_text(&proposal.algorithm_version) {
         return Err(CognitionApplyError::InvalidPlan(
-            "algorithm identity is empty".to_owned(),
+            "algorithm identity is not canonical".to_owned(),
         ));
     }
-    validate_source_ids(&proposal.source_ids)
+    validate_source_ids(&proposal.source_ids)?;
+    validate_mutation_plan(proposal, require_mutation)
 }
 
 pub(super) fn validate_request_binding(
@@ -71,6 +88,7 @@ pub(super) fn validate_request_binding(
 }
 
 pub(super) fn validate_authority(
+    proposal: &CognitionProposal,
     binding: &CognitionBinding,
     authority: &CognitionAuthorityEvidence,
 ) -> Result<(), CognitionApplyError> {
@@ -78,6 +96,12 @@ pub(super) fn validate_authority(
         ("space", binding.space_id == authority.space_id),
         ("subject", binding.subject == authority.subject),
         ("purpose", binding.purpose == authority.purpose),
+        ("job", proposal.job_id == authority.job_id),
+        ("algorithm", proposal.algorithm == authority.algorithm),
+        (
+            "algorithm version",
+            proposal.algorithm_version == authority.algorithm_version,
+        ),
         (
             "governed scan digest",
             binding.governed_scan_digest == authority.governed_scan_digest,
@@ -103,15 +127,29 @@ pub(super) fn validate_authority(
             return Err(CognitionApplyError::BindingMismatch(name));
         }
     }
+    if authority.effective_projection.len() != binding.effective_projection.len() {
+        return Err(CognitionApplyError::BindingMismatch("effective projection"));
+    }
+    if authority
+        .effective_projection
+        .iter()
+        .any(|field| !is_canonical_text(field))
+        || authority
+            .effective_projection
+            .iter()
+            .collect::<HashSet<_>>()
+            .len()
+            != authority.effective_projection.len()
+    {
+        return Err(CognitionApplyError::Authority);
+    }
     if canonical_projection(&binding.effective_projection)
         != canonical_projection(&authority.effective_projection)
     {
         return Err(CognitionApplyError::BindingMismatch("effective projection"));
     }
     if !is_canonical_text(&authority.policy_decision_id) {
-        return Err(CognitionApplyError::Authority(
-            "policy decision id is not canonical".to_owned(),
-        ));
+        return Err(CognitionApplyError::Authority);
     }
     Ok(())
 }
@@ -125,23 +163,24 @@ pub(super) fn load_sources<S: MemoryStore>(
 ) -> Result<Vec<StoredRecord>, MemoryError> {
     validate_source_ids(source_ids)?;
     let visibility = RecordVisibility::new(space.resource_id(), Some(purpose), now, now, false);
-    source_ids
-        .iter()
-        .map(|id| {
-            let record = vault
-                .fetch_in_space(space, id)
-                .map_err(|error| match error {
-                    MemoryError::NotFound(_) => CognitionApplyError::InvalidSource {
-                        id: id.clone(),
-                        reason: "missing or outside target space",
-                    }
-                    .into(),
-                    other => other,
-                })?;
-            validate_source(&record, &visibility)?;
-            Ok(record)
-        })
-        .collect()
+    let mut budget = CognitionSourceBudget::new();
+    let mut records = Vec::with_capacity(source_ids.len());
+    for id in source_ids {
+        let record = vault
+            .fetch_in_space(space, id)
+            .map_err(|error| match error {
+                MemoryError::NotFound(_) => CognitionApplyError::InvalidSource {
+                    id: id.clone(),
+                    reason: "missing or outside target space",
+                }
+                .into(),
+                other => other,
+            })?;
+        validate_source(&record, &visibility)?;
+        budget.try_add_record(&record)?;
+        records.push(record);
+    }
+    Ok(records)
 }
 
 fn canonical_projection(projection: &[String]) -> Vec<&str> {
@@ -151,6 +190,9 @@ fn canonical_projection(projection: &[String]) -> Vec<&str> {
 }
 
 fn validate_source_ids(source_ids: &[MemoryId]) -> Result<(), CognitionApplyError> {
+    if source_ids.len() > MAX_COGNITION_SOURCE_COUNT {
+        return Err(CognitionApplyError::LimitExceeded("source count"));
+    }
     if source_ids.is_empty() {
         return Err(CognitionApplyError::InvalidSourceSet(
             "at least one source is required".to_owned(),
@@ -165,6 +207,50 @@ fn validate_source_ids(source_ids: &[MemoryId]) -> Result<(), CognitionApplyErro
     if unique.len() != source_ids.len() {
         return Err(CognitionApplyError::InvalidSourceSet(
             "source ids contain duplicates".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_mutation_plan(
+    proposal: &CognitionProposal,
+    require_mutation: bool,
+) -> Result<(), CognitionApplyError> {
+    let source_set: HashSet<_> = proposal.source_ids.iter().collect();
+    let mut invalidated = HashSet::new();
+    for step in &proposal.plan.steps {
+        let ids = match step {
+            ConsolidationStep::Supersede { superseded, .. } => superseded,
+            ConsolidationStep::Invalidate { ids } => ids,
+        };
+        if ids.is_empty() {
+            return Err(CognitionApplyError::InvalidPlan(
+                "mutation step has no targets".to_owned(),
+            ));
+        }
+        for id in ids {
+            if !source_set.contains(id) {
+                return Err(CognitionApplyError::InvalidPlan(
+                    "mutation target is not a proposal source".to_owned(),
+                ));
+            }
+            if !invalidated.insert(id) {
+                return Err(CognitionApplyError::InvalidPlan(
+                    "mutation target appears more than once".to_owned(),
+                ));
+            }
+        }
+    }
+    let replacements = proposal
+        .plan
+        .steps
+        .iter()
+        .filter(|step| matches!(step, ConsolidationStep::Supersede { .. }))
+        .count();
+    if require_mutation && proposal.drafts.is_empty() && replacements == 0 && invalidated.is_empty()
+    {
+        return Err(CognitionApplyError::InvalidPlan(
+            "proposal has no mutations".to_owned(),
         ));
     }
     Ok(())

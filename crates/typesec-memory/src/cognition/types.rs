@@ -8,7 +8,8 @@ use crate::space::MemoryId;
 use crate::store::{MemoryStore, StoreError};
 
 use super::PreparedCognitionCommit;
-use super::canonical::is_canonical_text;
+use super::canonical::{is_canonical_sha256, is_canonical_text};
+use super::limits::validate_projection_count;
 
 /// Immutable authority and input evidence a cognition proposal must echo.
 ///
@@ -46,8 +47,14 @@ impl CognitionBinding {
             ("spaceId", self.space_id.as_str()),
             ("subject", self.subject.as_str()),
             ("purpose", self.purpose.as_str()),
-            ("governedScanDigest", self.governed_scan_digest.as_str()),
             ("snapshotDigest", self.snapshot_digest.as_str()),
+        ] {
+            if !is_canonical_text(value) {
+                return Err(CognitionApplyError::InvalidBinding(name.to_owned()));
+            }
+        }
+        for (name, value) in [
+            ("governedScanDigest", self.governed_scan_digest.as_str()),
             ("planTaskDigest", self.plan_task_digest.as_str()),
             (
                 "authorizationReceiptDigest",
@@ -56,10 +63,11 @@ impl CognitionBinding {
             ("sourceManifestDigest", self.source_manifest_digest.as_str()),
             ("typedidRequestDigest", self.typedid_request_digest.as_str()),
         ] {
-            if !is_canonical_text(value) {
+            if !is_canonical_sha256(value) {
                 return Err(CognitionApplyError::InvalidBinding(name.to_owned()));
             }
         }
+        validate_projection_count(self.effective_projection.len())?;
         if self.effective_projection.is_empty()
             || self
                 .effective_projection
@@ -91,6 +99,12 @@ pub struct CognitionAuthorityEvidence {
     pub subject: String,
     /// Currently authorized purpose.
     pub purpose: String,
+    /// Durable job identity resolved from the verified request.
+    pub job_id: String,
+    /// Cognition algorithm identity resolved from trusted intent.
+    pub algorithm: String,
+    /// Cognition algorithm version resolved from trusted intent.
+    pub algorithm_version: String,
     /// Current governed-scan proof digest.
     pub governed_scan_digest: String,
     /// Current immutable snapshot digest or identity.
@@ -119,7 +133,19 @@ pub trait CognitionAuthorityVerifier: Send + Sync {
         &self,
         binding: &CognitionBinding,
         context: &RequestContext,
-    ) -> Result<CognitionAuthorityEvidence, CognitionApplyError>;
+    ) -> Result<CognitionAuthorityEvidence, CognitionAuthorityError>;
+}
+
+/// Opaque failure from a trusted cognition authority adapter.
+///
+/// Adapter implementations must retain detailed backend causes only in
+/// protected diagnostics. This fixed error cannot expose LakeCat or TypeDID
+/// response text through the public cognition boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum CognitionAuthorityError {
+    /// Current authority evidence could not be resolved safely.
+    #[error("cognition authority evidence is unavailable")]
+    Unavailable,
 }
 
 /// One exact source revision used as an atomic commit precondition.
@@ -157,9 +183,64 @@ pub struct CognitionSourceManifest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CognitionIdempotencyKey {
     /// Exact target memory space.
-    pub space_id: String,
+    space_id: String,
+    /// Domain-separated digest of the verified subject and purpose.
+    authority_scope_digest: String,
     /// Caller/scheduler-assigned durable job id.
-    pub job_id: String,
+    job_id: String,
+}
+
+impl CognitionIdempotencyKey {
+    /// Construct a canonical key scoped to verified authority without retaining
+    /// the raw subject or purpose in scheduler and graph identifiers.
+    pub fn for_authority(
+        space_id: &str,
+        subject: &str,
+        purpose: &str,
+        job_id: &str,
+    ) -> Result<Self, CognitionApplyError> {
+        if [space_id, subject, purpose, job_id]
+            .into_iter()
+            .any(|value| !is_canonical_text(value))
+        {
+            return Err(CognitionApplyError::InvalidBinding(
+                "idempotencyKey".to_owned(),
+            ));
+        }
+        Ok(Self {
+            space_id: space_id.to_owned(),
+            authority_scope_digest: super::digest::authority_scope_digest(subject, purpose)?,
+            job_id: job_id.to_owned(),
+        })
+    }
+
+    /// Exact target memory space.
+    pub fn space_id(&self) -> &str {
+        &self.space_id
+    }
+
+    /// Opaque verified subject-and-purpose scope.
+    pub fn authority_scope_digest(&self) -> &str {
+        &self.authority_scope_digest
+    }
+
+    /// Caller/scheduler-assigned durable job id.
+    pub fn job_id(&self) -> &str {
+        &self.job_id
+    }
+
+    /// Validate a deserialized key before it is used by a trusted backend.
+    pub fn validate(&self) -> Result<(), CognitionApplyError> {
+        if !is_canonical_text(&self.space_id)
+            || !is_canonical_sha256(&self.authority_scope_digest)
+            || !is_canonical_text(&self.job_id)
+        {
+            return Err(CognitionApplyError::InvalidBinding(
+                "idempotencyKey".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Plaintext-free durable evidence committed beside a cognition mutation.
@@ -239,6 +320,9 @@ pub enum CognitionCommitError {
     /// The job id was already used for different proposal bytes.
     #[error("cognition idempotency key already belongs to another proposal")]
     IdempotencyConflict,
+    /// A backend returned an outcome that does not match the prepared request.
+    #[error("cognition backend returned an invalid commit outcome")]
+    InvalidOutcome,
     /// The authoritative backend failed.
     #[error(transparent)]
     Store(#[from] StoreError),
@@ -321,10 +405,13 @@ pub enum CognitionApplyError {
     /// The proposed mutation is empty or references invalid targets.
     #[error("invalid cognition plan: {0}")]
     InvalidPlan(String),
+    /// A fixed cognition safety budget was exceeded.
+    #[error("cognition safety limit exceeded: {0}")]
+    LimitExceeded(&'static str),
     /// Canonical serialization failed.
     #[error("cognition canonicalization failed: {0}")]
     Serialization(String),
     /// A trusted authority adapter denied or could not revalidate the binding.
-    #[error("cognition authority revalidation failed: {0}")]
-    Authority(String),
+    #[error("cognition authority revalidation failed")]
+    Authority,
 }

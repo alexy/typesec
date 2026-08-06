@@ -83,3 +83,25 @@ fn cognition_proposal_records_snapshot_and_stays_inert() {
     assert_eq!(proposal.drafts.len(), 1);
     assert!(proposal.plan.steps.is_empty());
 }
+
+#[test]
+fn cognition_proposal_rejects_unknown_wire_fields() {
+    let mut value = serde_json::to_value(CognitionProposal::new(
+        "job-1",
+        "snapshot-42",
+        "sha256:sources",
+        "community-summary",
+        "model-v3",
+        vec![MemoryId::from_string("mem-source")],
+        Label::Internal,
+    ))
+    .expect("proposal JSON");
+    value
+        .as_object_mut()
+        .expect("proposal object")
+        .insert("authorizationOverride".into(), serde_json::json!(true));
+
+    assert!(serde_json::from_value::<CognitionProposal>(value).is_err());
+}
+
+mod wire_hardening;

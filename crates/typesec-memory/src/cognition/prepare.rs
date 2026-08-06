@@ -1,14 +1,16 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use sha2::{Digest, Sha256};
-use typesec_core::Resource;
 
 use super::PreparedCognitionCommit;
-use super::digest::{binding_digest, evidence_digest};
+use super::identity::{CognitionCommitIdentity, deterministic_output_id};
+use super::limits::{
+    MAX_COGNITION_MUTATIONS, proposal_output_count, validate_affected_id_budget,
+    validate_prepared_expansion,
+};
 use super::types::{
     CognitionApplyError, CognitionAuditEvidence, CognitionAuthorityEvidence, CognitionBinding,
-    CognitionIdempotencyKey, CognitionSourceManifest,
+    CognitionSourceManifest,
 };
 use crate::CognitionProposal;
 use crate::index::IndexMutation;
@@ -25,28 +27,38 @@ pub(super) fn prepare_commit(
     authority: &CognitionAuthorityEvidence,
     sources: &[StoredRecord],
     manifest: CognitionSourceManifest,
-    proposal_digest: String,
+    identity: &CognitionCommitIdentity,
     now: DateTime<Utc>,
 ) -> Result<PreparedCognitionCommit, CognitionApplyError> {
+    let output_count = proposal_output_count(proposal)?;
+    validate_prepared_expansion(proposal, output_count)?;
     let mut builder = CommitBuilder::new(
         space,
         proposal,
         binding,
+        output_count,
         sources,
         manifest.joined_label,
-        &proposal_digest,
+        &identity.proposal_digest,
         now,
     );
     builder.add_drafts();
-    builder.add_plan()?;
-    let parts = builder.finish()?;
+    builder.add_plan();
+    let parts = builder.finish();
+    validate_affected_id_budget(&parts.affected_ids)?;
+    if parts.affected_ids != identity.expected_affected_ids
+        || parts.operations.len() != parts.affected_ids.len()
+        || parts.index_outbox.len() != parts.affected_ids.len()
+        || parts.affected_ids.len() > MAX_COGNITION_MUTATIONS
+    {
+        return Err(CognitionApplyError::InvalidPlan(
+            "prepared mutation identity drift".to_owned(),
+        ));
+    }
 
     Ok(PreparedCognitionCommit::new(
-        CognitionIdempotencyKey {
-            space_id: binding.space_id.clone(),
-            job_id: proposal.job_id.clone(),
-        },
-        proposal_digest.clone(),
+        identity.key.clone(),
+        identity.proposal_digest.clone(),
         manifest.sources,
         parts.operations,
         parts.index_outbox,
@@ -55,14 +67,14 @@ pub(super) fn prepare_commit(
             subject: binding.subject.clone(),
             space_id: binding.space_id.clone(),
             purpose: binding.purpose.clone(),
-            proposal_digest,
-            binding_digest: binding_digest(binding)?,
+            proposal_digest: identity.proposal_digest.clone(),
+            binding_digest: identity.binding_digest.clone(),
             source_manifest_digest: binding.source_manifest_digest.clone(),
             typedid_request_digest: binding.typedid_request_digest.clone(),
             governed_scan_digest: binding.governed_scan_digest.clone(),
             authorization_receipt_digest: binding.authorization_receipt_digest.clone(),
             policy_decision_id: authority.policy_decision_id.clone(),
-            evidence_digest: evidence_digest(&proposal.evidence)?,
+            evidence_digest: identity.evidence_digest.clone(),
             affected_ids: parts.affected_ids,
             prepared_at: now,
         },
@@ -75,8 +87,8 @@ struct CommitBuilder<'a> {
     binding: &'a CognitionBinding,
     label_floor: crate::Label,
     retention_ceiling: Option<DateTime<Utc>>,
+    canonical_source_ids: Vec<MemoryId>,
     proposal_digest: &'a str,
-    invalidated: HashSet<MemoryId>,
     operations: Vec<StoreBatchOp>,
     index_outbox: BTreeMap<MemoryId, IndexMutation>,
     affected: BTreeSet<MemoryId>,
@@ -96,19 +108,26 @@ impl<'a> CommitBuilder<'a> {
         space: &'a MemorySpace,
         proposal: &'a CognitionProposal,
         binding: &'a CognitionBinding,
+        output_count: usize,
         sources: &[StoredRecord],
         label_floor: crate::Label,
         proposal_digest: &'a str,
         prepared_at: DateTime<Utc>,
     ) -> Self {
+        let mut canonical_source_ids = if output_count == 0 {
+            Vec::new()
+        } else {
+            proposal.source_ids.clone()
+        };
+        canonical_source_ids.sort();
         Self {
             space,
             proposal,
             binding,
             label_floor,
             retention_ceiling: sources.iter().filter_map(|record| record.expires_at).min(),
+            canonical_source_ids,
             proposal_digest,
-            invalidated: HashSet::new(),
             operations: Vec::new(),
             index_outbox: BTreeMap::new(),
             affected: BTreeSet::new(),
@@ -123,46 +142,25 @@ impl<'a> CommitBuilder<'a> {
         }
     }
 
-    fn add_plan(&mut self) -> Result<(), CognitionApplyError> {
-        let source_set: HashSet<_> = self.proposal.source_ids.iter().cloned().collect();
+    fn add_plan(&mut self) {
         for step in &self.proposal.plan.steps {
             match step {
                 ConsolidationStep::Invalidate { ids } => {
-                    self.add_invalidations(ids, &source_set)?;
+                    self.add_invalidations(ids);
                 }
                 ConsolidationStep::Supersede {
                     superseded,
                     replacement,
                 } => {
-                    self.add_invalidations(superseded, &source_set)?;
+                    self.add_invalidations(superseded);
                     self.add_record(replacement.clone());
                 }
             }
         }
-        Ok(())
     }
 
-    fn add_invalidations(
-        &mut self,
-        ids: &[MemoryId],
-        source_set: &HashSet<MemoryId>,
-    ) -> Result<(), CognitionApplyError> {
-        if ids.is_empty() {
-            return Err(CognitionApplyError::InvalidPlan(
-                "mutation step has no targets".to_owned(),
-            ));
-        }
+    fn add_invalidations(&mut self, ids: &[MemoryId]) {
         for id in ids {
-            if !source_set.contains(id) {
-                return Err(CognitionApplyError::InvalidPlan(format!(
-                    "target '{id}' is not a proposal source"
-                )));
-            }
-            if !self.invalidated.insert(id.clone()) {
-                return Err(CognitionApplyError::InvalidPlan(format!(
-                    "target '{id}' appears more than once"
-                )));
-            }
             self.operations.push(StoreBatchOp::Invalidate {
                 id: id.clone(),
                 at: self.prepared_at,
@@ -171,7 +169,6 @@ impl<'a> CommitBuilder<'a> {
                 .insert(id.clone(), IndexMutation::Remove(id.clone()));
             self.affected.insert(id.clone());
         }
-        Ok(())
     }
 
     fn add_record(&mut self, draft: MemoryDraft) {
@@ -182,8 +179,13 @@ impl<'a> CommitBuilder<'a> {
             self.output_ordinal,
         );
         self.output_ordinal += 1;
-        let draft =
-            secure_derived_draft(draft, self.proposal, self.binding, self.retention_ceiling);
+        let draft = secure_derived_draft(
+            draft,
+            self.proposal,
+            self.binding,
+            &self.canonical_source_ids,
+            self.retention_ceiling,
+        );
         let record = build_record_with_id_at(
             self.space,
             draft,
@@ -197,17 +199,12 @@ impl<'a> CommitBuilder<'a> {
         self.affected.insert(id);
     }
 
-    fn finish(self) -> Result<CommitParts, CognitionApplyError> {
-        if self.operations.is_empty() {
-            return Err(CognitionApplyError::InvalidPlan(
-                "proposal has no mutations".to_owned(),
-            ));
-        }
-        Ok(CommitParts {
+    fn finish(self) -> CommitParts {
+        CommitParts {
             operations: self.operations,
             index_outbox: self.index_outbox.into_values().collect(),
             affected_ids: self.affected.into_iter().collect(),
-        })
+        }
     }
 }
 
@@ -215,13 +212,12 @@ fn secure_derived_draft(
     mut draft: MemoryDraft,
     proposal: &CognitionProposal,
     binding: &CognitionBinding,
+    canonical_source_ids: &[MemoryId],
     retention_ceiling: Option<DateTime<Utc>>,
 ) -> MemoryDraft {
-    let mut source_ids = proposal.source_ids.clone();
-    source_ids.sort();
     draft.provenance = Provenance::Cognition {
         job_id: proposal.job_id.clone(),
-        source_ids,
+        source_ids: canonical_source_ids.to_vec(),
         source_digest: proposal.source_digest.clone(),
         algorithm: proposal.algorithm.clone(),
         algorithm_version: proposal.algorithm_version.clone(),
@@ -235,24 +231,4 @@ fn secure_derived_draft(
         );
     }
     draft
-}
-
-fn deterministic_output_id(
-    space: &MemorySpace,
-    proposal: &CognitionProposal,
-    proposal_digest: &str,
-    ordinal: u64,
-) -> MemoryId {
-    let mut digest = Sha256::new();
-    digest.update(b"typesec.marciana.output-id.v1\0");
-    for field in [
-        space.resource_id(),
-        proposal.job_id.as_str(),
-        proposal_digest,
-    ] {
-        digest.update((field.len() as u64).to_be_bytes());
-        digest.update(field.as_bytes());
-    }
-    digest.update(ordinal.to_be_bytes());
-    MemoryId::from_string(format!("mem-cog-{:x}", digest.finalize()))
 }

@@ -7,11 +7,12 @@ use sha2::{Digest, Sha256};
 use typesec_core::policy::{MintOptions, RequestContext, mint_capability_for_id};
 use typesec_core::{CanRead, CanWrite, Capability, Resource};
 use typesec_memory::{
-    CognitionApplyError, CognitionAuthorityEvidence, CognitionAuthorityVerifier, CognitionBinding,
-    CognitionCommitError, CognitionCommitOutcome, CognitionCommitStatus, CognitionCommitStore,
-    CognitionIdempotencyKey, CognitionProposal, CognitionSourcePrecondition, ConsolidationPlan,
-    ConsolidationStep, Label, MemoryError, MemoryId, MemoryKind, MemorySpace, MemoryStore,
-    MemoryVault, PreparedCognitionCommit, StoreBatchOp, StoreError, StoreQuery, StoredRecord,
+    CognitionAuthorityError, CognitionAuthorityEvidence, CognitionAuthorityVerifier,
+    CognitionBinding, CognitionCommitError, CognitionCommitOutcome, CognitionCommitStatus,
+    CognitionCommitStore, CognitionIdempotencyKey, CognitionProposal, CognitionSourcePrecondition,
+    ConsolidationPlan, ConsolidationStep, Label, MemoryError, MemoryId, MemoryKind, MemorySpace,
+    MemoryStore, MemoryVault, PreparedCognitionCommit, StoreBatchOp, StoreError, StoreQuery,
+    StoredRecord,
 };
 use typesec_odrl::OdrlEngine;
 
@@ -229,13 +230,13 @@ impl CognitionAuthorityVerifier for CountingAuthority {
         &self,
         _binding: &CognitionBinding,
         _context: &RequestContext,
-    ) -> Result<CognitionAuthorityEvidence, CognitionApplyError> {
+    ) -> Result<CognitionAuthorityEvidence, CognitionAuthorityError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         self.evidence
             .lock()
             .expect("authority evidence lock")
             .clone()
-            .ok_or_else(|| CognitionApplyError::Authority("fixture unavailable".into()))
+            .ok_or(CognitionAuthorityError::Unavailable)
     }
 }
 
@@ -283,10 +284,9 @@ impl Fixture {
         drop(lost_response);
         drop(proposal);
 
-        let key = CognitionIdempotencyKey {
-            space_id: space.resource_id().to_owned(),
-            job_id: JOB_ID.into(),
-        };
+        let key =
+            CognitionIdempotencyKey::for_authority(space.resource_id(), SUBJECT, PURPOSE, JOB_ID)
+                .expect("scoped cognition key");
         Self {
             store,
             policy,
@@ -429,6 +429,9 @@ fn authority_for(binding: &CognitionBinding) -> CognitionAuthorityEvidence {
         space_id: binding.space_id.clone(),
         subject: binding.subject.clone(),
         purpose: binding.purpose.clone(),
+        job_id: JOB_ID.into(),
+        algorithm: "marciana.test".into(),
+        algorithm_version: "1".into(),
         governed_scan_digest: binding.governed_scan_digest.clone(),
         snapshot_digest: binding.snapshot_digest.clone(),
         plan_task_digest: binding.plan_task_digest.clone(),

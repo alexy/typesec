@@ -16,7 +16,8 @@ const MANIFEST_DOMAIN: &[u8] = b"typesec.marciana.source-manifest.v1\0";
 const BINDING_DOMAIN: &[u8] = b"typesec.marciana.binding.v1\0";
 const PROPOSAL_DOMAIN: &[u8] = b"typesec.marciana.proposal.v1\0";
 const EVIDENCE_DOMAIN: &[u8] = b"typesec.marciana.evidence.v1\0";
-const PREPARED_COMMIT_DOMAIN: &[u8] = b"typesec.marciana.prepared-commit.v1\0";
+const PREPARED_COMMIT_DOMAIN: &[u8] = b"typesec.marciana.prepared-commit.v2\0";
+const AUTHORITY_SCOPE_DOMAIN: &[u8] = b"typesec.marciana.authority-scope.v1\0";
 
 fn tagged_serialized_digest<T: Serialize + ?Sized>(
     domain: &[u8],
@@ -90,6 +91,23 @@ pub(super) fn proposal_digest(proposal: &CognitionProposal) -> Result<String, Co
 
 pub(super) fn evidence_digest(evidence: &[String]) -> Result<String, CognitionApplyError> {
     tagged_serialized_digest(EVIDENCE_DOMAIN, evidence)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CanonicalAuthorityScope<'a> {
+    subject: &'a str,
+    purpose: &'a str,
+}
+
+pub(super) fn authority_scope_digest(
+    subject: &str,
+    purpose: &str,
+) -> Result<String, CognitionApplyError> {
+    tagged_serialized_digest(
+        AUTHORITY_SCOPE_DOMAIN,
+        &CanonicalAuthorityScope { subject, purpose },
+    )
 }
 
 #[derive(Serialize)]

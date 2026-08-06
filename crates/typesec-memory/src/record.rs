@@ -14,6 +14,7 @@ use crate::space::{MemoryId, MemoryKind};
 
 /// The payload of a memory: text plus optional structured attributes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MemoryContent {
     /// The natural-language statement of the memory.
     pub text: String,
@@ -34,6 +35,7 @@ impl MemoryContent {
 
 /// A named entity a record refers to (a hook into the knowledge graph).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EntityRef {
     /// Canonical entity name.
     pub name: String,
@@ -54,7 +56,7 @@ impl EntityRef {
 /// Where a memory came from — the primary input to its birth label and to
 /// whether it is quarantined against memory poisoning.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "source", rename_all = "snake_case")]
+#[serde(tag = "source", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Provenance {
     /// A verified TypeDID envelope (signature + replay checks passed).
     Envelope {
@@ -113,6 +115,7 @@ impl Provenance {
 /// A request to remember something. Temporal and label fields have safe
 /// defaults; provenance is required because it drives security posture.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MemoryDraft {
     pub(crate) kind: MemoryKind,
     pub(crate) content: MemoryContent,

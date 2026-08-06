@@ -5,12 +5,12 @@ use typesec_core::policy::RequestContext;
 use typesec_core::{CanWrite, Capability, Resource};
 
 use super::canonical::{is_canonical_sha256, is_canonical_text};
+use super::outcome::validate_shape;
 use super::{
-    CognitionAuditEvidence, CognitionCommitOutcome, CognitionCommitStatus, CognitionCommitStore,
-    CognitionIdempotencyKey,
+    CognitionCommitOutcome, CognitionCommitStatus, CognitionCommitStore, CognitionIdempotencyKey,
 };
 use crate::error::MemoryError;
-use crate::space::{MemoryId, MemorySpace};
+use crate::space::MemorySpace;
 use crate::vault::{MemoryVault, audit};
 
 /// An immutable completed cognition outcome could not be disclosed safely.
@@ -58,10 +58,13 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         let purpose = validate_request(space, capability, job_id, proposal_digest, context)?;
         self.authorize(space, capability, context)?;
 
-        let key = CognitionIdempotencyKey {
-            space_id: space.resource_id().to_owned(),
-            job_id: job_id.to_owned(),
-        };
+        let key = CognitionIdempotencyKey::for_authority(
+            space.resource_id(),
+            capability.subject().as_str(),
+            purpose,
+            job_id,
+        )
+        .map_err(|_| CognitionRecoveryError::InvalidRequest)?;
         let outcome = match self.store().recover_cognition(&key, proposal_digest) {
             Ok(Some(outcome)) => outcome,
             Ok(None) | Err(_) => return Err(CognitionRecoveryError::Unavailable.into()),
@@ -123,41 +126,9 @@ fn validate_outcome(
         || audit.proposal_digest != proposal_digest
         || audit.subject != capability.subject().as_str()
         || audit.purpose != purpose
-        || outcome.affected_ids != audit.affected_ids
-        || !canonical_affected_ids(&outcome.affected_ids)
-        || !canonical_outcome_identity(outcome)
-        || !canonical_audit(audit)
-        || outcome.committed_at < audit.prepared_at
+        || !validate_shape(outcome)
     {
         return Err(());
     }
     Ok(())
-}
-
-fn canonical_outcome_identity(outcome: &CognitionCommitOutcome) -> bool {
-    is_canonical_text(&outcome.backend_commit_hash)
-        && is_canonical_text(&outcome.prior_version)
-        && is_canonical_text(&outcome.resulting_version)
-        && outcome.prior_version != outcome.resulting_version
-}
-
-fn canonical_audit(audit: &CognitionAuditEvidence) -> bool {
-    is_canonical_text(&audit.policy_decision_id)
-        && [
-            audit.proposal_digest.as_str(),
-            audit.binding_digest.as_str(),
-            audit.source_manifest_digest.as_str(),
-            audit.typedid_request_digest.as_str(),
-            audit.governed_scan_digest.as_str(),
-            audit.authorization_receipt_digest.as_str(),
-            audit.evidence_digest.as_str(),
-        ]
-        .into_iter()
-        .all(is_canonical_sha256)
-}
-
-fn canonical_affected_ids(ids: &[MemoryId]) -> bool {
-    !ids.is_empty()
-        && ids.iter().all(|id| is_canonical_text(id.as_str()))
-        && ids.windows(2).all(|pair| pair[0] < pair[1])
 }

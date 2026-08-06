@@ -2,14 +2,15 @@ use chrono::Utc;
 use typesec_core::policy::RequestContext;
 use typesec_core::{CanRead, CanWrite, Capability};
 
-use super::digest::{proposal_digest, source_manifest};
+use super::digest::source_manifest;
+use super::identity::CognitionCommitIdentity;
+use super::outcome::{validate_commit_outcome, validate_preflight_outcome};
 use super::prepare::prepare_commit;
 use super::types::{
-    CognitionApplyError, CognitionCommitOutcome, CognitionCommitStore, CognitionIdempotencyKey,
-    CognitionSourceManifest,
+    CognitionApplyError, CognitionCommitOutcome, CognitionCommitStore, CognitionSourceManifest,
 };
 use super::validate::{
-    load_sources, required_purpose, validate_authority, validate_proposal_shape,
+    load_sources, required_purpose, validate_authority, validate_proposal_for_application,
     validate_request_binding,
 };
 use crate::CognitionProposal;
@@ -57,7 +58,7 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         let verifier = self
             .cognition_authority()
             .ok_or(CognitionApplyError::AuthorityVerifierUnavailable)?;
-        validate_proposal_shape(proposal)?;
+        validate_proposal_for_application(proposal)?;
         let binding = proposal
             .binding
             .as_ref()
@@ -67,18 +68,17 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         let purpose = required_purpose(context)?;
         validate_request_binding(space, capability, proposal, binding, purpose)?;
         self.authorize(space, capability, context)?;
-        let authority = verifier.revalidate(binding, context)?;
-        validate_authority(binding, &authority)?;
+        let authority = verifier
+            .revalidate(binding, context)
+            .map_err(|_| CognitionApplyError::Authority)?;
+        validate_authority(proposal, binding, &authority)?;
 
-        let proposal_digest = proposal_digest(proposal)?;
-        let idempotency_key = CognitionIdempotencyKey {
-            space_id: binding.space_id.clone(),
-            job_id: proposal.job_id.clone(),
-        };
+        let identity = CognitionCommitIdentity::from_validated(space, proposal, binding)?;
         if let Some(recovered) = self
             .store()
-            .recover_cognition(&idempotency_key, &proposal_digest)?
+            .recover_cognition(&identity.key, &identity.proposal_digest)?
         {
+            validate_preflight_outcome(&recovered, &identity)?;
             return Ok(recovered);
         }
 
@@ -95,15 +95,11 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         }
 
         let prepared = prepare_commit(
-            space,
-            proposal,
-            binding,
-            &authority,
-            &sources,
-            manifest,
-            proposal_digest,
-            now,
+            space, proposal, binding, &authority, &sources, manifest, &identity, now,
         )?;
-        self.store().commit_cognition(prepared).map_err(Into::into)
+        let prepared_audit = prepared.audit().clone();
+        let outcome = self.store().commit_cognition(prepared)?;
+        validate_commit_outcome(&outcome, &identity, &prepared_audit)?;
+        Ok(outcome)
     }
 }
