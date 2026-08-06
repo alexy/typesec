@@ -291,12 +291,27 @@ native algorithm and version, governed scan, immutable snapshot,
 effective projection, source manifest, verified TypeDID request,
 subject, and purpose. Its durable idempotency identity contains only the
 space, job, and an opaque digest of the authority scope. Fixed budgets
-cover proposal bytes, source records, projections, mutations, cloned
-lineage, evidence, and affected IDs, and the vault accepts only a
-backend outcome that exactly matches its prepared commit. Signed commit
-receipts apply the same canonical and bounded treatment to the evidence
-they expose. These are TypeSec security rules; they do not introduce a
-Cognee runtime, store, adapter, or wire-compatibility surface.</p>
+cover proposal bytes, source records and source IDs, projections,
+mutations, cloned lineage, evidence, and affected IDs. An
+<code>Applied</code> backend outcome must carry the exact audit the
+vault just prepared. An <code>AlreadyApplied</code> outcome instead
+discloses an immutable historical commit: its canonical shape,
+authority-scoped identity, proposal, binding, source, TypeDID,
+governed-scan, authorization, evidence, and affected IDs must match,
+while historical preparation time and policy-decision evidence remain
+those committed by the original transaction. Signed commit receipts
+apply the same canonical and bounded treatment to the evidence they
+expose. These are TypeSec security rules; they do not introduce a Cognee
+runtime, store, adapter, or wire-compatibility surface.</p>
+<p>Strict cognition decoding is also a schema boundary, not an
+invitation to discard data. Recursive unknown-field rejection reaches
+shared nested domain types such as memory drafts, content, entities, and
+provenance, which may also appear in stored or cross-service documents.
+Before deploying the stricter decoder over older data, inventory and
+validate those documents, transform any extra fields through an explicit
+versioned migration, and only then advance readers and writers together.
+Future intentional fields require a schema version and migration; they
+must not depend on an older reader silently ignoring them.</p>
 <h2 data-number="9.5" id="the-guarded-agent-surface"><span
 class="header-section-number">9.5</span> The guarded agent surface</h2>
 <p>Marciana memory operations are normal protected tools:</p>
