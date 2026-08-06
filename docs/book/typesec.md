@@ -1341,6 +1341,20 @@ validated historical evidence without reconstructing a proposal, rerunning
 mutation authority, or applying a second write. Lookup absence, conflicts,
 corruption, and adapter failures deliberately share one unavailable result.
 
+That boundary is deliberately narrow and bounded. Network and model-produced
+JSON enters through `CognitionProposal::from_json_slice`, which rejects an
+oversized body before parsing; proposal and nested cognition types reject
+unknown fields. Application independently resolves the exact job, native
+algorithm and version, governed scan, immutable snapshot, effective
+projection, source manifest, verified TypeDID request, subject, and purpose.
+Its durable idempotency identity contains only the space, job, and an opaque
+digest of the authority scope. Fixed budgets cover proposal bytes, source
+records, projections, mutations, cloned lineage, evidence, and affected IDs,
+and the vault accepts only a backend outcome that exactly matches its prepared
+commit. Signed commit receipts apply the same canonical and bounded treatment
+to the evidence they expose. These are TypeSec security rules; they do not
+introduce a Cognee runtime, store, adapter, or wire-compatibility surface.
+
 ## The guarded agent surface
 
 Marciana memory operations are normal protected tools:

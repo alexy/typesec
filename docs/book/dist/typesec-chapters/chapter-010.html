@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-08-05" />
+  <meta name="dcterms.date" content="2026-08-06" />
   <title>typesec-memory — Marciana</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -135,10 +135,12 @@ subsystem is named <strong>Marciana</strong>, after Venice’s Biblioteca
 Marciana: a library understood not as a pile of text, but as an
 institution for provenance, custody, classification, access, and
 stewardship. Its security core lives in the <code>typesec-memory</code>
-crate. The durable QueryGraph adapter lives on Grust, the authenticated
-service lives in <code>qg-rust</code>, and the agent ergonomics live in
-qg-python. That division keeps authority, persistence, transport, and
-framework integration in their proper homes.</p>
+crate. The realized v1 adapter lives in Grust and the authenticated edge
+in qg-rust. The accepted extraction moves the memory-specific adapter
+and reusable service assembly into standalone Marciana; qg-rust and
+qg-python remain consumers. That division keeps authority, persistence,
+product composition, transport, and framework integration in their
+proper homes.</p>
 <h2 data-number="9.1" id="memory-is-a-resource"><span
 class="header-section-number">9.1</span> Memory is a resource</h2>
 <p>Every memory space implements the ordinary Typesec
@@ -246,9 +248,10 @@ belief beside its successor without being returned as current truth.
 Explicit forgetting is the separate destructive path.</p>
 <p>The in-tree <code>InMemoryStore</code> makes the contract easy to
 test and embed. The feature-gated <code>GrustMemoryStore</code> adds
-entity relationships and neighborhood recall. QueryGraph’s
-<code>querygraph-memory</code> adapter carries the same
-<code>MemoryStore</code> contract to persistent Turso/libSQL-backed
+entity relationships and neighborhood recall. The v1
+<code>querygraph-memory</code> adapter, currently located in Grust and
+used as the behavior-preserving Marciana extraction source, carries the
+same <code>MemoryStore</code> contract to persistent Turso/libSQL-backed
 Grust universal tables. In every case, the graph or semantic index
 returns candidate record identifiers; the vault decides whether content
 can be revealed. Retrieval can narrow and rank a candidate set, but it
@@ -266,10 +269,34 @@ analytics produce <code>MemoryDraft</code>s and
 The deterministic <code>RuleExtractor</code> and local-model
 <code>OllamaExtractor</code> demonstrate that raw model output remains
 an untrusted proposal until authorized code sends it through
-<code>remember</code> or <code>consolidate</code>. QueryGraph’s
+<code>remember</code> or <code>consolidate</code>. The v1 adapter’s
 reference analytics are also <strong>plan producers only</strong>.
-Distributed Sail cognition is post-v1 work and must preserve that
-inert-plan boundary.</p>
+Distributed cognition must preserve that inert proposal boundary:
+<code>MemoryVault::apply_cognition</code> freshly authorizes and
+validates the proposal before handing an opaque prepared commit to the
+trusted store transaction. If the transaction committed but its reply
+was lost, <code>recover_cognition_outcome</code> accepts only the exact
+job and proposal digest, checks a current <code>CanWrite</code>
+capability and policy before lookup, and discloses validated historical
+evidence without reconstructing a proposal, rerunning mutation
+authority, or applying a second write. Lookup absence, conflicts,
+corruption, and adapter failures deliberately share one unavailable
+result.</p>
+<p>That boundary is deliberately narrow and bounded. Network and
+model-produced JSON enters through
+<code>CognitionProposal::from_json_slice</code>, which rejects an
+oversized body before parsing; proposal and nested cognition types
+reject unknown fields. Application independently resolves the exact job,
+native algorithm and version, governed scan, immutable snapshot,
+effective projection, source manifest, verified TypeDID request,
+subject, and purpose. Its durable idempotency identity contains only the
+space, job, and an opaque digest of the authority scope. Fixed budgets
+cover proposal bytes, source records, projections, mutations, cloned
+lineage, evidence, and affected IDs, and the vault accepts only a
+backend outcome that exactly matches its prepared commit. Signed commit
+receipts apply the same canonical and bounded treatment to the evidence
+they expose. These are TypeSec security rules; they do not introduce a
+Cognee runtime, store, adapter, or wire-compatibility surface.</p>
 <h2 data-number="9.5" id="the-guarded-agent-surface"><span
 class="header-section-number">9.5</span> The guarded agent surface</h2>
 <p>Marciana memory operations are normal protected tools:</p>

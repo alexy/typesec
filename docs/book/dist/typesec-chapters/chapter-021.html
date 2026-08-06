@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-08-05" />
+  <meta name="dcterms.date" content="2026-08-06" />
   <title>Conclusion</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -87,10 +87,13 @@ identity-bound durable QueryGraph memory proof
 tests and documentation</code></pre>
 <p>The design is not finished, but its boundaries are now concrete.
 TypeSec owns the law: typed authority, labels, purpose, quarantine, and
-evidence. Grust and QueryGraph own durable storage, retrieval, and scale
-behind those laws. qg-rust owns the authenticated service edge, and
-agent frameworks receive ergonomic capabilities without receiving
-private identity material or a bypass around the vault.</p>
+evidence. Grust owns generic graph and guarded-commit persistence, Sail
+owns distributed compute, and LakeCat owns governed source proof.
+Marciana owns the memory product, cognition, and memory-specific
+adapters. QueryGraph consumes Marciana; qg-rust is the current
+authenticated edge pending router extraction. Agent frameworks receive
+ergonomic capabilities without receiving private identity material or a
+bypass around the vault.</p>
 <p>That is the arc from Torcello to Lido. Torcello made authorization
 impossible to forget when an agent calls a tool. Lido applies the same
 rule to what the agent remembers after the tool call is over.

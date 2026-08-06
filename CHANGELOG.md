@@ -7,6 +7,10 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Documented the enforced cognition trust boundary in the TypeSec book,
+  including bounded raw proposal ingress, strict nested schemas, fresh native
+  intent and authority binding, opaque idempotency scope, fixed expansion
+  budgets, and exact authoritative commit outcomes.
 - Hardened cognition application with authority-scoped opaque idempotency,
   strict digest and algorithm binding, bounded inputs, lineage expansion, and
   affected IDs, pre-parse bounded JSON ingress, sanitized authority failures,

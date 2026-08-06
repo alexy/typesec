@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-08-05" />
+  <meta name="dcterms.date" content="2026-08-06" />
   <title>Tests and Validation</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -144,14 +144,15 @@ check the public WorkOS, Arcade, JWT, and capability-composition path.
 Python smoke tests in <code>tests/python/test_cli_policy.py</code>
 exercise the CLI as a policy oracle.</p>
 <p>Marciana adds a security-focused matrix of its own. The audited
-<code>typesec-memory</code> all-features suite contains 49 unit tests
-plus compile-fail, graph-integration, and doctest coverage. Compile-fail
-cases prove that external code cannot rehydrate a stored record or
-recall without the required capability. Runtime cases cover space
-binding, clearance and redaction, <code>Secret</code> sealing, purpose
-filtering, quarantine defaults, label joins, transactional
+<code>typesec-memory</code> all-features suite includes unit,
+integration, compile-fail, graph-integration, and doctest coverage.
+Compile-fail cases prove that external code cannot rehydrate a stored
+record or recall without the required capability. Runtime cases cover
+space binding, clearance and redaction, <code>Secret</code> sealing,
+purpose filtering, quarantine defaults, label joins, transactional
 consolidation, retention, forgetting, graph neighborhoods, semantic
-ranking, and guarded tool routing. The versioned conformance corpus is
+ranking, guarded tool routing, and proposal-free response-loss recovery
+with anti-oracle and tamper checks. The versioned conformance corpus is
 run against both <code>InMemoryStore</code> and
 <code>GrustMemoryStore</code> in tree.</p>
 <p>The cross-repository v1 proof tests a second boundary:

@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-08-05" />
+  <meta name="dcterms.date" content="2026-08-06" />
   <title>Roadmap</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -57,51 +57,37 @@
 <h1 data-number="19" id="roadmap"><span
 class="header-section-number">19</span> Roadmap</h1>
 <p>Lido closes the Marciana v1 milestone rather than moving it forward
-as an ever-receding roadmap item. The next memory work is a staged scale
-program with non-regression rules: every backend still goes through the
-vault, every optimization returns candidate ids rather than content,
-every cognitive worker returns an inert plan, and no hosted layer
-weakens capability, purpose, clearance, quarantine, or deletion
-semantics.</p>
+as an ever-receding roadmap item. The non-regression rules remain: every
+backend still goes through the vault, every optimization returns
+candidate ids rather than content, every cognitive worker returns an
+inert proposal, and no hosted layer weakens capability, purpose,
+clearance, quarantine, or deletion semantics.</p>
 <h2 data-number="19.1" id="marciana-after-v1"><span
 class="header-section-number">19.1</span> Marciana after v1</h2>
-<p>The first phase is contract hardening. Replace process-local
-<code>MemoryId::next()</code> with durable, collision-safe identifiers;
-define a signed-envelope v2 with a persistent replay store and mutation
-idempotency; introduce explicit assertion identity so repeated
-same-endpoint relationships retain distinct lineage; add an audited
-<code>CanDeclassify</code> promotion operation with mandatory quarantine
-propagation; and version the component and migration contracts. A
-decision about authority stronger than <code>CanReadSensitive</code> is
-required before any path may reveal <code>Secret</code>; until then,
-<code>Secret</code> stays sealed.</p>
-<p>The second phase moves more query work into the durable backend
-without changing semantics. Turso/Grust can push temporal, label,
-provenance, entity, and assertion-lineage predicates only after an
-equivalence corpus proves the same answers and failure posture as the
-shared matcher. Durable replay claims must be tested across restart and
-concurrent replicas, not only within one server.</p>
-<p>The third phase adds persistent semantic retrieval. A tenant-scoped
-LanceDB ANN index can replace the in-process <code>VectorIndex</code> as
-a rebuildable ranking sidecar, but the memory store remains
-authoritative and the vault still applies space, purpose, validity,
-quarantine, and clearance. Deletion and retention must prune or
-reconcile both stores, and content above the configured embedding
-ceiling must never leave the trusted embedder boundary.</p>
-<p>The fourth phase distributes cognition through Sail. Extraction,
-deduplication, contradiction detection, entity resolution, community
-summaries, and consolidation may run as data-parallel jobs, but workers
-receive bounded inputs and return signed or hash-bound proposals. Only
-an authorized vault applies a fresh plan. Stale policy, worker retry,
-partial failure, and idempotent reapply are part of the acceptance
-suite.</p>
-<p>The fifth phase is the hosted product, not merely v1 behind a load
-balancer. It requires a tenant control plane, physical isolation
-profiles, quotas, durable anti-replay and idempotency, online
-migrations, backup and point-in-time restore, deletion propagation,
-observability, rolling upgrades, incident drills, and explicit SLOs. The
-full TypeSec and backend conformance corpus must run against that path
-before it is called complete.</p>
+<p>Marciana is now an accepted standalone project in the QueryGraph
+stack, with its extraction in progress. That project owns the native
+<code>remember</code>, <code>recall</code>, <code>improve</code>, and
+<code>forget</code> product; durable jobs and recovery; memory-specific
+Grust, Sail, and LakeCat adapters; wire compatibility; and service
+operations. Its design and compatibility registry are the active
+roadmap.</p>
+<p>The local Marciana checkout is initialized, but the
+history-preserving <code>querygraph-memory</code> transplant and qg-rust
+switch are not complete. Grust’s generic cognition, live-Sail, job,
+outbox, and guarded-commit substrate is being finalized in its owning
+repository. A local Sail fix for Delta <code>MERGE</code> non-null
+constraints is not yet a remotely reachable supported pin. These
+distinctions prevent an in-progress local stack from being presented as
+a Marciana release.</p>
+<p>TypeSec retains the security protocol: capabilities and current
+policy gate every operation; the vault is the only protected-content and
+mutation authority; workers emit inert proposals; prepared commits cross
+a narrow trusted-store boundary; and response-loss recovery discloses
+immutable evidence without becoming mutation authority. New Marciana
+capabilities that belong to this trust kernel are implemented and
+verified here, then consumed through a released version or exact
+compatible revision. Cognee remains design inspiration only, not a
+runtime, store, adapter, or API compatibility target.</p>
 <h2 data-number="19.2" id="broader-typesec-work"><span
 class="header-section-number">19.2</span> Broader TypeSec work</h2>
 <p>Outside memory, the same direction continues: propagate revocation
