@@ -10,16 +10,21 @@ fn claims() -> CognitionCommitReceipt {
         "commit-42",
         committed_at,
         TimeDelta::minutes(5),
-    );
-    receipt.typedid_request_digest = "sha256:request".into();
-    receipt.proposal_digest = "sha256:proposal".into();
-    receipt.input_snapshot_digest = "sha256:snapshot".into();
-    receipt.policy_decision_digest = "sha256:policy".into();
-    receipt.authorization_receipt_digest = "sha256:authorization".into();
+    )
+    .unwrap();
+    receipt.typedid_request_digest = digest('1');
+    receipt.proposal_digest = digest('2');
+    receipt.input_snapshot_digest = digest('3');
+    receipt.policy_decision_digest = digest('4');
+    receipt.authorization_receipt_digest = digest('5');
     receipt.prior_version = "version-41".into();
     receipt.resulting_version = "version-42".into();
-    receipt.affected_ids = vec!["mem-old".into(), "mem-new".into()];
+    receipt.affected_ids = vec!["mem-01".into(), "mem-02".into()];
     receipt
+}
+
+fn digest(hex: char) -> String {
+    format!("sha256:{}", hex.to_string().repeat(64))
 }
 
 #[test]
@@ -53,4 +58,142 @@ fn cognition_receipt_rejects_missing_or_tampered_evidence() {
             .verify_cognition(&forged, claims().committed_at),
         Err(ReceiptError::BadSignature)
     ));
+}
+
+#[test]
+fn cognition_receipt_constructor_rejects_invalid_windows_without_panicking() {
+    let committed_at = Utc.with_ymd_and_hms(2026, 8, 5, 12, 0, 0).unwrap();
+    for ttl in [TimeDelta::zero(), TimeDelta::seconds(-1)] {
+        let error =
+            CognitionCommitReceipt::new("subject", "resource", "job", "commit", committed_at, ttl)
+                .unwrap_err();
+        assert_fixed_error(error, "invalid cognition receipt validity window");
+    }
+
+    let error = CognitionCommitReceipt::new(
+        "subject",
+        "resource",
+        "job",
+        "commit",
+        DateTime::<Utc>::MAX_UTC,
+        TimeDelta::seconds(1),
+    )
+    .unwrap_err();
+    assert_fixed_error(error, "invalid cognition receipt validity window");
+}
+
+#[test]
+fn cognition_receipt_requires_bounded_canonical_identities() {
+    let setters: [fn(&mut CognitionCommitReceipt, String); 6] = [
+        |receipt, value| receipt.subject = value,
+        |receipt, value| receipt.resource = value,
+        |receipt, value| receipt.job_id = value,
+        |receipt, value| receipt.backend_commit_id = value,
+        |receipt, value| receipt.prior_version = value,
+        |receipt, value| receipt.resulting_version = value,
+    ];
+    for setter in setters {
+        for invalid_identity in [
+            "".to_owned(),
+            " leading".to_owned(),
+            "trailing ".to_owned(),
+            "control\ncharacter".to_owned(),
+            "x".repeat(cognition::validation::MAX_IDENTITY_BYTES + 1),
+        ] {
+            let mut receipt = claims();
+            setter(&mut receipt, invalid_identity);
+            let error = receipt.validate().unwrap_err();
+            assert_fixed_error(error, "invalid cognition receipt identity");
+        }
+    }
+}
+
+#[test]
+fn cognition_receipt_requires_canonical_lowercase_sha256_evidence() {
+    let setters: [fn(&mut CognitionCommitReceipt, String); 5] = [
+        |receipt, value| receipt.typedid_request_digest = value,
+        |receipt, value| receipt.proposal_digest = value,
+        |receipt, value| receipt.input_snapshot_digest = value,
+        |receipt, value| receipt.policy_decision_digest = value,
+        |receipt, value| receipt.authorization_receipt_digest = value,
+    ];
+    for setter in setters {
+        for invalid_digest in [
+            "sha256:abc".to_owned(),
+            format!("sha256:{}", "A".repeat(64)),
+            format!("sha256:{} ", "a".repeat(64)),
+        ] {
+            let mut receipt = claims();
+            setter(&mut receipt, invalid_digest);
+            let error = receipt.validate().unwrap_err();
+            assert_fixed_error(error, "invalid cognition receipt digest");
+        }
+    }
+}
+
+#[test]
+fn cognition_receipt_requires_distinct_opaque_versions() {
+    let mut receipt = claims();
+    receipt.resulting_version = receipt.prior_version.clone();
+    let error = receipt.validate().unwrap_err();
+    assert_fixed_error(error, "invalid cognition receipt versions");
+}
+
+#[test]
+fn cognition_receipt_requires_sorted_unique_nonempty_affected_ids() {
+    for affected_ids in [
+        vec![],
+        vec!["mem-02".into(), "mem-01".into()],
+        vec!["mem-01".into(), "mem-01".into()],
+        vec!["invalid\nid".into()],
+    ] {
+        let mut receipt = claims();
+        receipt.affected_ids = affected_ids;
+        let error = receipt.validate().unwrap_err();
+        assert_fixed_error(error, "invalid cognition receipt affected IDs");
+    }
+}
+
+#[test]
+fn cognition_receipt_bounds_affected_id_count_and_aggregate_bytes() {
+    let mut receipt = claims();
+    receipt.affected_ids = (0..cognition::validation::MAX_AFFECTED_ID_COUNT)
+        .map(|index| format!("id-{index:04}"))
+        .collect();
+    receipt.validate().unwrap();
+
+    receipt.affected_ids.push(format!(
+        "id-{:04}",
+        cognition::validation::MAX_AFFECTED_ID_COUNT
+    ));
+    let error = receipt.validate().unwrap_err();
+    assert_fixed_error(error, "invalid cognition receipt affected IDs");
+
+    let exact_aggregate =
+        cognition::validation::MAX_AFFECTED_ID_BYTES / cognition::validation::MAX_IDENTITY_BYTES;
+    receipt.affected_ids = large_sorted_ids(exact_aggregate);
+    receipt.validate().unwrap();
+
+    receipt.affected_ids = large_sorted_ids(exact_aggregate + 1);
+    let error = receipt.validate().unwrap_err();
+    assert_fixed_error(error, "invalid cognition receipt affected IDs");
+}
+
+fn large_sorted_ids(count: usize) -> Vec<String> {
+    (0..count)
+        .map(|index| {
+            let prefix = format!("{index:04}:");
+            format!(
+                "{prefix}{}",
+                "x".repeat(cognition::validation::MAX_IDENTITY_BYTES - prefix.len())
+            )
+        })
+        .collect()
+}
+
+fn assert_fixed_error(error: ReceiptError, message: &str) {
+    assert_eq!(
+        error.to_string(),
+        format!("invalid receipt claims: {message}")
+    );
 }

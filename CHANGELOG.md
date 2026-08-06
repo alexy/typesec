@@ -7,6 +7,9 @@ by release version, then by the date the logical change landed.
 
 ### 2026-08-05
 
+- Hardened signed cognition commit receipts with checked validity-window
+  construction, bounded canonical identities and affected-ID sets, strict
+  lowercase SHA-256 evidence, and distinct opaque backend versions.
 - Recast the Marciana design, comparative review, and book roadmap as the
   TypeSec security contract and standalone-project handoff, and documented
   policy-gated proposal-free cognition recovery without duplicating the active
