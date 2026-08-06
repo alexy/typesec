@@ -7,6 +7,8 @@ by release version, then by the date the logical change landed.
 
 - Prepare the `0.13.1` registry release so the current cognition and
   capability-memory APIs are consumable by released Marciana crates.
+- Align the release metadata with Grust `0.12.1`, the published graph,
+  cognition, and Turso backends required by the memory features.
 - Add the standalone Marciana project handoff covering ownership boundaries,
   verified implementation, Ossie integration, publication assets, and next
   work in ~/src/marciana.
