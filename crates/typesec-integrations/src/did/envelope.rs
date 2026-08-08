@@ -3,8 +3,10 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-use super::auth::{DID_ENVELOPE_AUTH_V2, TranscriptKind, canonical_transcript};
-use super::crypto::{hex_encode, random_nonce, sha256, unix_time};
+use super::auth::{
+    DID_ENVELOPE_AUTH_V2, authenticated_header, reference_sha256, signature_transcript_from_header,
+};
+use super::crypto::{hex_encode, random_nonce, unix_time};
 use super::document::DidResolver;
 use super::error::DidError;
 use super::gateway::{VerifiedDidPrompt, VerifiedTypeDidMessage};
@@ -203,7 +205,8 @@ impl DidEnvelope {
         let aad = envelope.associated_data();
         envelope.ciphertext =
             key_store.encrypt_for(&envelope.from, &recipient_public, plaintext, &nonce, &aad)?;
-        envelope.signature = key_store.sign(&envelope.from, &envelope.signing_input())?;
+        envelope.signature =
+            key_store.sign(&envelope.from, &envelope.signing_input_from_header(&aad))?;
         Ok(envelope)
     }
 
@@ -322,10 +325,9 @@ impl DidEnvelope {
 
     /// Stable reference to this signed envelope for reply binding.
     pub fn reference(&self) -> DidMessageReference {
-        let transcript = canonical_transcript(self, TranscriptKind::Reference);
         DidMessageReference {
             id: self.id.clone(),
-            digest: format!("sha256:{}", hex_encode(&sha256(&transcript))),
+            digest: format!("sha256:{}", hex_encode(&reference_sha256(self))),
         }
     }
 
@@ -334,15 +336,21 @@ impl DidEnvelope {
     /// The length-framed v2 header includes routing, timing, policy-visible
     /// body and claims, TypeDID conversation, reply binding, key id, and nonce.
     pub(super) fn associated_data(&self) -> Vec<u8> {
-        canonical_transcript(self, TranscriptKind::Header)
+        authenticated_header(self)
     }
 
     /// Canonical bytes the sender signs and the recipient verifies.
     ///
     /// The signature transcript nests the exact AEAD header and appends the
     /// ciphertext as one additional length-framed field.
+    #[cfg(test)]
     pub(super) fn signing_input(&self) -> Vec<u8> {
-        canonical_transcript(self, TranscriptKind::Signature)
+        let header = self.associated_data();
+        self.signing_input_from_header(&header)
+    }
+
+    pub(super) fn signing_input_from_header(&self, header: &[u8]) -> Vec<u8> {
+        signature_transcript_from_header(self, header)
     }
 
     pub(super) fn effective_expires_at(&self) -> u64 {

@@ -339,8 +339,12 @@ impl DidMessageGateway {
 
         let sender_document = self.resolver.resolve(&envelope.from)?;
         let sender_key = sender_document.authentication_key(&envelope.kid)?;
-        self.key_store
-            .verify(sender_key, &envelope.signing_input(), &envelope.signature)?;
+        let aad = envelope.associated_data();
+        self.key_store.verify(
+            sender_key,
+            &envelope.signing_input_from_header(&aad),
+            &envelope.signature,
+        )?;
         // Semantic routing is meaningful only after `message_type` has been
         // authenticated. Reject cross-protocol envelopes before key agreement,
         // decryption, or replay-store consumption.
@@ -353,7 +357,6 @@ impl DidMessageGateway {
         // sender document.
         let sender_agreement_keys = sender_document.key_agreement_keys()?;
         let nonce = hex_decode(&envelope.nonce)?;
-        let aad = envelope.associated_data();
         let mut plaintext = None;
         for sender_agreement_key in sender_agreement_keys {
             match self.key_store.decrypt_for(

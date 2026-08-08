@@ -5,6 +5,13 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- TypeDID canonical transcripts now share one sink-agnostic encoder for byte
+  vectors, exact length counting, and direct SHA-256 hashing. Envelope seal and
+  open reuse the authenticated header, while signed references no longer build
+  and copy nested ciphertext-sized vectors. A 64 KiB reference improves from
+  about 138.5 to 72.4 microseconds; after accelerated hex decoding, complete
+  open time improves further from about 632 to 576 microseconds (1.023
+  milliseconds before both changes).
 - DID hexadecimal decoding now uses one validated lookup per nibble while
   retaining mixed-case input compatibility and canonical lowercase output. A
   64 KiB X25519/ChaCha20-Poly1305 envelope decrypt improves from about 684 to

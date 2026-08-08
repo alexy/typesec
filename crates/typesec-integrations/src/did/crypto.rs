@@ -11,12 +11,6 @@ pub(super) fn unix_time() -> u64 {
         .unwrap_or_default()
 }
 
-/// SHA-256 digest of canonical protocol bytes.
-pub(super) fn sha256(data: &[u8]) -> [u8; 32] {
-    use sha2::Digest;
-    sha2::Sha256::digest(data).into()
-}
-
 /// Domain-separated SHA-256: `SHA-256(domain || 0x00 || data)`.
 pub(super) fn sha256_tagged(domain: &[u8], data: &[u8]) -> [u8; 32] {
     use sha2::Digest;

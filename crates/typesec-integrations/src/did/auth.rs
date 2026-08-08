@@ -2,6 +2,7 @@
 
 use super::envelope::DidEnvelope;
 use super::typedid::TypeDidMode;
+use sha2::Digest as _;
 
 /// Wire identifier for the only accepted envelope authentication protocol.
 pub const DID_ENVELOPE_AUTH_V2: &str = "typesec.did-envelope-auth.v2";
@@ -10,30 +11,48 @@ const HEADER_DOMAIN: &str = "typesec.did-envelope-auth.v2/header";
 const SIGNATURE_DOMAIN: &str = "typesec.did-envelope-auth.v2/signature";
 const REFERENCE_DOMAIN: &str = "typesec.did-envelope-auth.v2/reference";
 
+#[cfg(test)]
 #[derive(Clone, Copy)]
 pub(super) enum TranscriptKind {
     Header,
     Signature,
-    Reference,
 }
 
 /// Produce one length-framed transcript family for AEAD, signatures, and
 /// stable references. Signature and reference transcripts nest the exact bytes
 /// from the preceding stage so the authenticated header has one definition.
+#[cfg(test)]
 pub(super) fn canonical_transcript(envelope: &DidEnvelope, kind: TranscriptKind) -> Vec<u8> {
-    let header = authenticated_header(envelope);
+    let mut transcript = Vec::new();
     match kind {
-        TranscriptKind::Header => header,
-        TranscriptKind::Signature => signature_transcript(envelope, &header),
-        TranscriptKind::Reference => {
-            let signature = signature_transcript(envelope, &header);
-            reference_transcript(envelope, &signature)
-        }
+        TranscriptKind::Header => write_authenticated_header(envelope, &mut transcript),
+        TranscriptKind::Signature => write_signature_transcript(envelope, &mut transcript),
     }
+    transcript
 }
 
-fn authenticated_header(envelope: &DidEnvelope) -> Vec<u8> {
-    let mut transcript = Transcript::new(HEADER_DOMAIN);
+pub(super) fn authenticated_header(envelope: &DidEnvelope) -> Vec<u8> {
+    let mut header = Vec::new();
+    write_authenticated_header(envelope, &mut header);
+    header
+}
+
+pub(super) fn signature_transcript_from_header(envelope: &DidEnvelope, header: &[u8]) -> Vec<u8> {
+    let mut signature = Vec::new();
+    let mut transcript = Transcript::new(&mut signature, SIGNATURE_DOMAIN);
+    transcript.bytes("authenticatedHeader", header);
+    transcript.string("ciphertext", &envelope.ciphertext);
+    signature
+}
+
+pub(super) fn reference_sha256(envelope: &DidEnvelope) -> [u8; 32] {
+    let mut hasher = sha2::Sha256::new();
+    write_reference_transcript(envelope, &mut hasher);
+    hasher.finalize().into()
+}
+
+fn write_authenticated_header<S: TranscriptSink>(envelope: &DidEnvelope, sink: &mut S) {
+    let mut transcript = Transcript::new(sink, HEADER_DOMAIN);
     transcript.string("authVersion", &envelope.auth_version);
     transcript.string("id", &envelope.id);
     transcript.string("messageType", &envelope.message_type);
@@ -56,30 +75,39 @@ fn authenticated_header(envelope: &DidEnvelope) -> Vec<u8> {
     transcript.optional_conversation(envelope.typedid.as_ref());
     transcript.string("kid", &envelope.kid);
     transcript.string("nonce", &envelope.nonce);
-    transcript.finish()
 }
 
-fn signature_transcript(envelope: &DidEnvelope, header: &[u8]) -> Vec<u8> {
-    let mut transcript = Transcript::new(SIGNATURE_DOMAIN);
-    transcript.bytes("authenticatedHeader", header);
+fn write_signature_transcript<S: TranscriptSink>(envelope: &DidEnvelope, sink: &mut S) {
+    let header_bytes = encoded_len(|counter| write_authenticated_header(envelope, counter));
+    let mut transcript = Transcript::new(sink, SIGNATURE_DOMAIN);
+    transcript.nested("authenticatedHeader", header_bytes, |sink| {
+        write_authenticated_header(envelope, sink);
+    });
     transcript.string("ciphertext", &envelope.ciphertext);
-    transcript.finish()
 }
 
-fn reference_transcript(envelope: &DidEnvelope, signature: &[u8]) -> Vec<u8> {
-    let mut transcript = Transcript::new(REFERENCE_DOMAIN);
-    transcript.bytes("signedEnvelope", signature);
+fn write_reference_transcript<S: TranscriptSink>(envelope: &DidEnvelope, sink: &mut S) {
+    let signature_bytes = encoded_len(|counter| write_signature_transcript(envelope, counter));
+    let mut transcript = Transcript::new(sink, REFERENCE_DOMAIN);
+    transcript.nested("signedEnvelope", signature_bytes, |sink| {
+        write_signature_transcript(envelope, sink);
+    });
     transcript.string("signature", &envelope.signature);
-    transcript.finish()
 }
 
-struct Transcript {
-    bytes: Vec<u8>,
+fn encoded_len(write: impl FnOnce(&mut ByteCount)) -> usize {
+    let mut counter = ByteCount::default();
+    write(&mut counter);
+    counter.0
 }
 
-impl Transcript {
-    fn new(domain: &str) -> Self {
-        let mut transcript = Self { bytes: Vec::new() };
+struct Transcript<'a, S> {
+    sink: &'a mut S,
+}
+
+impl<'a, S: TranscriptSink> Transcript<'a, S> {
+    fn new(sink: &'a mut S, domain: &str) -> Self {
+        let mut transcript = Self { sink };
         transcript.string("domain", domain);
         transcript
     }
@@ -89,8 +117,14 @@ impl Transcript {
     }
 
     fn bytes(&mut self, name: &str, value: &[u8]) {
-        frame(&mut self.bytes, name.as_bytes());
-        frame(&mut self.bytes, value);
+        frame(self.sink, name.as_bytes());
+        frame(self.sink, value);
+    }
+
+    fn nested(&mut self, name: &str, value_len: usize, write: impl FnOnce(&mut S)) {
+        frame(self.sink, name.as_bytes());
+        write_len(self.sink, value_len);
+        write(self.sink);
     }
 
     fn u64(&mut self, name: &str, value: u64) {
@@ -126,10 +160,6 @@ impl Transcript {
             }
         }
     }
-
-    fn finish(self) -> Vec<u8> {
-        self.bytes
-    }
 }
 
 fn mode_name(mode: TypeDidMode) -> &'static str {
@@ -139,7 +169,36 @@ fn mode_name(mode: TypeDidMode) -> &'static str {
     }
 }
 
-fn frame(output: &mut Vec<u8>, value: &[u8]) {
-    output.extend_from_slice(&(value.len() as u64).to_be_bytes());
-    output.extend_from_slice(value);
+trait TranscriptSink {
+    fn write(&mut self, bytes: &[u8]);
+}
+
+impl TranscriptSink for Vec<u8> {
+    fn write(&mut self, bytes: &[u8]) {
+        self.extend_from_slice(bytes);
+    }
+}
+
+impl TranscriptSink for sha2::Sha256 {
+    fn write(&mut self, bytes: &[u8]) {
+        self.update(bytes);
+    }
+}
+
+#[derive(Default)]
+struct ByteCount(usize);
+
+impl TranscriptSink for ByteCount {
+    fn write(&mut self, bytes: &[u8]) {
+        self.0 += bytes.len();
+    }
+}
+
+fn frame(output: &mut impl TranscriptSink, value: &[u8]) {
+    write_len(output, value.len());
+    output.write(value);
+}
+
+fn write_len(output: &mut impl TranscriptSink, value_len: usize) {
+    output.write(&(value_len as u64).to_be_bytes());
 }
