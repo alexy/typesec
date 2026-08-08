@@ -58,18 +58,49 @@ pub(super) fn hex_decode(value: &str) -> Result<Vec<u8>, DidError> {
     }
     let mut out = Vec::with_capacity(value.len() / 2);
     for chunk in value.as_bytes().chunks_exact(2) {
-        let high = hex_nibble(chunk[0])?;
-        let low = hex_nibble(chunk[1])?;
+        let high = HEX_VALUES[chunk[0] as usize];
+        let low = HEX_VALUES[chunk[1] as usize];
+        if high | low > 0x0f {
+            return Err(DidError::InvalidHex);
+        }
         out.push((high << 4) | low);
     }
     Ok(out)
 }
 
-fn hex_nibble(byte: u8) -> Result<u8, DidError> {
-    match byte {
-        b'0'..=b'9' => Ok(byte - b'0'),
-        b'a'..=b'f' => Ok(byte - b'a' + 10),
-        b'A'..=b'F' => Ok(byte - b'A' + 10),
-        _ => Err(DidError::InvalidHex),
+const HEX_VALUES: [u8; 256] = {
+    let mut values = [u8::MAX; 256];
+    let mut digit = 0;
+    while digit < 10 {
+        values[b'0' as usize + digit] = digit as u8;
+        digit += 1;
+    }
+    let mut letter = 0;
+    while letter < 6 {
+        values[b'a' as usize + letter] = letter as u8 + 10;
+        values[b'A' as usize + letter] = letter as u8 + 10;
+        letter += 1;
+    }
+    values
+};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hexadecimal_round_trip_uses_canonical_lowercase() {
+        let bytes = [0x00, 0x01, 0x09, 0x0a, 0x10, 0xab, 0xcd, 0xef, 0xff];
+        let encoded = hex_encode(&bytes);
+        assert_eq!(encoded, "0001090a10abcdefff");
+        assert_eq!(hex_decode(&encoded).unwrap(), bytes);
+        assert_eq!(hex_decode("0001090A10AbCdEfFf").unwrap(), bytes);
+    }
+
+    #[test]
+    fn hexadecimal_decode_rejects_odd_and_invalid_inputs() {
+        assert!(matches!(hex_decode("0"), Err(DidError::InvalidHex)));
+        assert!(matches!(hex_decode("0g"), Err(DidError::InvalidHex)));
+        assert!(matches!(hex_decode("💩"), Err(DidError::InvalidHex)));
     }
 }

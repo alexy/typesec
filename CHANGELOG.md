@@ -5,6 +5,11 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- DID hexadecimal decoding now uses one validated lookup per nibble while
+  retaining mixed-case input compatibility and canonical lowercase output. A
+  64 KiB X25519/ChaCha20-Poly1305 envelope decrypt improves from about 684 to
+  297 microseconds, reducing complete TypeDID open time from about 1.023
+  milliseconds to 632 microseconds.
 - In-memory DID replay protection now prunes claims through an expiry-ordered
   queue instead of scanning every active claim while holding its mutex. At
   10,000 active claims, replay hits improve from about 14.1 microseconds to
