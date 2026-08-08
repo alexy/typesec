@@ -1,6 +1,7 @@
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use typesec_memory::{
-    InMemoryStore, KeywordIndex, MemoryStore, SemanticIndex, StoreQuery, StoredRecord,
+    InMemoryStore, KeywordIndex, Label, MemoryId, MemoryStore, SemanticIndex, StoreQuery,
+    StoredRecord,
 };
 
 const RECORD_COUNT: usize = 10_000;
@@ -40,20 +41,21 @@ fn populated_store() -> InMemoryStore {
 fn populated_keyword_index() -> KeywordIndex {
     let index = KeywordIndex::new();
     for record_index in 0..RECORD_COUNT {
-        let text = if record_index.is_multiple_of(10) {
-            format!("record {record_index} contains the target phrase")
-        } else {
-            format!("ordinary memory record {record_index}")
-        };
+        let (id, text) = keyword_document(record_index);
         index
-            .index(
-                &typesec_memory::MemoryId::from_string(format!("bench-{record_index:05}")),
-                typesec_memory::Label::Internal,
-                &text,
-            )
+            .index(&id, typesec_memory::Label::Internal, &text)
             .expect("index benchmark record");
     }
     index
+}
+
+fn keyword_document(index: usize) -> (MemoryId, String) {
+    let text = if index.is_multiple_of(10) {
+        format!("record {index} contains the target phrase")
+    } else {
+        format!("ordinary memory record {index}")
+    };
+    (MemoryId::from_string(format!("bench-{index:05}")), text)
 }
 
 fn bench_store_queries(c: &mut Criterion) {
@@ -87,17 +89,78 @@ fn bench_keyword_search(c: &mut Criterion) {
     let mut group = c.benchmark_group("keyword_index_search_10k");
     group.sample_size(30);
     group.throughput(Throughput::Elements(RECORD_COUNT as u64));
-    group.bench_function("target_phrase_limit_10", |b| {
+    for (name, query) in [
+        ("sparse_target_phrase_limit_10", "target phrase"),
+        ("common_memory_record_limit_10", "memory record"),
+        ("missing_tokens_limit_10", "tokens absent everywhere"),
+    ] {
+        group.bench_function(name, |b| {
+            b.iter(|| {
+                black_box(
+                    index
+                        .search(black_box(query), black_box(10))
+                        .expect("search"),
+                )
+            })
+        });
+    }
+    group.finish();
+
+    let id = MemoryId::from_string("bench-00000");
+    let mut group = c.benchmark_group("keyword_index_mutation_10k");
+    group.sample_size(30);
+    group.throughput(Throughput::Elements(1));
+    group.bench_function("reindex_unchanged", |b| {
         b.iter(|| {
-            black_box(
-                index
-                    .search(black_box("target phrase"), black_box(10))
-                    .expect("search"),
-            )
+            index
+                .index(
+                    black_box(&id),
+                    black_box(Label::Internal),
+                    black_box("updated target phrase memory record"),
+                )
+                .expect("replace indexed record")
+        })
+    });
+    group.bench_function("replace_changed_tokens", |b| {
+        let mut use_alpha = false;
+        b.iter(|| {
+            use_alpha = !use_alpha;
+            let text = if use_alpha {
+                "alternating alpha memory record"
+            } else {
+                "alternating beta memory record"
+            };
+            index
+                .index(black_box(&id), black_box(Label::Internal), black_box(text))
+                .expect("replace indexed record")
         })
     });
     group.finish();
 }
 
-criterion_group!(benches, bench_store_queries, bench_keyword_search);
+fn bench_keyword_population(c: &mut Criterion) {
+    let documents = (0..RECORD_COUNT).map(keyword_document).collect::<Vec<_>>();
+    let mut group = c.benchmark_group("keyword_index_population");
+    group.sample_size(20);
+    group.throughput(Throughput::Elements(RECORD_COUNT as u64));
+    group.bench_function("build_10k", |b| {
+        b.iter_with_large_drop(|| {
+            let index = KeywordIndex::new();
+            for (id, text) in &documents {
+                index
+                    .index(id, Label::Internal, text)
+                    .expect("index benchmark record");
+            }
+            index
+        })
+    });
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_store_queries,
+    bench_keyword_search,
+    bench_keyword_population
+);
 criterion_main!(benches);
