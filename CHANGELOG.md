@@ -5,6 +5,10 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Added production Criterion coverage for TypeDID replay protection, Ed25519
+  signing, X25519/ChaCha20-Poly1305 encryption, complete envelope seal/open and
+  references, and decision and cognition receipt issue/verification, including
+  replay-cache scaling and concurrent bursts.
 - SHA-256 now enables its accelerated backend on supported targets. Production
   benchmarks reduce a 64 KiB governed-draft digest from about 245 to 61
   microseconds and a 256-draft cognition-proposal digest from 1.421

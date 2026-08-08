@@ -33,5 +33,10 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
 opentelemetry_sdk = { version = "0.30", default-features = false, features = ["trace", "testing"] }
 trybuild = "1"
+
+[[bench]]
+name = "integration_paths"
+harness = false
