@@ -4,6 +4,8 @@ use typesec_memory::{
     Provenance, governed_source_draft_digest,
 };
 
+const PROPOSAL_CASES: [(usize, usize); 3] = [(1, 256), (64, 1_024), (256, 1_024)];
+
 fn digest(fill: char) -> String {
     format!("sha256:{}", fill.to_string().repeat(64))
 }
@@ -94,7 +96,7 @@ fn bench_binding_digest(c: &mut Criterion) {
 fn bench_proposal_digest(c: &mut Criterion) {
     let mut group = c.benchmark_group("cognition_proposal_digest");
     group.sample_size(30);
-    for (draft_count, text_bytes) in [(1, 256), (64, 1_024), (256, 1_024)] {
+    for (draft_count, text_bytes) in PROPOSAL_CASES {
         let proposal = proposal(draft_count, text_bytes);
         let serialized_bytes = serde_json::to_vec(&proposal)
             .expect("serialize benchmark proposal")
@@ -114,10 +116,34 @@ fn bench_proposal_digest(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_proposal_wire(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cognition_proposal_wire");
+    group.sample_size(30);
+    for (draft_count, text_bytes) in PROPOSAL_CASES {
+        let proposal = proposal(draft_count, text_bytes);
+        let serialized_bytes = serde_json::to_vec(&proposal)
+            .expect("serialize benchmark proposal")
+            .len();
+        group.throughput(Throughput::Bytes(serialized_bytes as u64));
+        group.bench_with_input(
+            BenchmarkId::new("serialize_to_sink", draft_count),
+            &proposal,
+            |b, proposal| {
+                b.iter(|| {
+                    serde_json::to_writer(std::io::sink(), black_box(proposal))
+                        .expect("serialize proposal")
+                })
+            },
+        );
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_governed_draft_digest,
     bench_binding_digest,
-    bench_proposal_digest
+    bench_proposal_digest,
+    bench_proposal_wire
 );
 criterion_main!(benches);
