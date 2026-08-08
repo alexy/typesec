@@ -5,6 +5,12 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Receipt issuance now writes both base64url segments into one exactly sized
+  token allocation, verification decodes fixed-size signatures on the stack,
+  and sealed cognition receipt values avoid redundant semantic rescans after
+  their validating constructor or deserializer. With 256 affected IDs,
+  cognition receipt issue improves from about 49.7 to 43.4 microseconds and
+  verification from 77.4 to 72.3 microseconds, with byte-identical tokens.
 - TypeDID canonical transcripts now share one sink-agnostic encoder for byte
   vectors, exact length counting, and direct SHA-256 hashing. Envelope seal and
   open reuse the authenticated header, while signed references no longer build

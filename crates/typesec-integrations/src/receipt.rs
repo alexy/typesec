@@ -140,7 +140,6 @@ impl ReceiptIssuer {
         receipt: &CognitionCommitReceipt,
         now: DateTime<Utc>,
     ) -> Result<String, ReceiptError> {
-        receipt.validate()?;
         validate_window(receipt.issued_at(), receipt.expires_at(), now)?;
         Ok(self.issue_claims(receipt))
     }
@@ -149,11 +148,15 @@ impl ReceiptIssuer {
         let claims = serde_json::to_vec(receipt)
             .expect("receipt serialization cannot fail: all fields are JSON-safe");
         let signature = self.key.sign(&claims);
-        format!(
-            "{}.{}",
-            B64.encode(&claims),
-            B64.encode(signature.to_bytes())
-        )
+        let claims_len = base64::encoded_len(claims.len(), false)
+            .expect("serialized receipt length must fit in memory");
+        let signature_len = base64::encoded_len(Signature::BYTE_SIZE, false)
+            .expect("fixed-size signature length cannot overflow");
+        let mut token = String::with_capacity(claims_len + 1 + signature_len);
+        B64.encode_string(&claims, &mut token);
+        token.push('.');
+        B64.encode_string(signature.to_bytes(), &mut token);
+        token
     }
 }
 
@@ -185,7 +188,6 @@ impl ReceiptVerifier {
         now: DateTime<Utc>,
     ) -> Result<CognitionCommitReceipt, ReceiptError> {
         let receipt: CognitionCommitReceipt = self.verify_claims(token)?;
-        receipt.validate()?;
         validate_window(receipt.issued_at(), receipt.expires_at(), now)?;
         Ok(receipt)
     }
@@ -197,11 +199,16 @@ impl ReceiptVerifier {
         let claims = B64
             .decode(claims_b64)
             .map_err(|err| ReceiptError::Malformed(format!("claims are not base64url: {err}")))?;
-        let signature_bytes: [u8; 64] = B64
-            .decode(signature_b64)
-            .map_err(|err| ReceiptError::Malformed(format!("signature is not base64url: {err}")))?
-            .try_into()
-            .map_err(|_| ReceiptError::Malformed("signature is not 64 bytes".into()))?;
+        if signature_b64.len() != base64::encoded_len(Signature::BYTE_SIZE, false).unwrap() {
+            return Err(ReceiptError::Malformed("signature is not 64 bytes".into()));
+        }
+        let mut signature_bytes = [0_u8; Signature::BYTE_SIZE];
+        let decoded_signature_len = B64
+            .decode_slice(signature_b64, &mut signature_bytes)
+            .map_err(|err| ReceiptError::Malformed(format!("signature is not base64url: {err}")))?;
+        if decoded_signature_len != signature_bytes.len() {
+            return Err(ReceiptError::Malformed("signature is not 64 bytes".into()));
+        }
         self.key
             .verify(&claims, &Signature::from_bytes(&signature_bytes))
             .map_err(|_| ReceiptError::BadSignature)?;
