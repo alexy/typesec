@@ -54,3 +54,7 @@ trybuild = "1"
 [[bench]]
 name = "memory_paths"
 harness = false
+
+[[bench]]
+name = "cognition_paths"
+harness = false
