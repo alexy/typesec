@@ -9,6 +9,10 @@ by release version, then by the date the logical change landed.
   benchmarks reduce a 64 KiB governed-draft digest from about 245 to 61
   microseconds and a 256-draft cognition-proposal digest from 1.421
   milliseconds to 593 microseconds, while retaining the portable fallback.
+- Cognition identities now stream borrowed canonical binding and proposal
+  views instead of cloning protected draft payloads and digest strings. A
+  256-field binding digest improves from about 28.4 to 11.1 microseconds and a
+  256-draft proposal digest from 593 to 499 microseconds after SHA acceleration.
 - Keyword search now uses compact inverted postings for selective queries and
   an adaptive document scan for dense queries, with stable internal document
   keys and idempotent reindexing. Against 10,000 records, sparse top-10 search

@@ -5,7 +5,7 @@ use typesec_core::policy::RequestContext;
 use typesec_core::{CanWrite, Capability, Resource};
 
 use super::CognitionEffect;
-use super::canonical::{is_canonical_sha256, is_canonical_text};
+use super::canonical::{canonical_projection, is_canonical_sha256, is_canonical_text};
 use super::limits::{CognitionSourceBudget, MAX_COGNITION_SOURCE_COUNT, validate_proposal_budget};
 use super::types::{CognitionApplyError, CognitionAuthorityEvidence, CognitionBinding};
 use crate::CognitionProposal;
@@ -212,12 +212,6 @@ pub(super) fn load_sources<S: MemoryStore>(
         records.push(record);
     }
     Ok(records)
-}
-
-fn canonical_projection(projection: &[String]) -> Vec<&str> {
-    let mut canonical: Vec<_> = projection.iter().map(String::as_str).collect();
-    canonical.sort_unstable();
-    canonical
 }
 
 fn validate_source_ids(source_ids: &[MemoryId]) -> Result<(), CognitionApplyError> {

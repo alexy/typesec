@@ -3,6 +3,12 @@
 use super::limits::MAX_COGNITION_IDENTITY_BYTES;
 pub(super) use crate::canonical::is_canonical_sha256;
 
+pub(super) fn canonical_projection(projection: &[String]) -> Vec<&str> {
+    let mut canonical = projection.iter().map(String::as_str).collect::<Vec<_>>();
+    canonical.sort_unstable();
+    canonical
+}
+
 pub(super) fn is_canonical_text(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= MAX_COGNITION_IDENTITY_BYTES

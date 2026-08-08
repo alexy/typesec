@@ -78,8 +78,8 @@ impl crate::CognitionProposal {
 impl CognitionBinding {
     /// Domain-separated canonical digest of governed authority evidence.
     pub fn canonical_digest(&self) -> Result<String, CognitionApplyError> {
-        self.validate()?;
-        digest::binding_digest(self)
+        let projection = self.validate_and_canonical_projection()?;
+        digest::binding_digest_with_projection(self, projection)
     }
 }
 

@@ -123,14 +123,23 @@ fn preparation_rejects_a_type_sec_timestamp_after_preparation() {
 fn streaming_hashing_matches_the_versioned_canonical_profiles() {
     let fixture = prepared_fixture(prepared_at());
 
-    let mut canonical_binding = fixture.binding.clone();
+    let mut binding = fixture.binding.clone();
+    binding.effective_projection.reverse();
+    let mut canonical_binding = binding.clone();
     canonical_binding.effective_projection.sort();
     assert_eq!(
-        fixture.binding.canonical_digest().unwrap(),
+        binding.canonical_digest().unwrap(),
         legacy_digest(b"typesec.marciana.binding.v1\0", &canonical_binding)
     );
 
-    let mut canonical_proposal = fixture.proposal.clone();
+    let mut proposal = fixture.proposal.clone();
+    proposal
+        .binding
+        .as_mut()
+        .expect("bound proposal")
+        .effective_projection
+        .reverse();
+    let mut canonical_proposal = proposal.clone();
     canonical_proposal.created_at = DateTime::<Utc>::UNIX_EPOCH;
     canonical_proposal
         .binding
@@ -139,7 +148,7 @@ fn streaming_hashing_matches_the_versioned_canonical_profiles() {
         .effective_projection
         .sort();
     assert_eq!(
-        fixture.proposal.canonical_digest().unwrap(),
+        proposal.canonical_digest().unwrap(),
         legacy_digest(b"typesec.marciana.proposal.v2\0", &canonical_proposal)
     );
 

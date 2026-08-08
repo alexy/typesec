@@ -1,14 +1,16 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use super::PreparedCognitionCommit;
+use super::canonical::canonical_projection;
 use super::types::{
     CognitionApplyError, CognitionBinding, CognitionSourceManifest, CognitionSourcePrecondition,
 };
+use super::{CognitionEffect, PreparedCognitionCommit};
 use crate::index::IndexMutation;
 use crate::store::StoreBatchOp;
 use crate::{
-    CognitionAuditEvidence, CognitionIdempotencyKey, CognitionProposal, Label, StoredRecord,
+    CognitionAuditEvidence, CognitionIdempotencyKey, CognitionProposal, ConsolidationPlan,
+    GovernedSourceScope, Label, MemoryDraft, MemoryId, StoredRecord,
 };
 
 const RECORD_DOMAIN: &[u8] = b"typesec.marciana.source-record.v1\0";
@@ -71,22 +73,99 @@ pub(super) fn source_manifest(
 }
 
 pub(super) fn binding_digest(binding: &CognitionBinding) -> Result<String, CognitionApplyError> {
-    let mut canonical = binding.clone();
-    canonical.effective_projection.sort();
-    tagged_serialized_digest(BINDING_DOMAIN, &canonical)
+    binding_digest_with_projection(binding, canonical_projection(&binding.effective_projection))
+}
+
+pub(super) fn binding_digest_with_projection(
+    binding: &CognitionBinding,
+    projection: Vec<&str>,
+) -> Result<String, CognitionApplyError> {
+    tagged_serialized_digest(BINDING_DOMAIN, &CanonicalBinding::new(binding, projection))
 }
 
 pub(super) fn proposal_digest(proposal: &CognitionProposal) -> Result<String, CognitionApplyError> {
-    let mut canonical = proposal.clone();
-    // Creation time is observational scheduler metadata, not mutation
-    // identity. A worker retry may regenerate the same inert proposal later;
-    // every authority, source, plan, draft, and evidence field remains bound
-    // below while the durable idempotency digest stays stable.
-    canonical.created_at = chrono::DateTime::<chrono::Utc>::UNIX_EPOCH;
-    if let Some(binding) = &mut canonical.binding {
-        binding.effective_projection.sort();
+    tagged_serialized_digest(PROPOSAL_DOMAIN, &CanonicalProposal::new(proposal))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CanonicalBinding<'a> {
+    space_id: &'a str,
+    subject: &'a str,
+    purpose: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    governed_source_scope: Option<&'a GovernedSourceScope>,
+    governed_scan_digest: &'a str,
+    snapshot_digest: &'a str,
+    plan_task_digest: &'a str,
+    authorization_receipt_digest: &'a str,
+    effective_projection: Vec<&'a str>,
+    source_manifest_digest: &'a str,
+    typedid_request_digest: &'a str,
+}
+
+impl<'a> CanonicalBinding<'a> {
+    fn new(binding: &'a CognitionBinding, effective_projection: Vec<&'a str>) -> Self {
+        Self {
+            space_id: &binding.space_id,
+            subject: &binding.subject,
+            purpose: &binding.purpose,
+            governed_source_scope: binding.governed_source_scope.as_ref(),
+            governed_scan_digest: &binding.governed_scan_digest,
+            snapshot_digest: &binding.snapshot_digest,
+            plan_task_digest: &binding.plan_task_digest,
+            authorization_receipt_digest: &binding.authorization_receipt_digest,
+            effective_projection,
+            source_manifest_digest: &binding.source_manifest_digest,
+            typedid_request_digest: &binding.typedid_request_digest,
+        }
     }
-    tagged_serialized_digest(PROPOSAL_DOMAIN, &canonical)
+}
+
+#[derive(Serialize)]
+struct CanonicalProposal<'a> {
+    schema_version: u32,
+    effect: CognitionEffect,
+    job_id: &'a str,
+    input_snapshot: &'a str,
+    source_digest: &'a str,
+    algorithm: &'a str,
+    algorithm_version: &'a str,
+    source_ids: &'a [MemoryId],
+    joined_label: Label,
+    drafts: &'a [MemoryDraft],
+    plan: &'a ConsolidationPlan,
+    evidence: &'a [String],
+    created_at: chrono::DateTime<chrono::Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    binding: Option<CanonicalBinding<'a>>,
+}
+
+impl<'a> CanonicalProposal<'a> {
+    fn new(proposal: &'a CognitionProposal) -> Self {
+        Self {
+            schema_version: proposal.schema_version,
+            effect: proposal.effect,
+            job_id: &proposal.job_id,
+            input_snapshot: &proposal.input_snapshot,
+            source_digest: &proposal.source_digest,
+            algorithm: &proposal.algorithm,
+            algorithm_version: &proposal.algorithm_version,
+            source_ids: &proposal.source_ids,
+            joined_label: proposal.joined_label,
+            drafts: &proposal.drafts,
+            plan: &proposal.plan,
+            evidence: &proposal.evidence,
+            // Creation time is observational scheduler metadata, not mutation
+            // identity. A worker retry may regenerate the same inert proposal
+            // later while every authority, source, plan, draft, and evidence
+            // field remains bound.
+            created_at: chrono::DateTime::<chrono::Utc>::UNIX_EPOCH,
+            binding: proposal.binding.as_ref().map(|binding| {
+                CanonicalBinding::new(binding, canonical_projection(&binding.effective_projection))
+            }),
+        }
+    }
 }
 
 pub(super) fn evidence_digest(evidence: &[String]) -> Result<String, CognitionApplyError> {

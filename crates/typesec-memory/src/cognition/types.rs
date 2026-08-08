@@ -10,7 +10,7 @@ use crate::space::MemoryId;
 use crate::store::{MemoryStore, StoreError};
 
 use super::PreparedCognitionCommit;
-use super::canonical::{is_canonical_sha256, is_canonical_text};
+use super::canonical::{canonical_projection, is_canonical_sha256, is_canonical_text};
 use super::limits::validate_projection_count;
 
 /// Immutable authority and input evidence a cognition proposal must echo.
@@ -48,6 +48,12 @@ pub struct CognitionBinding {
 
 impl CognitionBinding {
     pub(crate) fn validate(&self) -> Result<(), CognitionApplyError> {
+        self.validate_and_canonical_projection().map(drop)
+    }
+
+    pub(super) fn validate_and_canonical_projection(
+        &self,
+    ) -> Result<Vec<&str>, CognitionApplyError> {
         for (name, value) in [
             ("spaceId", self.space_id.as_str()),
             ("subject", self.subject.as_str()),
@@ -88,15 +94,13 @@ impl CognitionBinding {
                 "effectiveProjection".to_owned(),
             ));
         }
-        let mut canonical = self.effective_projection.clone();
-        canonical.sort();
-        canonical.dedup();
-        if canonical.len() != self.effective_projection.len() {
+        let canonical = canonical_projection(&self.effective_projection);
+        if canonical.windows(2).any(|pair| pair[0] == pair[1]) {
             return Err(CognitionApplyError::InvalidBinding(
                 "effectiveProjection contains duplicates".to_owned(),
             ));
         }
-        Ok(())
+        Ok(canonical)
     }
 }
 
