@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use sha2::{Digest, Sha256};
 use typesec_core::Resource;
 
-use super::digest::{binding_digest, evidence_digest, proposal_digest};
+use super::digest::{binding_digest, evidence_digest};
 use super::limits::proposal_output_count;
 use super::{
     CognitionApplyError, CognitionAuditEvidence, CognitionBinding, CognitionEffect,
@@ -40,8 +40,8 @@ impl CognitionCommitIdentity {
         space: &MemorySpace,
         proposal: &CognitionProposal,
         binding: &CognitionBinding,
+        proposal_digest: String,
     ) -> Result<Self, CognitionApplyError> {
-        let proposal_digest = proposal_digest(proposal)?;
         let key = CognitionIdempotencyKey::for_authority(
             &binding.space_id,
             &binding.subject,

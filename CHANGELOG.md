@@ -13,6 +13,10 @@ by release version, then by the date the logical change landed.
   views instead of cloning protected draft payloads and digest strings. A
   256-field binding digest improves from about 28.4 to 11.1 microseconds and a
   256-draft proposal digest from 593 to 499 microseconds after SHA acceleration.
+- Proposal validation now enforces the exact raw-wire byte ceiling while
+  streaming the canonical identity through one bounded buffered pass, then
+  carries that digest into commit preparation instead of serializing again. A
+  256-draft digest improves further from about 499 to 372 microseconds.
 - Keyword search now uses compact inverted postings for selective queries and
   an adaptive document scan for dense queries, with stable internal document
   keys and idempotent reindexing. Against 10,000 records, sparse top-10 search

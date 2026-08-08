@@ -6,7 +6,11 @@ use typesec_core::{CanWrite, Capability, Resource};
 
 use super::CognitionEffect;
 use super::canonical::{canonical_projection, is_canonical_sha256, is_canonical_text};
-use super::limits::{CognitionSourceBudget, MAX_COGNITION_SOURCE_COUNT, validate_proposal_budget};
+use super::digest::proposal_digest_with_wire_limit;
+use super::limits::{
+    CognitionSourceBudget, MAX_COGNITION_PROPOSAL_BYTES, MAX_COGNITION_SOURCE_COUNT,
+    validate_proposal_dimensions,
+};
 use super::types::{CognitionApplyError, CognitionAuthorityEvidence, CognitionBinding};
 use crate::CognitionProposal;
 use crate::error::MemoryError;
@@ -25,23 +29,39 @@ pub(super) fn required_purpose(context: &RequestContext) -> Result<&str, Cogniti
         .ok_or(CognitionApplyError::MissingPurpose)
 }
 
-pub(super) fn validate_proposal_shape(
+pub(super) fn validate_decoded_proposal(
     proposal: &CognitionProposal,
 ) -> Result<(), CognitionApplyError> {
-    validate_proposal(proposal, false)
+    validate_proposal_dimensions(proposal)?;
+    validate_proposal_structure(proposal, false)
+}
+
+pub(super) fn validate_proposal_identity(
+    proposal: &CognitionProposal,
+) -> Result<String, CognitionApplyError> {
+    validate_and_digest_proposal(proposal, false)
 }
 
 pub(super) fn validate_proposal_for_application(
     proposal: &CognitionProposal,
-) -> Result<(), CognitionApplyError> {
-    validate_proposal(proposal, true)
+) -> Result<String, CognitionApplyError> {
+    validate_and_digest_proposal(proposal, true)
 }
 
-fn validate_proposal(
+fn validate_and_digest_proposal(
+    proposal: &CognitionProposal,
+    require_mutation: bool,
+) -> Result<String, CognitionApplyError> {
+    validate_proposal_dimensions(proposal)?;
+    let digest = proposal_digest_with_wire_limit(proposal, MAX_COGNITION_PROPOSAL_BYTES)?;
+    validate_proposal_structure(proposal, require_mutation)?;
+    Ok(digest)
+}
+
+fn validate_proposal_structure(
     proposal: &CognitionProposal,
     require_mutation: bool,
 ) -> Result<(), CognitionApplyError> {
-    validate_proposal_budget(proposal)?;
     if ![
         CognitionProposal::MIN_SCHEMA_VERSION,
         CognitionProposal::SCHEMA_VERSION,

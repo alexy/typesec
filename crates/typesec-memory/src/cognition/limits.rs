@@ -42,7 +42,7 @@ pub(super) fn validate_projection_count(count: usize) -> Result<(), CognitionApp
     )
 }
 
-pub(super) fn validate_proposal_budget(
+pub(super) fn validate_proposal_dimensions(
     proposal: &CognitionProposal,
 ) -> Result<(), CognitionApplyError> {
     enforce(
@@ -84,14 +84,7 @@ pub(super) fn validate_proposal_budget(
         .checked_add(targets)
         .ok_or(CognitionApplyError::LimitExceeded("mutation count"))?;
     enforce(operations <= MAX_COGNITION_MUTATIONS, "mutation count")?;
-    validate_prepared_expansion(proposal, outputs)?;
-
-    let mut writer = BoundedWriter::new(MAX_COGNITION_PROPOSAL_BYTES);
-    let serialized = serde_json::to_writer(&mut writer, proposal);
-    if writer.exceeded {
-        return Err(CognitionApplyError::LimitExceeded("proposal bytes"));
-    }
-    serialized.map_err(|error| CognitionApplyError::Serialization(error.to_string()))
+    validate_prepared_expansion(proposal, outputs)
 }
 
 pub(super) fn proposal_output_count(
@@ -296,35 +289,6 @@ fn enforce(allowed: bool, limit: &'static str) -> Result<(), CognitionApplyError
         Ok(())
     } else {
         Err(CognitionApplyError::LimitExceeded(limit))
-    }
-}
-
-struct BoundedWriter {
-    remaining: usize,
-    exceeded: bool,
-}
-
-impl BoundedWriter {
-    fn new(limit: usize) -> Self {
-        Self {
-            remaining: limit,
-            exceeded: false,
-        }
-    }
-}
-
-impl Write for BoundedWriter {
-    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        if bytes.len() > self.remaining {
-            self.exceeded = true;
-            return Err(io::Error::other("cognition proposal exceeds byte limit"));
-        }
-        self.remaining -= bytes.len();
-        Ok(bytes.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }
 

@@ -299,10 +299,13 @@ fn try_prepared_fixture_with_evidence(
         }),
     )
     .with_binding(binding.clone());
-    super::super::validate::validate_proposal_for_application(&proposal)
+    let proposal_digest = super::super::validate::validate_proposal_for_application(&proposal)
         .expect("valid cognition proposal");
     let identity = super::super::identity::CognitionCommitIdentity::from_validated(
-        &space, &proposal, &binding,
+        &space,
+        &proposal,
+        &binding,
+        proposal_digest,
     )
     .expect("commit identity");
     let authority = authority_for(&binding);

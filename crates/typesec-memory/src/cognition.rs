@@ -54,7 +54,7 @@ impl crate::CognitionProposal {
                 proposal.schema_version,
             ));
         }
-        validate::validate_proposal_shape(&proposal)?;
+        validate::validate_decoded_proposal(&proposal)?;
         if let Some(binding) = &proposal.binding {
             binding.validate()?;
         }
@@ -67,11 +67,11 @@ impl crate::CognitionProposal {
     /// is excluded, so a later worker retry of the same governed decision has
     /// the same identity without reimplementing TypeSec internals.
     pub fn canonical_digest(&self) -> Result<String, CognitionApplyError> {
-        validate::validate_proposal_shape(self)?;
+        let digest = validate::validate_proposal_identity(self)?;
         if let Some(binding) = &self.binding {
             binding.validate()?;
         }
-        digest::proposal_digest(self)
+        Ok(digest)
     }
 }
 

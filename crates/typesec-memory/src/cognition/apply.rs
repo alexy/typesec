@@ -105,7 +105,7 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         let verifier = self
             .cognition_authority()
             .ok_or(CognitionApplyError::AuthorityVerifierUnavailable)?;
-        validate_proposal_for_application(proposal)?;
+        let proposal_digest = validate_proposal_for_application(proposal)?;
         let binding = proposal
             .binding
             .as_ref()
@@ -121,7 +121,8 @@ impl<S: CognitionCommitStore> MemoryVault<S> {
         validate_authority(proposal, binding, &authority)?;
         let authority_revalidated_at = clock();
 
-        let identity = CognitionCommitIdentity::from_validated(space, proposal, binding)?;
+        let identity =
+            CognitionCommitIdentity::from_validated(space, proposal, binding, proposal_digest)?;
         if let Some(recovered) = self
             .store()
             .recover_cognition(&identity.key, &identity.proposal_digest)?
