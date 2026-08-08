@@ -65,14 +65,16 @@ fn exact_rule_index_is_built_at_construction() {
     let e = engine();
     assert_eq!(
         e.exact_rules
-            .get(&("agent:summarizer".to_owned(), "read".to_owned()))
+            .get("agent:summarizer")
+            .and_then(|actions| actions.get("read"))
             .expect("read rule indexed")
             .len(),
         1
     );
     assert_eq!(
         e.exact_rules
-            .get(&("agent:summarizer".to_owned(), "ai:exfiltrate".to_owned()))
+            .get("agent:summarizer")
+            .and_then(|actions| actions.get("ai:exfiltrate"))
             .expect("exfiltrate rule indexed")
             .len(),
         1

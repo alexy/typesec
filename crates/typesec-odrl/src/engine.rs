@@ -2,8 +2,6 @@
 
 mod index;
 
-use std::collections::HashMap;
-
 use tracing::debug;
 use typesec_core::{
     ResourceId, SubjectId,
@@ -16,7 +14,7 @@ use crate::{
     model::{OdrlDocument, OdrlRuleType},
 };
 use index::{
-    CompiledTarget, RuleIndex, RuleRef, WildcardActionIndex, build_rule_index, compile_targets,
+    CompiledTargets, RuleIndex, RuleRef, WildcardActionIndex, build_rule_index, compile_targets,
 };
 
 struct RuleMatch {
@@ -54,9 +52,9 @@ pub struct OdrlEngine {
     exact_rules: RuleIndex,
     /// Same-assignee wildcard action (`use`) rules.
     wildcard_action_rules: WildcardActionIndex,
-    /// Each rule's target glob, compiled once at load and keyed by
+    /// Each rule's target glob, compiled once at load and indexed by
     /// `(policy_index, rule_index)`.
-    compiled_targets: HashMap<(usize, usize), CompiledTarget>,
+    compiled_targets: CompiledTargets,
     /// Default context applied to every check (can be overridden per-check).
     default_context: ConstraintContext,
 }
@@ -122,7 +120,7 @@ impl OdrlEngine {
             "odrl check"
         );
 
-        let scan = self.scan_candidates(&candidates, action, resource, ctx);
+        let scan = self.scan_candidates(candidates, action, resource, ctx);
         build_decision(scan, subject, action, resource)
     }
 
@@ -130,7 +128,7 @@ impl OdrlEngine {
     /// matching prohibition. Pure: emits no audit and renders no verdict.
     fn scan_candidates(
         &self,
-        candidates: &[RuleRef],
+        candidates: impl Iterator<Item = RuleRef>,
         action: &str,
         resource: &str,
         ctx: &ConstraintContext,
@@ -144,10 +142,8 @@ impl OdrlEngine {
             let rule = &policy.rules[rule_ref.rule_index];
 
             // Check target (glob) matches, using the pattern compiled at load.
-            let target_matches = self
-                .compiled_targets
-                .get(&(rule_ref.policy_index, rule_ref.rule_index))
-                .is_some_and(|target| target.matches(resource));
+            let target_matches =
+                self.compiled_targets[rule_ref.policy_index][rule_ref.rule_index].matches(resource);
             if !target_matches {
                 continue;
             }
@@ -208,27 +204,78 @@ impl OdrlEngine {
         }
     }
 
-    fn candidate_rules(&self, subject: &str, action: &str) -> Vec<RuleRef> {
-        let mut candidates = Vec::new();
-
-        if let Some(exact) = self
+    fn candidate_rules<'a>(&'a self, subject: &str, action: &str) -> RuleCandidates<'a> {
+        let exact = self
             .exact_rules
-            .get(&(subject.to_owned(), action.to_owned()))
-        {
-            candidates.extend_from_slice(exact);
-        }
-
-        if let Some(wildcard) = self.wildcard_action_rules.get(subject) {
-            candidates.extend_from_slice(wildcard);
-        }
-
-        if candidates.len() > 1 {
-            candidates.sort_by_key(|rule_ref| rule_ref.ordinal);
-        }
-
-        candidates
+            .get(subject)
+            .and_then(|actions| actions.get(action))
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let wildcard = self
+            .wildcard_action_rules
+            .get(subject)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        RuleCandidates::new(exact, wildcard)
     }
 }
+
+/// Allocation-free merge of exact-action and wildcard-action candidates. Both
+/// slices are already in document order, so comparing ordinals preserves
+/// deterministic ODRL evaluation without building and sorting a temporary vec.
+struct RuleCandidates<'a> {
+    exact: &'a [RuleRef],
+    wildcard: &'a [RuleRef],
+    exact_index: usize,
+    wildcard_index: usize,
+}
+
+impl<'a> RuleCandidates<'a> {
+    fn new(exact: &'a [RuleRef], wildcard: &'a [RuleRef]) -> Self {
+        Self {
+            exact,
+            wildcard,
+            exact_index: 0,
+            wildcard_index: 0,
+        }
+    }
+}
+
+impl Iterator for RuleCandidates<'_> {
+    type Item = RuleRef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let exact = self.exact.get(self.exact_index);
+        let wildcard = self.wildcard.get(self.wildcard_index);
+        match (exact, wildcard) {
+            (Some(exact), Some(wildcard)) if exact.ordinal <= wildcard.ordinal => {
+                self.exact_index += 1;
+                Some(*exact)
+            }
+            (Some(_), Some(wildcard)) => {
+                self.wildcard_index += 1;
+                Some(*wildcard)
+            }
+            (Some(exact), None) => {
+                self.exact_index += 1;
+                Some(*exact)
+            }
+            (None, Some(wildcard)) => {
+                self.wildcard_index += 1;
+                Some(*wildcard)
+            }
+            (None, None) => None,
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining =
+            self.exact.len() - self.exact_index + self.wildcard.len() - self.wildcard_index;
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for RuleCandidates<'_> {}
 
 /// Render an ODRL verdict and the full audit trail for a [`ScanResult`].
 ///

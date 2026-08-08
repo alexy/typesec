@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use typesec_core::{
     CanRead, CanWrite, Capability, CombineStrategy, ComposedEngine, LatticeEngine, Permission,
     PolicyEngine, PolicyResult, Resource, ResourceId, SubjectId, policy::mint_capability,
@@ -39,16 +39,17 @@ fn bench_mint_capability_allow(c: &mut Criterion) {
     let engine = AllowAll;
     let resource = GenericResource::new("reports/q1", "report");
 
-    c.bench_function("bench_mint_capability_allow", |b| {
+    let mut group = c.benchmark_group("policy_core");
+    group.throughput(Throughput::Elements(1));
+    group.bench_function("mint_capability_allow", |b| {
         b.iter(|| {
-            for _ in 0..1_000 {
-                let cap: Capability<CanRead, GenericResource> =
-                    mint_capability(&engine, black_box("agent:bench"), black_box(&resource))
-                        .expect("allow");
-                black_box(cap);
-            }
+            let cap: Capability<CanRead, GenericResource> =
+                mint_capability(&engine, black_box("agent:bench"), black_box(&resource))
+                    .expect("allow");
+            black_box(cap);
         })
     });
+    group.finish();
 }
 
 fn bench_lattice_promotion(c: &mut Criterion) {
@@ -57,17 +58,18 @@ fn bench_lattice_promotion(c: &mut Criterion) {
     let subject = SubjectId::from("agent:bench");
     let resource_id = ResourceId::from(resource.resource_id());
 
-    c.bench_function("bench_lattice_promotion", |b| {
+    let mut group = c.benchmark_group("policy_core");
+    group.throughput(Throughput::Elements(1));
+    group.bench_function("lattice_promotion", |b| {
         b.iter(|| {
-            for _ in 0..1_000 {
-                let _ = black_box(engine.check(
-                    black_box(&subject),
-                    black_box(CanRead::name()),
-                    black_box(&resource_id),
-                ));
-            }
+            black_box(engine.check(
+                black_box(&subject),
+                black_box(CanRead::name()),
+                black_box(&resource_id),
+            ))
         })
     });
+    group.finish();
 }
 
 fn bench_composed_engine_deny_overrides(c: &mut Criterion) {
@@ -79,17 +81,18 @@ fn bench_composed_engine_deny_overrides(c: &mut Criterion) {
     let subject = SubjectId::from("agent:bench");
     let resource_id = ResourceId::from(resource.resource_id());
 
-    c.bench_function("bench_composed_engine_deny_overrides", |b| {
+    let mut group = c.benchmark_group("policy_core");
+    group.throughput(Throughput::Elements(1));
+    group.bench_function("composed_deny_overrides", |b| {
         b.iter(|| {
-            for _ in 0..1_000 {
-                let _ = black_box(engine.check(
-                    black_box(&subject),
-                    black_box(CanWrite::name()),
-                    black_box(&resource_id),
-                ));
-            }
+            black_box(engine.check(
+                black_box(&subject),
+                black_box(CanWrite::name()),
+                black_box(&resource_id),
+            ))
         })
     });
+    group.finish();
 }
 
 criterion_group!(

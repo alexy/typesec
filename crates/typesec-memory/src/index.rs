@@ -169,14 +169,18 @@ impl SemanticIndex for KeywordIndex {
             .entries
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut scored: Vec<(usize, MemoryId)> = entries
+        let mut scored: Vec<(usize, &MemoryId)> = entries
             .iter()
-            .map(|(id, tokens)| (needle.intersection(tokens).count(), id.clone()))
+            .map(|(id, tokens)| (needle.intersection(tokens).count(), id))
             .filter(|(score, _)| *score > 0)
             .collect();
         // Best score first; ties broken by id for determinism.
-        scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-        Ok(scored.into_iter().take(limit).map(|(_, id)| id).collect())
+        scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(b.1)));
+        Ok(scored
+            .into_iter()
+            .take(limit)
+            .map(|(_, id)| id.clone())
+            .collect())
     }
 }
 

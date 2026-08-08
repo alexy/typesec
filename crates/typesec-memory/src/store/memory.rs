@@ -58,17 +58,16 @@ impl MemoryStore for InMemoryStore {
 
     fn query(&self, query: &StoreQuery) -> Result<Vec<StoredRecord>, StoreError> {
         let guard = self.read();
-        let mut out: Vec<StoredRecord> = guard
+        let mut matches: Vec<&StoredRecord> = guard
             .values()
             .filter(|record| query.matches(record))
-            .cloned()
             .collect();
         // Deterministic order for tests/ranking: newest observation first.
-        out.sort_by(|a, b| b.observed_at.cmp(&a.observed_at).then(b.id.cmp(&a.id)));
+        matches.sort_by(|a, b| b.observed_at.cmp(&a.observed_at).then(b.id.cmp(&a.id)));
         if let Some(limit) = query.limit {
-            out.truncate(limit);
+            matches.truncate(limit);
         }
-        Ok(out)
+        Ok(matches.into_iter().cloned().collect())
     }
 
     fn invalidate(&self, id: &MemoryId, at: DateTime<Utc>) -> Result<(), StoreError> {

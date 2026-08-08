@@ -20,24 +20,80 @@ use flatten::flatten_role;
 /// - Effective permissions per role (with inheritance flattened).
 /// - Subject → role mappings.
 ///
-/// Every `check()` call does O(roles × patterns) work — fast enough for
-/// the sizes of policies used in AI agent deployments.
+/// Exact-subject checks use a compact permission lookup followed by only that
+/// permission's resource patterns. Wildcard-subject assignments are evaluated
+/// separately because their subject globs necessarily depend on the request.
 pub struct RbacEngine {
-    /// Subject → set of effective (permission, resource_pattern) pairs.
-    subject_grants: HashMap<String, Vec<CompiledGrant>>,
+    /// Subject → compact, permission-indexed compiled resource grants.
+    subject_grants: HashMap<String, CompiledGrants>,
     /// Glob subject pattern → set of effective grants.
-    wildcard_subject_grants: Vec<(GlobPattern, Vec<CompiledGrant>)>,
+    wildcard_subject_grants: Vec<(GlobPattern, CompiledGrants)>,
 }
 
-/// A grant with its glob patterns validated and compiled once at load time.
-///
-/// Compiling here (rather than per `check()`) both surfaces pattern typos as
-/// load errors — a malformed pattern would otherwise silently never match,
-/// i.e. silently deny — and avoids re-parsing the glob on every check.
-#[derive(Debug, Clone)]
+/// A permission and its resource patterns, all compiled at policy load.
+#[derive(Debug)]
 struct CompiledGrant {
     permission: String,
     resource_patterns: Vec<GlobPattern>,
+}
+
+/// Sorted effective grants. Tiny policies stay on a one-or-two-comparison
+/// linear path; larger policies use binary search without a second hash lookup.
+#[derive(Debug, Default)]
+struct CompiledGrants {
+    grants: Vec<CompiledGrant>,
+}
+
+impl CompiledGrants {
+    const LINEAR_SEARCH_LIMIT: usize = 8;
+
+    fn insert(&mut self, permission: String, patterns: Vec<GlobPattern>) {
+        if let Some(existing) = self
+            .grants
+            .iter_mut()
+            .find(|grant| grant.permission == permission)
+        {
+            existing.resource_patterns.extend(patterns);
+        } else {
+            self.grants.push(CompiledGrant {
+                permission,
+                resource_patterns: patterns,
+            });
+        }
+    }
+
+    fn extend(&mut self, other: Self) {
+        for grant in other.grants {
+            self.insert(grant.permission, grant.resource_patterns);
+        }
+        self.sort();
+    }
+
+    fn sort(&mut self) {
+        self.grants
+            .sort_unstable_by(|left, right| left.permission.cmp(&right.permission));
+    }
+
+    fn is_empty(&self) -> bool {
+        self.grants.is_empty()
+    }
+
+    fn allows(&self, action: &str, resource: &str) -> bool {
+        let grant = if self.grants.len() <= Self::LINEAR_SEARCH_LIMIT {
+            self.grants.iter().find(|grant| grant.permission == action)
+        } else {
+            self.grants
+                .binary_search_by(|grant| grant.permission.as_str().cmp(action))
+                .ok()
+                .map(|index| &self.grants[index])
+        };
+        grant.is_some_and(|grant| {
+            grant
+                .resource_patterns
+                .iter()
+                .any(|pattern| pattern.matches(resource))
+        })
+    }
 }
 
 impl RbacEngine {
@@ -59,34 +115,35 @@ impl RbacEngine {
 
         // Step 2: build subject → grants mapping, compiling patterns up front
         // so invalid globs fail the policy load instead of silently denying.
-        let mut subject_grants: HashMap<String, Vec<CompiledGrant>> = HashMap::new();
-        let mut wildcard_subject_grants: Vec<(GlobPattern, Vec<CompiledGrant>)> = Vec::new();
+        let mut subject_grants: HashMap<String, CompiledGrants> = HashMap::new();
+        let mut wildcard_subject_grants: Vec<(GlobPattern, CompiledGrants)> = Vec::new();
         for assignment in &policy.assignments {
-            let mut all_grants: Vec<CompiledGrant> = Vec::new();
+            let mut all_grants = CompiledGrants::default();
             for role_name in &assignment.roles {
                 if let Some(grants) = effective_roles.get(role_name) {
                     for grant in grants {
-                        all_grants.push(CompiledGrant {
-                            permission: grant.permission.clone(),
-                            resource_patterns: grant
+                        all_grants.insert(
+                            grant.permission.clone(),
+                            grant
                                 .resource_patterns
                                 .iter()
                                 .map(|p| GlobPattern::compile(p, "resource"))
-                                .collect::<Result<_, _>>()?,
-                        });
+                                .collect::<Result<Vec<_>, _>>()?,
+                        );
                     }
                 }
             }
+            all_grants.sort();
             if is_glob_pattern(&assignment.subject) {
                 wildcard_subject_grants.push((
                     GlobPattern::compile(&assignment.subject, "subject")?,
                     all_grants,
                 ));
             } else {
-                subject_grants
+                let subject = subject_grants
                     .entry(assignment.subject.clone())
-                    .or_default()
-                    .extend(all_grants);
+                    .or_default();
+                subject.extend(all_grants);
             }
         }
 
@@ -109,22 +166,21 @@ impl PolicyEngine for RbacEngine {
         let resource = resource.as_str();
         debug!(subject, action, resource, "rbac check");
 
-        let exact_grants = self.subject_grants.get(subject).into_iter().flatten();
-        let wildcard_grants = self
-            .wildcard_subject_grants
-            .iter()
-            .filter(|(pattern, _)| pattern.matches(subject))
-            .flat_map(|(_, grants)| grants);
-
         let mut matched_subject = false;
-        for grant in exact_grants.chain(wildcard_grants) {
-            matched_subject = true;
-            if grant.permission == action {
-                for pattern in &grant.resource_patterns {
-                    if pattern.matches(resource) {
-                        return PolicyResult::Allow;
-                    }
-                }
+        if let Some(grants) = self.subject_grants.get(subject) {
+            matched_subject = !grants.is_empty();
+            if grants.allows(action, resource) {
+                return PolicyResult::Allow;
+            }
+        }
+
+        for (subject_pattern, grants) in &self.wildcard_subject_grants {
+            if !subject_pattern.matches(subject) {
+                continue;
+            }
+            matched_subject |= !grants.is_empty();
+            if grants.allows(action, resource) {
+                return PolicyResult::Allow;
             }
         }
 

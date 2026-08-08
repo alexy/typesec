@@ -5,6 +5,15 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Added per-operation Criterion coverage for core policy composition, RBAC
+  grant scaling, indexed ODRL decisions, in-memory record queries, and keyword
+  search so authorization and memory-path regressions are measured at realistic
+  policy and record counts.
+- Indexed RBAC resource grants by permission, removed per-decision ODRL lookup
+  key and candidate-vector allocations, and made in-memory query/search result
+  selection borrow records until after sorting and limiting. ASCII text filters
+  now perform case-insensitive matching without lowercase allocations while
+  retaining the prior Unicode lowercase behavior.
 - Prepare the `0.13.1` registry release so the current cognition and
   capability-memory APIs are consumable by released Marciana crates.
 - Align the release metadata with Grust `0.12.1`, the published graph,

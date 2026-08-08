@@ -113,7 +113,7 @@ impl StoreQuery {
             return false;
         }
         if let Some(needle) = &self.text_contains
-            && !record.content_text_lower().contains(&needle.to_lowercase())
+            && !contains_case_insensitive(&record.content().text, needle)
         {
             return false;
         }
@@ -128,6 +128,23 @@ impl StoreQuery {
         }
         true
     }
+}
+
+/// Preserve Unicode lowercase matching while keeping the overwhelmingly common
+/// ASCII path allocation-free. `eq_ignore_ascii_case` applies to arbitrary byte
+/// slices, so this also avoids constructing a lowercase copy of every record in
+/// a store scan.
+fn contains_case_insensitive(haystack: &str, needle: &str) -> bool {
+    if needle.is_empty() {
+        return true;
+    }
+    if haystack.is_ascii() && needle.is_ascii() {
+        return haystack
+            .as_bytes()
+            .windows(needle.len())
+            .any(|window| window.eq_ignore_ascii_case(needle.as_bytes()));
+    }
+    haystack.to_lowercase().contains(&needle.to_lowercase())
 }
 
 /// One write within an atomic [`apply_batch`](MemoryStore::apply_batch).

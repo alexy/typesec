@@ -135,17 +135,16 @@ impl MemoryStore for GrustMemoryStore {
 
     fn query(&self, query: &StoreQuery) -> Result<Vec<StoredRecord>, StoreError> {
         let inner = self.read();
-        let mut out: Vec<StoredRecord> = inner
+        let mut matches: Vec<&StoredRecord> = inner
             .records
             .values()
             .filter(|record| query.matches(record))
-            .cloned()
             .collect();
-        out.sort_by(|a, b| b.observed_at.cmp(&a.observed_at).then(b.id.cmp(&a.id)));
+        matches.sort_by(|a, b| b.observed_at.cmp(&a.observed_at).then(b.id.cmp(&a.id)));
         if let Some(limit) = query.limit {
-            out.truncate(limit);
+            matches.truncate(limit);
         }
-        Ok(out)
+        Ok(matches.into_iter().cloned().collect())
     }
 
     fn invalidate(&self, id: &MemoryId, at: DateTime<Utc>) -> Result<(), StoreError> {

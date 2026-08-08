@@ -8,9 +8,10 @@ use typesec_core::glob::GlobPattern;
 
 use crate::model::{OdrlDocument, RuleAction};
 
-pub(super) type RuleKey = (String, String);
-pub(super) type RuleIndex = HashMap<RuleKey, Vec<RuleRef>>;
+pub(super) type ActionRuleIndex = HashMap<String, Vec<RuleRef>>;
+pub(super) type RuleIndex = HashMap<String, ActionRuleIndex>;
 pub(super) type WildcardActionIndex = HashMap<String, Vec<RuleRef>>;
+pub(super) type CompiledTargets = Vec<Vec<CompiledTarget>>;
 
 /// A rule's target, compiled once at load: the raw target string plus a
 /// [`GlobPattern`] over its `asset:`-stripped form.
@@ -53,18 +54,18 @@ impl CompiledTarget {
     }
 }
 
-/// Compile every rule's target once, keyed by `(policy_index, rule_index)`.
-pub(super) fn compile_targets(doc: &OdrlDocument) -> HashMap<(usize, usize), CompiledTarget> {
-    let mut targets = HashMap::new();
-    for (policy_index, policy) in doc.policies.iter().enumerate() {
-        for (rule_index, rule) in policy.rules.iter().enumerate() {
-            targets.insert(
-                (policy_index, rule_index),
-                CompiledTarget::compile(&rule.target),
-            );
-        }
-    }
-    targets
+/// Compile every rule's target once, indexed by `(policy_index, rule_index)`.
+pub(super) fn compile_targets(doc: &OdrlDocument) -> CompiledTargets {
+    doc.policies
+        .iter()
+        .map(|policy| {
+            policy
+                .rules
+                .iter()
+                .map(|rule| CompiledTarget::compile(&rule.target))
+                .collect()
+        })
+        .collect()
 }
 
 /// A pointer into the parsed document identifying a single rule, plus the
@@ -98,10 +99,9 @@ pub(super) fn build_rule_index(doc: &OdrlDocument) -> (RuleIndex, WildcardAction
                     .push(rule_ref);
             } else {
                 exact_rules
-                    .entry((
-                        rule.assignee.clone(),
-                        rule.action.as_permission_name().to_owned(),
-                    ))
+                    .entry(rule.assignee.clone())
+                    .or_default()
+                    .entry(rule.action.as_permission_name().to_owned())
                     .or_default()
                     .push(rule_ref);
             }

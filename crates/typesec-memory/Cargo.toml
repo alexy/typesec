@@ -43,9 +43,14 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
 typesec-rbac = { version = "0.13.1", path = "../typesec-rbac" }
 typesec-odrl = { version = "0.13.1", path = "../typesec-odrl" }
 typesec-integrations = { version = "0.13.1", path = "../typesec-integrations" }
 ed25519-dalek = { workspace = true }
 chrono = { workspace = true }
 trybuild = "1"
+
+[[bench]]
+name = "memory_paths"
+harness = false

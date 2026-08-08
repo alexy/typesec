@@ -1,4 +1,4 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use typesec_core::{PolicyEngine, ResourceId, SubjectId};
 use typesec_rbac::RbacEngine;
 
@@ -24,42 +24,72 @@ fn miss_policy() -> String {
     yaml
 }
 
-fn bench_rbac_check_hit(c: &mut Criterion) {
+fn policy_with_permissions(count: usize) -> String {
+    let permissions = (0..count)
+        .map(|idx| format!("action_{idx}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        r#"
+roles:
+  - name: scaled
+    permissions: [{permissions}]
+    resources: ["reports/*"]
+assignments:
+  - subject: "agent:bench"
+    roles: [scaled]
+"#
+    )
+}
+
+fn bench_rbac_checks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("rbac_check");
+    group.throughput(Throughput::Elements(1));
+
     let engine = RbacEngine::from_yaml(HIT_POLICY).expect("policy");
     let subject = SubjectId::from("agent:bench");
     let resource = ResourceId::from("reports/q1");
 
-    c.bench_function("bench_rbac_check_hit", |b| {
+    group.bench_function("exact_hit", |b| {
         b.iter(|| {
-            for _ in 0..1_000 {
-                let _ = black_box(engine.check(
-                    black_box(&subject),
-                    black_box("read"),
-                    black_box(&resource),
-                ));
-            }
+            black_box(engine.check(black_box(&subject), black_box("read"), black_box(&resource)))
         })
     });
-}
 
-fn bench_rbac_check_miss(c: &mut Criterion) {
     let yaml = miss_policy();
     let engine = RbacEngine::from_yaml(&yaml).expect("policy");
-    let subject = SubjectId::from("agent:bench");
-    let resource = ResourceId::from("reports/q1");
 
-    c.bench_function("bench_rbac_check_miss", |b| {
+    group.bench_function("unassigned_subject_miss", |b| {
         b.iter(|| {
-            for _ in 0..1_000 {
-                let _ = black_box(engine.check(
-                    black_box(&subject),
-                    black_box("write"),
-                    black_box(&resource),
-                ));
-            }
+            black_box(engine.check(
+                black_box(&subject),
+                black_box("write"),
+                black_box(&resource),
+            ))
         })
     });
+
+    for permission_count in [1, 16, 64] {
+        let policy = policy_with_permissions(permission_count);
+        let engine = RbacEngine::from_yaml(&policy).expect("scaled policy");
+        let action = format!("action_{}", permission_count - 1);
+        group.bench_with_input(
+            BenchmarkId::new("last_permission_hit", permission_count),
+            &permission_count,
+            |b, _| {
+                b.iter(|| {
+                    black_box(engine.check(
+                        black_box(&subject),
+                        black_box(&action),
+                        black_box(&resource),
+                    ))
+                })
+            },
+        );
+    }
+
+    group.finish();
 }
 
-criterion_group!(benches, bench_rbac_check_hit, bench_rbac_check_miss);
+criterion_group!(benches, bench_rbac_checks);
 criterion_main!(benches);

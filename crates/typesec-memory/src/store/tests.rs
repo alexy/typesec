@@ -56,6 +56,21 @@ fn text_and_quarantine_filters() {
 }
 
 #[test]
+fn text_filter_preserves_unicode_lowercase_semantics() {
+    let unicode = StoreQuery {
+        text_contains: Some("CAFÉ".into()),
+        ..Default::default()
+    };
+    assert!(unicode.matches(&rec("m1", Label::Public, "Rendez-vous au café")));
+
+    let empty = StoreQuery {
+        text_contains: Some(String::new()),
+        ..Default::default()
+    };
+    assert!(empty.matches(&rec("m2", Label::Public, "anything")));
+}
+
+#[test]
 fn purpose_filter_allows_untagged_and_overlapping() {
     let q = StoreQuery {
         any_purpose: vec!["support".into()],

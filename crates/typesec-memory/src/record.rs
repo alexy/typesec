@@ -254,11 +254,6 @@ impl StoredRecord {
         &self.content
     }
 
-    /// Crate-internal: lowercased text for the shared store text filter.
-    pub(crate) fn content_text_lower(&self) -> String {
-        self.content.text.to_lowercase()
-    }
-
     /// Crate-internal constructor used by the vault when persisting a draft.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn assemble(
