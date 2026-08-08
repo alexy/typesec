@@ -5,6 +5,10 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- SHA-256 now enables its accelerated backend on supported targets. Production
+  benchmarks reduce a 64 KiB governed-draft digest from about 245 to 61
+  microseconds and a 256-draft cognition-proposal digest from 1.421
+  milliseconds to 593 microseconds, while retaining the portable fallback.
 - Keyword search now uses compact inverted postings for selective queries and
   an adaptive document scan for dense queries, with stable internal document
   keys and idempotent reindexing. Against 10,000 records, sparse top-10 search
