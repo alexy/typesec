@@ -19,6 +19,9 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::sync::{Arc, RwLock};
+
 use crate::label::Label;
 use crate::space::MemoryId;
 
@@ -125,8 +128,20 @@ pub trait SemanticIndex: Send + Sync {
 /// wiring and gives tests a stable ranking.
 #[derive(Default)]
 pub struct KeywordIndex {
-    entries:
-        std::sync::RwLock<std::collections::HashMap<MemoryId, std::collections::BTreeSet<String>>>,
+    entries: RwLock<KeywordEntries>,
+}
+
+#[derive(Default)]
+struct KeywordEntries {
+    documents: Vec<Option<KeywordDocument>>,
+    document_keys: HashMap<Arc<MemoryId>, usize>,
+    vacant_keys: Vec<usize>,
+    postings: HashMap<String, HashSet<usize>>,
+}
+
+struct KeywordDocument {
+    id: Arc<MemoryId>,
+    tokens: BTreeSet<String>,
 }
 
 impl KeywordIndex {
@@ -135,28 +150,97 @@ impl KeywordIndex {
         Self::default()
     }
 
-    fn tokens(text: &str) -> std::collections::BTreeSet<String> {
+    fn tokens(text: &str) -> BTreeSet<String> {
         text.split(|c: char| !c.is_alphanumeric())
             .filter(|t| !t.is_empty())
             .map(str::to_lowercase)
             .collect()
     }
+
+    fn remove_posting(entries: &mut KeywordEntries, key: usize, token: &str) {
+        let remove_posting = entries.postings.get_mut(token).is_some_and(|keys| {
+            keys.remove(&key);
+            keys.is_empty()
+        });
+        if remove_posting {
+            entries.postings.remove(token);
+        }
+    }
+
+    fn remove_postings(entries: &mut KeywordEntries, key: usize, tokens: BTreeSet<String>) {
+        for token in tokens {
+            Self::remove_posting(entries, key, &token);
+        }
+    }
 }
 
 impl SemanticIndex for KeywordIndex {
     fn index(&self, id: &MemoryId, _label: Label, text: &str) -> Result<(), IndexError> {
-        self.entries
+        let tokens = Self::tokens(text);
+        let mut entries = self
+            .entries
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(id.clone(), Self::tokens(text));
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(&key) = entries.document_keys.get(id) {
+            let document = entries.documents[key]
+                .as_mut()
+                .expect("keyword index document key must be valid");
+            if document.tokens == tokens {
+                return Ok(());
+            }
+            let old_tokens = std::mem::take(&mut document.tokens);
+            for token in old_tokens.difference(&tokens) {
+                Self::remove_posting(&mut entries, key, token);
+            }
+            for token in tokens.difference(&old_tokens) {
+                entries
+                    .postings
+                    .entry(token.clone())
+                    .or_default()
+                    .insert(key);
+            }
+            entries.documents[key]
+                .as_mut()
+                .expect("keyword index document key must be valid")
+                .tokens = tokens;
+            return Ok(());
+        }
+
+        let key = entries.vacant_keys.pop().unwrap_or(entries.documents.len());
+        for token in &tokens {
+            entries
+                .postings
+                .entry(token.clone())
+                .or_default()
+                .insert(key);
+        }
+        let id = Arc::new(id.clone());
+        let document = KeywordDocument {
+            id: Arc::clone(&id),
+            tokens,
+        };
+        entries.document_keys.insert(id, key);
+        if key == entries.documents.len() {
+            entries.documents.push(Some(document));
+        } else {
+            entries.documents[key] = Some(document);
+        }
         Ok(())
     }
 
     fn remove(&self, id: &MemoryId) -> Result<(), IndexError> {
-        self.entries
+        let mut entries = self
+            .entries
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .remove(id);
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some((_, key)) = entries.document_keys.remove_entry(id) else {
+            return Ok(());
+        };
+        let document = entries.documents[key]
+            .take()
+            .expect("keyword index document key must be valid");
+        Self::remove_postings(&mut entries, key, document.tokens);
+        entries.vacant_keys.push(key);
         Ok(())
     }
 
@@ -169,11 +253,43 @@ impl SemanticIndex for KeywordIndex {
             .entries
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let mut scored: Vec<(usize, &MemoryId)> = entries
+        let posting_visits = needle
             .iter()
-            .map(|(id, tokens)| (needle.intersection(tokens).count(), id))
-            .filter(|(score, _)| *score > 0)
-            .collect();
+            .filter_map(|token| entries.postings.get(token))
+            .map(HashSet::len)
+            .sum::<usize>();
+        let mut scored = if posting_visits >= entries.document_keys.len() {
+            entries
+                .documents
+                .iter()
+                .flatten()
+                .map(|document| {
+                    (
+                        needle.intersection(&document.tokens).count(),
+                        document.id.as_ref(),
+                    )
+                })
+                .filter(|(score, _)| *score > 0)
+                .collect::<Vec<_>>()
+        } else {
+            let mut scores = HashMap::<usize, usize>::new();
+            for token in &needle {
+                if let Some(keys) = entries.postings.get(token) {
+                    for &key in keys {
+                        *scores.entry(key).or_default() += 1;
+                    }
+                }
+            }
+            scores
+                .into_iter()
+                .map(|(key, score)| {
+                    let document = entries.documents[key]
+                        .as_ref()
+                        .expect("keyword index posting key must be valid");
+                    (score, document.id.as_ref())
+                })
+                .collect::<Vec<_>>()
+        };
         // Best score first; ties broken by id for determinism.
         let score_order =
             |a: &(usize, &MemoryId), b: &(usize, &MemoryId)| b.0.cmp(&a.0).then(a.1.cmp(b.1));

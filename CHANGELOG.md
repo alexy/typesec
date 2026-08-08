@@ -5,6 +5,13 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Keyword search now uses compact inverted postings for selective queries and
+  an adaptive document scan for dense queries, with stable internal document
+  keys and idempotent reindexing. Against 10,000 records, sparse top-10 search
+  improves from about 449 to 66 microseconds, dense search from 543 to 478
+  microseconds, and a no-hit search from 497 microseconds to 216 nanoseconds.
+  Building the richer index rises from about 3.8 to 9.6 milliseconds and an
+  update that changes tokens from 271 to 624 nanoseconds.
 - Memory stores and the keyword index now partition bounded top-k results in
   linear time and sort only the retained results, while preserving deterministic
   recency, score, and id ordering. Against 10,000 records, latest-10 queries
