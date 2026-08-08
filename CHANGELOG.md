@@ -5,6 +5,12 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- In-memory DID replay protection now prunes claims through an expiry-ordered
+  queue instead of scanning every active claim while holding its mutex. At
+  10,000 active claims, replay hits improve from about 14.1 microseconds to
+  25.9 nanoseconds, while an eight-thread burst improves from about 60,300 to
+  3.86 million claims per second; the one-entry path rises from 24.2 to 25.9
+  nanoseconds.
 - Added production Criterion coverage for TypeDID replay protection, Ed25519
   signing, X25519/ChaCha20-Poly1305 encryption, complete envelope seal/open and
   references, and decision and cognition receipt issue/verification, including
