@@ -304,7 +304,7 @@ fn cognition_receipt(affected_ids: usize) -> CognitionCommitReceipt {
             subject: "did:key:benchmark-agent".into(),
             resource: "memory/did:key:benchmark-agent/research".into(),
             job_id: "benchmark-job".into(),
-            governed_source_scope: Some("lakecat:warehouse/benchmark".into()),
+            governed_source_scope: Some(digest('a')),
             typedid_request_digest: digest('1'),
             proposal_digest: digest('2'),
             governed_scan_digest: digest('3'),
