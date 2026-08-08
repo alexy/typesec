@@ -10,7 +10,7 @@ use std::sync::{PoisonError, RwLock};
 
 use chrono::{DateTime, Utc};
 
-use super::{MemoryStore, StoreError, StoreQuery};
+use super::{MemoryStore, StoreError, StoreQuery, query_records};
 use crate::record::StoredRecord;
 use crate::space::MemoryId;
 
@@ -58,16 +58,7 @@ impl MemoryStore for InMemoryStore {
 
     fn query(&self, query: &StoreQuery) -> Result<Vec<StoredRecord>, StoreError> {
         let guard = self.read();
-        let mut matches: Vec<&StoredRecord> = guard
-            .values()
-            .filter(|record| query.matches(record))
-            .collect();
-        // Deterministic order for tests/ranking: newest observation first.
-        matches.sort_by(|a, b| b.observed_at.cmp(&a.observed_at).then(b.id.cmp(&a.id)));
-        if let Some(limit) = query.limit {
-            matches.truncate(limit);
-        }
-        Ok(matches.into_iter().cloned().collect())
+        Ok(query_records(guard.values(), query))
     }
 
     fn invalidate(&self, id: &MemoryId, at: DateTime<Utc>) -> Result<(), StoreError> {

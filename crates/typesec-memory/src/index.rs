@@ -175,12 +175,14 @@ impl SemanticIndex for KeywordIndex {
             .filter(|(score, _)| *score > 0)
             .collect();
         // Best score first; ties broken by id for determinism.
-        scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(b.1)));
-        Ok(scored
-            .into_iter()
-            .take(limit)
-            .map(|(_, id)| id.clone())
-            .collect())
+        let score_order =
+            |a: &(usize, &MemoryId), b: &(usize, &MemoryId)| b.0.cmp(&a.0).then(a.1.cmp(b.1));
+        if limit < scored.len() {
+            scored.select_nth_unstable_by(limit, score_order);
+            scored.truncate(limit);
+        }
+        scored.sort_unstable_by(score_order);
+        Ok(scored.into_iter().map(|(_, id)| id.clone()).collect())
     }
 }
 

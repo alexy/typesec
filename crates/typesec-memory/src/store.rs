@@ -147,6 +147,31 @@ fn contains_case_insensitive(haystack: &str, needle: &str) -> bool {
     haystack.to_lowercase().contains(&needle.to_lowercase())
 }
 
+pub(crate) fn query_records<'a>(
+    records: impl Iterator<Item = &'a StoredRecord>,
+    query: &StoreQuery,
+) -> Vec<StoredRecord> {
+    if query.limit == Some(0) {
+        return Vec::new();
+    }
+
+    let mut matches = records
+        .filter(|record| query.matches(record))
+        .collect::<Vec<_>>();
+    if let Some(limit) = query.limit
+        && limit < matches.len()
+    {
+        matches.select_nth_unstable_by(limit, recent_record_order);
+        matches.truncate(limit);
+    }
+    matches.sort_unstable_by(recent_record_order);
+    matches.into_iter().cloned().collect()
+}
+
+fn recent_record_order(a: &&StoredRecord, b: &&StoredRecord) -> std::cmp::Ordering {
+    b.observed_at.cmp(&a.observed_at).then(b.id.cmp(&a.id))
+}
+
 /// One write within an atomic [`apply_batch`](MemoryStore::apply_batch).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StoreBatchOp {

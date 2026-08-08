@@ -120,3 +120,34 @@ fn in_memory_store_roundtrips_and_invalidates() {
     assert!(store.tombstone(&MemoryId::from_string("m2")).unwrap());
     assert!(!store.tombstone(&MemoryId::from_string("nope")).unwrap());
 }
+
+#[test]
+fn in_memory_store_limit_preserves_rank_order() {
+    let store = InMemoryStore::new();
+    for id in ["m1", "m4", "m2", "m3"] {
+        store.put(rec(id, Label::Public, id)).unwrap();
+    }
+
+    let limited = store
+        .query(&StoreQuery {
+            limit: Some(2),
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(
+        limited
+            .iter()
+            .map(|record| record.id.as_str())
+            .collect::<Vec<_>>(),
+        ["m4", "m3"]
+    );
+    assert!(
+        store
+            .query(&StoreQuery {
+                limit: Some(0),
+                ..Default::default()
+            })
+            .unwrap()
+            .is_empty()
+    );
+}

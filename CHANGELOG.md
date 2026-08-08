@@ -5,6 +5,12 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Memory stores and the keyword index now partition bounded top-k results in
+  linear time and sort only the retained results, while preserving deterministic
+  recency, score, and id ordering. Against 10,000 records, latest-10 queries
+  improve from about 1.277 milliseconds to 219 microseconds (82.8%),
+  case-insensitive filtered queries from 470 to 416 microseconds (11.4%), and
+  keyword top-10 search from 505 to 458 microseconds (9.3%).
 - Added per-operation Criterion coverage for core policy composition, RBAC
   grant scaling, indexed ODRL decisions, in-memory record queries, and keyword
   search so authorization and memory-path regressions are measured at realistic

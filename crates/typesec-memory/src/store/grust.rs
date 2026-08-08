@@ -23,7 +23,7 @@ use std::sync::{PoisonError, RwLock};
 use chrono::{DateTime, Utc};
 use grust::prelude::{Graph, Node, NodeId, Value};
 
-use super::{MemoryStore, StoreError, StoreQuery};
+use super::{MemoryStore, StoreError, StoreQuery, query_records};
 use crate::record::StoredRecord;
 use crate::space::MemoryId;
 
@@ -135,16 +135,7 @@ impl MemoryStore for GrustMemoryStore {
 
     fn query(&self, query: &StoreQuery) -> Result<Vec<StoredRecord>, StoreError> {
         let inner = self.read();
-        let mut matches: Vec<&StoredRecord> = inner
-            .records
-            .values()
-            .filter(|record| query.matches(record))
-            .collect();
-        matches.sort_by(|a, b| b.observed_at.cmp(&a.observed_at).then(b.id.cmp(&a.id)));
-        if let Some(limit) = query.limit {
-            matches.truncate(limit);
-        }
-        Ok(matches.into_iter().cloned().collect())
+        Ok(query_records(inner.records.values(), query))
     }
 
     fn invalidate(&self, id: &MemoryId, at: DateTime<Utc>) -> Result<(), StoreError> {
