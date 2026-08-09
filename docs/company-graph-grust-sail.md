@@ -78,6 +78,15 @@ company graph schema and writes the graph through
 `SailGraphStore::put_typed_graph`; otherwise it still validates the graph against
 that schema and demonstrates the security checks.
 
+The 2026-08-09 cross-stack release gate supplied QueryGraph's exact optimized
+graph-enabled Sail `c5309365` executable. The live example preserved the HR
+executive-node and employee sensitive-network denials, granted only
+`company/acme/org-graph`, and wrote all 5 employee nodes and 4 `REPORTS_TO`
+edges. This exercise also caught and now covers a Grust adapter defect: an
+explicit string `id` in `GraphSchema` must reuse the structural typed-table
+column, not generate a second unqualified `id`. Typesec records the result but
+does not duplicate the composing QueryGraph/Marciana Sail source pin.
+
 The Python examples share `company_graph_core.py`, which owns the in-memory
 graph, employee fixture data, and `TypesecGate`. The gate tries the Rust-backed
 `typesec_native` module first and falls back to the workspace CLI, so examples

@@ -9,6 +9,11 @@ by release version, then by the date the logical change landed.
   least-privilege `company/*/org-graph` shape. Regression tests now prove that
   a graph administrator can persist a tenant org graph without gaining an
   unrelated `company/<tenant>/payroll` write.
+- Pass the company-graph live gate against QueryGraph's exact optimized
+  graph-enabled Sail `c5309365` artifact: both expected authorization denials
+  remain enforced and the permitted typed write persists 5 nodes and 4 edges.
+  The gate also drove regression coverage for Grust's schema-declared node
+  identity mapping without introducing a second Typesec-owned Sail pin.
 - Pin the CI sibling checkout to the reviewed Grust 0.12.1 revision, matching
   TypeSec's path-dependency contract instead of resolving against the older
   0.12.0 package versions on Grust's moving `main` branch.

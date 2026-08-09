@@ -2012,6 +2012,15 @@ graph and to write the graph through the Sail adapter when a Sail SparkConnect
 server is available at `127.0.0.1:50051`. If Sail is not running, the example
 still demonstrates the Typesec decisions and prints the graph.
 
+In the 2026-08-09 cross-stack release gate, QueryGraph supplied its exact
+optimized graph-enabled Sail `c5309365` executable. The live path preserved the
+HR executive-node and employee sensitive-network denials, authorized only the
+tenant org-graph aggregate resource, and wrote all 5 nodes and 4 edges. That
+gate also exposed and verified the Grust fix that maps a schema-declared string
+`id` onto the one structural typed-table column instead of creating a duplicate
+unqualified field. Typesec records this evidence without maintaining a second
+Sail source pin.
+
 The import shape is:
 
 ```rust
