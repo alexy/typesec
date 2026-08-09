@@ -5,6 +5,9 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Pin the CI sibling checkout to the reviewed Grust 0.12.1 revision, matching
+  TypeSec's path-dependency contract instead of resolving against the older
+  0.12.0 package versions on Grust's moving `main` branch.
 - Receipt issuance now writes both base64url segments into one exactly sized
   token allocation, verification decodes fixed-size signatures on the stack,
   and sealed cognition receipt values avoid redundant semantic rescans after

@@ -30,8 +30,10 @@ jobs:
           # bump deliberately when the typesec/Grust contract changes. If
           # querygraph/grust is private, also pass a token with read access:
           #   token: ${{ secrets.GRUST_CHECKOUT_TOKEN }}
-          # typesec 0.12 (Torcello) tracks Grust 0.12 (Lobster), on main.
-          ref: main
+          # TypeSec 0.13.1 tracks the reviewed Grust 0.12.1 release candidate.
+          # Pin the commit so a moving or older `main` cannot silently change
+          # this cross-repository build contract.
+          ref: a178c30de9b5c194fae68c9bed37c6665e1096ad
 
       - name: Show toolchain (pinned by rust-toolchain.toml)
         working-directory: typesec
