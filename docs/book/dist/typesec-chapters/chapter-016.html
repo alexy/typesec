@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-08-06" />
+  <meta name="dcterms.date" content="2026-08-09" />
   <title>Examples</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -193,6 +193,15 @@ backend-neutral property graph and to write the graph through the Sail
 adapter when a Sail SparkConnect server is available at
 <code>127.0.0.1:50051</code>. If Sail is not running, the example still
 demonstrates the Typesec decisions and prints the graph.</p>
+<p>In the 2026-08-09 cross-stack release gate, QueryGraph supplied its
+exact optimized graph-enabled Sail <code>c5309365</code> executable. The
+live path preserved the HR executive-node and employee sensitive-network
+denials, authorized only the tenant org-graph aggregate resource, and
+wrote all 5 nodes and 4 edges. That gate also exposed and verified the
+Grust fix that maps a schema-declared string <code>id</code> onto the
+one structural typed-table column instead of creating a duplicate
+unqualified field. Typesec records this evidence without maintaining a
+second Sail source pin.</p>
 <p>The import shape is:</p>
 <div class="sourceCode" id="cb6"><pre
 class="sourceCode rust"><code class="sourceCode rust"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">use</span> <span class="pp">grust::prelude::</span><span class="op">*;</span></span>

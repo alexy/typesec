@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-08-06" />
+  <meta name="dcterms.date" content="2026-08-09" />
   <title>Architecture at a Glance</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -63,35 +63,30 @@ renders them too).</p>
 <code>Capability</code> is unforgeable proof, and the only production
 path to one runs a <code>PolicyEngine</code> and emits an audit event; a
 denial is a typed error, never a capability.</p>
-<p><img
-src="assets/d2676d91b2eb-diagram-1.png" /></p>
+<p><img src="assets/2c67e7d95538-diagram-1.png" /></p>
 <p>The workspace is eleven crates layered on <code>typesec-core</code>.
 The umbrella <code>typesec</code> crate re-exports the core, policy,
 agent, macro, and integration surfaces behind feature flags;
 <code>typesec-memory</code> and <code>typesec-wasm</code> remain
 purpose-built distribution surfaces rather than being hidden inside the
 facade.</p>
-<p><img
-src="assets/7a086c098325-diagram-2.png" /></p>
+<p><img src="assets/19461a35b786-diagram-2.png" /></p>
 <p>Every engine — RBAC, the graph engine, ODRL, and the provider-backed
 engines — implements the same <code>check_with_context</code> contract
 returning <code>Allow</code>, <code>Deny</code>, or
 <code>Delegate</code>, so they compose under <code>ComposedEngine</code>
 and <code>FallbackEngine</code>.</p>
-<p><img
-src="assets/c8edc2ccf59e-diagram-3.png" /></p>
+<p><img src="assets/a7f9654f1bae-diagram-3.png" /></p>
 <p><code>SecureAgent&lt;S&gt;</code> is a typestate machine: the
 capability-requesting and <code>execute</code> methods exist only on the
 <code>Authenticated</code> state, so calling them on an unauthenticated
 agent is a compile error, not a runtime check.</p>
-<p><img
-src="assets/3d747fe2144a-diagram-4.png" /></p>
+<p><img src="assets/9d1167336141-diagram-4.png" /></p>
 <p>When agents collaborate, a prompt is sealed into a DID envelope whose
 ciphertext is AEAD-bound to its routing and timing identity; the gateway
 verifies signature, replay, and expiry, then reveals the plaintext only
 under a typed capability and returns an audit-safe attestation that
 records who did what to which resource without exposing the payload.</p>
-<p><img
-src="assets/6dc72828200f-diagram-5.png" /></p>
+<p><img src="assets/d5ab1f8c38f7-diagram-5.png" /></p>
 </body>
 </html>

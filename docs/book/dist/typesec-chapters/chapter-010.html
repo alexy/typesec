@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="Alexy Khrabrov" />
-  <meta name="dcterms.date" content="2026-08-06" />
+  <meta name="dcterms.date" content="2026-08-09" />
   <title>typesec-memory — Marciana</title>
   <style>
     div.sitenav { display: flex; flex-direction: row; flex-wrap: wrap; }
@@ -464,8 +464,7 @@ has <code>MemoryGate</code>; and <code>typesec-wasm</code> provides
 <code>WasmMemoryVault</code> for the in-memory web boundary.</p>
 <p>The realized QueryGraph service preserves the same sequence across a
 network:</p>
-<p><img
-src="assets/7f82fe1bb0ac-diagram-6.png" /></p>
+<p><img src="assets/6b0bc060003a-diagram-6.png" /></p>
 <p>qg-python keeps the Ed25519 signing seed in typed runtime
 dependencies. qg-rust accepts the verified signing DID—not a
 caller-supplied JSON subject—as the policy principal. The signature
