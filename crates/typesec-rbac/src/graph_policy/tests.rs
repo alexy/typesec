@@ -71,6 +71,8 @@ graph_policy:
           no_cycle: true
 "#;
 
+const COMPANY_YAML: &str = include_str!("../../../../policies/graph-corporate-example.yaml");
+
 fn engine() -> GraphPolicyEngine {
     GraphPolicyEngine::from_yaml(YAML).expect("graph policy should load")
 }
@@ -93,6 +95,32 @@ fn role_can_write_non_executive_employee_node() {
         ),
         PolicyResult::Allow
     );
+}
+
+#[test]
+fn executive_graph_admin_can_persist_a_tenant_org_graph() {
+    let engine = GraphPolicyEngine::from_yaml(COMPANY_YAML).expect("company policy should load");
+    assert_eq!(
+        engine.check(
+            &SubjectId::from("agent:executive-chief"),
+            "write",
+            &ResourceId::from("company/acme/org-graph"),
+        ),
+        PolicyResult::Allow
+    );
+}
+
+#[test]
+fn executive_graph_admin_does_not_gain_unrelated_company_writes() {
+    let engine = GraphPolicyEngine::from_yaml(COMPANY_YAML).expect("company policy should load");
+    assert!(matches!(
+        engine.check(
+            &SubjectId::from("agent:executive-chief"),
+            "write",
+            &ResourceId::from("company/acme/payroll"),
+        ),
+        PolicyResult::Deny(_)
+    ));
 }
 
 #[test]

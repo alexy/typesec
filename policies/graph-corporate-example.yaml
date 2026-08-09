@@ -88,7 +88,7 @@ graph_policy:
   rules:
     - subject_has_role: role:executive_graph_admin
       action: write
-      resource: company/*
+      resource: company/*/org-graph
 
     - subject_has_role: role:executive_graph_admin
       action: read_sensitive

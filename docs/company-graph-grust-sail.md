@@ -56,6 +56,11 @@ checks:
 - Cypher DDL can install company-graph uniqueness and required-property
   constraints without bypassing the Typesec policy gate.
 
+The aggregate persistence capability is scoped to `company/*/org-graph`.
+The single-segment wildcard selects one tenant, while the literal final segment
+prevents the graph-administrator role from acquiring unrelated company writes
+such as `company/acme/payroll`.
+
 You can check the graph policy directly:
 
 ```sh

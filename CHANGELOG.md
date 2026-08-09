@@ -5,6 +5,10 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Correct the company-graph example's aggregate persistence grant to the
+  least-privilege `company/*/org-graph` shape. Regression tests now prove that
+  a graph administrator can persist a tenant org graph without gaining an
+  unrelated `company/<tenant>/payroll` write.
 - Pin the CI sibling checkout to the reviewed Grust 0.12.1 revision, matching
   TypeSec's path-dependency contract instead of resolving against the older
   0.12.0 package versions on Grust's moving `main` branch.
