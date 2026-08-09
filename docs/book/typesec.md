@@ -342,7 +342,7 @@ The root workspace uses Rust 2024. Common dependencies are declared in
 `x25519-dalek`, `chacha20poly1305`, `sha2`, `getrandom`).
 
 Grust is published on crates.io (`grust-graph`, `grust-cypher`, and `grust-sail`
-are at `0.12.0`, codename Lobster). The workspace pins each dependency with both a
+are at `0.12.1`). The workspace pins each dependency with both a
 `version` and a local `path`, so a checkout that has a sibling `../grust` builds
 against that working copy (the `path` wins locally), while the `version`
 resolves against crates.io when Typesec is published or built without the
@@ -350,14 +350,21 @@ sibling checkout:
 
 ```toml
 # workspace Cargo.toml
-grust-graph  = { version = "0.12.0", path = "../grust/crates/grust", features = ["typed-zod-rs"] }
-grust-cypher = { version = "0.12.0", path = "../grust/crates/grust-cypher" }
-grust-sail   = { version = "0.12.0", path = "../grust/crates/grust-sail" }
+grust-graph  = { version = "0.12.1", path = "../grust/crates/grust", features = ["typed-zod-rs"] }
+grust-cypher = { version = "0.12.1", path = "../grust/crates/grust-cypher" }
+grust-sail   = { version = "0.12.1", path = "../grust/crates/grust-sail" }
 ```
 
 To build the Cypher company-graph example purely from crates.io, drop the `path`
 keys and keep the `version`; to develop Typesec and Grust together, keep the
 sibling `../grust` checkout.
+
+Typesec intentionally does not maintain a second Sail source revision. It
+compiles against the released Grust adapter contract; the composing QueryGraph
+or Marciana release owns the exact Sail executable pin and live compatibility
+gate. This keeps authorization semantics independent of a moving execution
+engine while still exercising the company-graph integration through
+`grust-sail`.
 
 The package is named `grust-graph`, while its library is imported as `grust`.
 The facade re-exports the core graph API, while `grust-sail` exposes the Sail
