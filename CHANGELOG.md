@@ -5,6 +5,8 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Align the Python graph-gate smoke test with the least-privilege
+  `company/*/org-graph` persistence grant used by the company policy.
 - Correct the company-graph example's aggregate persistence grant to the
   least-privilege `company/*/org-graph` shape. Regression tests now prove that
   a graph administrator can persist a tenant org graph without gaining an
