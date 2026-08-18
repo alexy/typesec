@@ -185,11 +185,7 @@ mod tests {
 
             let allowed = gate.call_method1(
                 "check",
-                (
-                    "agent:executive-chief",
-                    "write",
-                    "company/acme/org-graph",
-                ),
+                ("agent:executive-chief", "write", "company/acme/org-graph"),
             )?;
             assert!(decision_allowed(&allowed)?);
 
