@@ -38,6 +38,6 @@ pub use otel::OtelAuditSink;
 pub use pydantic_ai::{PydanticAiCapability, PydanticAiToolCapability};
 pub use receipt::{
     CognitionCommitReceipt, CognitionCommitReceiptClaims, CognitionEffect, DecisionReceipt,
-    ReceiptError, ReceiptIssuer, ReceiptVerifier,
+    ReceiptError, ReceiptIssuer, ReceiptVerifier, SemanticDecisionAction, SemanticDecisionReceipt,
 };
 pub use workos::{WorkOsFgaEngine, WorkOsFgaRequest, WorkOsResource};

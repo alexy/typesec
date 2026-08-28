@@ -1,4 +1,77 @@
 use super::*;
+
+#[test]
+fn every_semantic_action_round_trips_as_signed_model_bound_claims() {
+    let now = Utc::now();
+    let issuer = ReceiptIssuer::new(ed25519_dalek::SigningKey::from_bytes(&[9; 32]));
+    let verifier = ReceiptVerifier::new(issuer.verifying_key());
+    for action in [
+        SemanticDecisionAction::PublishModel,
+        SemanticDecisionAction::ConsumeModel,
+        SemanticDecisionAction::AccessField,
+        SemanticDecisionAction::ExecuteMetric,
+        SemanticDecisionAction::ExecuteSemanticQuery,
+        SemanticDecisionAction::AccessAiContext,
+    ] {
+        let receipt = SemanticDecisionReceipt::new(
+            "did:key:publisher",
+            action,
+            "semantic://tpcds/store_sales",
+            "tpcds",
+            1,
+            format!("sha256:{}", "1".repeat(64)),
+            format!("sha256:{}", "2".repeat(64)),
+            Some(format!("sha256:{}", "3".repeat(64))),
+            now,
+            TimeDelta::minutes(5),
+        )
+        .unwrap();
+        let token = issuer.issue_semantic(&receipt);
+        assert_eq!(verifier.verify_semantic(&token, now).unwrap(), receipt);
+    }
+}
+
+#[test]
+fn semantic_receipt_rejects_unbound_or_tampered_claims() {
+    let now = Utc::now();
+    assert!(
+        SemanticDecisionReceipt::new(
+            "agent",
+            SemanticDecisionAction::ConsumeModel,
+            "semantic://m",
+            "m",
+            0,
+            format!("sha256:{}", "1".repeat(64)),
+            format!("sha256:{}", "2".repeat(64)),
+            None,
+            now,
+            TimeDelta::minutes(1),
+        )
+        .is_err()
+    );
+
+    let issuer = ReceiptIssuer::new(ed25519_dalek::SigningKey::from_bytes(&[8; 32]));
+    let verifier = ReceiptVerifier::new(issuer.verifying_key());
+    let receipt = SemanticDecisionReceipt::new(
+        "agent",
+        SemanticDecisionAction::AccessField,
+        "semantic://m/f",
+        "m",
+        1,
+        format!("sha256:{}", "1".repeat(64)),
+        format!("sha256:{}", "2".repeat(64)),
+        None,
+        now,
+        TimeDelta::minutes(1),
+    )
+    .unwrap();
+    let mut token = issuer.issue_semantic(&receipt).into_bytes();
+    token[5] = if token[5] == b'A' { b'B' } else { b'A' };
+    assert!(matches!(
+        verifier.verify_semantic(std::str::from_utf8(&token).unwrap(), now),
+        Err(ReceiptError::BadSignature)
+    ));
+}
 use chrono::TimeZone;
 
 fn now() -> DateTime<Utc> {

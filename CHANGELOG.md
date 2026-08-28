@@ -5,6 +5,10 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+- Add a closed semantic decision vocabulary and signed, immutable-model-bound
+  receipts for publication, consumption, field access, metric execution,
+  semantic queries, and AI-context access.
+
 - Align the Python graph-gate smoke test with the least-privilege
   `company/*/org-graph` persistence grant used by the company policy.
 - Correct the company-graph example's aggregate persistence grant to the

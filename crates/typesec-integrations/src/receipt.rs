@@ -23,7 +23,9 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD as B64;
 
 mod cognition;
+mod semantic;
 pub use cognition::{CognitionCommitReceipt, CognitionCommitReceiptClaims, CognitionEffect};
+pub use semantic::{SemanticDecisionAction, SemanticDecisionReceipt};
 
 /// The signed claims: one allowed decision, bounded in time.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,6 +146,11 @@ impl ReceiptIssuer {
         Ok(self.issue_claims(receipt))
     }
 
+    /// Sign an allowed, model-version-bound semantic decision.
+    pub fn issue_semantic(&self, receipt: &SemanticDecisionReceipt) -> String {
+        self.issue_claims(receipt)
+    }
+
     fn issue_claims(&self, receipt: &impl Serialize) -> String {
         let claims = serde_json::to_vec(receipt)
             .expect("receipt serialization cannot fail: all fields are JSON-safe");
@@ -189,6 +196,18 @@ impl ReceiptVerifier {
     ) -> Result<CognitionCommitReceipt, ReceiptError> {
         let receipt: CognitionCommitReceipt = self.verify_claims(token)?;
         validate_window(receipt.issued_at(), receipt.expires_at(), now)?;
+        Ok(receipt)
+    }
+
+    /// Verify a model-version-bound semantic decision receipt.
+    pub fn verify_semantic(
+        &self,
+        token: &str,
+        now: DateTime<Utc>,
+    ) -> Result<SemanticDecisionReceipt, ReceiptError> {
+        let receipt: SemanticDecisionReceipt = self.verify_claims(token)?;
+        receipt.validate()?;
+        validate_window(receipt.issued_at, receipt.expires_at, now)?;
         Ok(receipt)
     }
 
