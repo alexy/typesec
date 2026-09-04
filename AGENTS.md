@@ -1,5 +1,19 @@
 # Repository Guidance
 
+## Stack Dependency Graph
+
+`~/src/querygraph/QUERYGRAPH.md` records which released sibling versions every
+repository in the QueryGraph family pins (Grust, TypeSec, Marciana, LakeCat,
+QueryGraph). Before cutting a release here, run
+`python3 ~/src/querygraph/scripts/check-stack-dependencies.py --check`; a
+stale pin anywhere in the chain is a release blocker. Release order is the
+graph order (`grust -> typesec -> marciana -> lakecat -> querygraph`): a
+release of this repository is followed by pin bumps and releases of every
+downstream sibling, and the matrix is regenerated with `--write` in the change
+that bumps a pin. Committed manifests never reach a sibling through a `path`
+or `git` dependency; verify against unpublished sources only with a temporary,
+uncommitted `[patch.crates-io]` block.
+
 ## FirstPair Book Delivery
 
 `FIRSTPAIR.md` is the required contract for this repository's unified book
