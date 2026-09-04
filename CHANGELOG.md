@@ -5,6 +5,17 @@ by release version, then by the date the logical change landed.
 
 ## Unreleased
 
+## 0.14.0 — Dorsoduro
+
+### 2026-09-04
+
+- Aligned the graph substrate with Grust **0.13.0 (Prawn)**: `grust-graph`,
+  `grust-cypher`, and `grust-sail` now resolve from crates.io only; the
+  sibling-checkout `path` dependencies were removed so a Typesec build can
+  never pick up an in-progress Grust working tree.
+- Bumped every workspace crate and intra-workspace requirement to `0.14.0`
+  and prepared the registry release.
+
 - Add a closed semantic decision vocabulary and signed, immutable-model-bound
   receipts for publication, consumption, field access, metric execution,
   semantic queries, and AI-context access.

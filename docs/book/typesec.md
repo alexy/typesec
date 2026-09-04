@@ -342,22 +342,20 @@ The root workspace uses Rust 2024. Common dependencies are declared in
 `x25519-dalek`, `chacha20poly1305`, `sha2`, `getrandom`).
 
 Grust is published on crates.io (`grust-graph`, `grust-cypher`, and `grust-sail`
-are at `0.12.1`). The workspace pins each dependency with both a
-`version` and a local `path`, so a checkout that has a sibling `../grust` builds
-against that working copy (the `path` wins locally), while the `version`
-resolves against crates.io when Typesec is published or built without the
-sibling checkout:
+are at `0.13.0`, Prawn). Dorsoduro pins the registry releases only, so a
+Typesec checkout builds identically with or without a sibling `../grust`
+working copy, and a Grust checkout in mid-development can never leak into a
+Typesec build:
 
 ```toml
 # workspace Cargo.toml
-grust-graph  = { version = "0.12.1", path = "../grust/crates/grust", features = ["typed-zod-rs"] }
-grust-cypher = { version = "0.12.1", path = "../grust/crates/grust-cypher" }
-grust-sail   = { version = "0.12.1", path = "../grust/crates/grust-sail" }
+grust-graph  = { version = "0.13.0", features = ["typed-zod-rs"] }
+grust-cypher = { version = "0.13.0" }
+grust-sail   = { version = "0.13.0" }
 ```
 
-To build the Cypher company-graph example purely from crates.io, drop the `path`
-keys and keep the `version`; to develop Typesec and Grust together, keep the
-sibling `../grust` checkout.
+To develop Typesec and Grust together, add a temporary `[patch.crates-io]`
+entry pointing at the sibling `../grust` checkout; do not commit it.
 
 Typesec intentionally does not maintain a second Sail source revision. It
 compiles against the released Grust adapter contract; the composing QueryGraph
@@ -2262,6 +2260,23 @@ receipts, JSON-Schema arguments, OpenTelemetry audit spans, policy-aware tool
 listing, replayable decision logs, `#[typesec_tool]`, lease attenuation, and
 conversation typestate carry the same authority contract across Rust, Python,
 and WASM. Torcello also moves the graph substrate to Grust **0.12.0, Lobster**.
+
+## Dorsoduro (0.14.0)
+
+Dorsoduro is the alignment release. It moves the graph substrate to Grust
+**0.13.0, Prawn** — the first Grust line in which every publishable crate ships
+in lockstep — and it folds in the performance work that landed after Lido:
+accelerated SHA-256 in the DID envelope path, pruned replay-claim validation,
+one-pass cognition proposal identity checks, a keyword index for selective
+memory queries, bounded top-k ranking, and Criterion coverage for each hot
+path. Semantic decisions (publication, consumption, field access, metric
+execution, semantic queries, AI-context access) now carry a closed vocabulary
+and signed, immutable-model-bound receipts, which is what LakeCat's Apache Ossie
+publication path consumes.
+
+The dependency posture also changes: Typesec no longer declares `path`
+dependencies on a sibling Grust checkout. Registry versions are the only build
+input, so the release proof is reproducible from crates.io alone.
 
 ## Lido (0.13.0)
 
